@@ -13,7 +13,7 @@ use crate::core::error::Result;
 use crate::core::event::{Event, EventType, KB_ALT_X, KB_CTRL_F12, KB_F1, KB_F12};
 use crate::core::geometry::Rect;
 use crate::core::state::State;
-use crate::terminal::Terminal;
+use crate::terminal::{HostBackend, Terminal};
 use crate::views::help_context::HelpContext;
 use crate::views::help_file::HelpFile;
 use crate::views::help_window::HelpWindow;
@@ -52,6 +52,19 @@ pub struct Application {
     /// broadcasts `CM_MOUSE_AUTO_REPEAT` so held-down controls, scrollbar
     /// arrows above all, can keep repeating without any polling of their own.
     mouse_held: bool,
+    /// Who steps the event loop; see [`is_host_driven`](Application::is_host_driven).
+    driver: Driver,
+}
+
+/// Who steps an [`Application`]'s event loop.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Driver {
+    /// The application owns a terminal and runs its own loops.
+    Terminal,
+    /// The terminal is a [`HostBackend`]: an embedder steps the application
+    /// with [`pump`](Application::pump), so nothing may block waiting for
+    /// input.
+    Host,
 }
 
 /// Application-level hooks for [`Application::run_with`].
@@ -130,7 +143,33 @@ impl Application {
     /// ```
     #[cfg(feature = "native")]
     pub fn new() -> Result<Self> {
-        let terminal = Terminal::init()?;
+        let mut app = Self::with_terminal(Terminal::init()?);
+
+        // Opt-in remote key injection for testing/automation. Off unless the
+        // TV_REMOTE_KEYS environment variable holds a port number.
+        if let Ok(port_str) = std::env::var("TV_REMOTE_KEYS") {
+            if let Ok(port) = port_str.trim().parse::<u16>() {
+                if let Err(e) = app.enable_remote_input(port) {
+                    log::warn!("TV_REMOTE_KEYS: failed to listen on port {port}: {e}");
+                }
+            }
+        }
+
+        Ok(app)
+    }
+
+    /// Creates an application on an already-built terminal, e.g. one over a
+    /// [`HostBackend`](crate::terminal::HostBackend) that an embedder steps
+    /// with [`pump`](Self::pump).
+    ///
+    /// This is everything [`new`](Self::new) does except creating the
+    /// terminal and the `TV_REMOTE_KEYS` listener.
+    pub fn with_terminal(mut terminal: Terminal) -> Self {
+        let driver = if terminal.backend_is::<HostBackend>() {
+            Driver::Host
+        } else {
+            Driver::Terminal
+        };
         let (width, height) = terminal.size();
 
         // Create Desktop with full screen bounds initially
@@ -154,17 +193,8 @@ impl Application {
             overlay_widgets: Vec::new(),
             help_file: None,
             help_context: HelpContext::new(),
+            driver,
         };
-
-        // Opt-in remote key injection for testing/automation. Off unless the
-        // TV_REMOTE_KEYS environment variable holds a port number.
-        if let Ok(port_str) = std::env::var("TV_REMOTE_KEYS") {
-            if let Ok(port) = port_str.trim().parse::<u16>() {
-                if let Err(e) = app.enable_remote_input(port) {
-                    log::warn!("TV_REMOTE_KEYS: failed to listen on port {port}: {e}");
-                }
-            }
-        }
 
         // Set initial Desktop bounds (adjusts for missing menu/status)
         // Matches Borland: TProgram::initDeskTop() with no menuBar/statusLine
@@ -174,7 +204,17 @@ impl Application {
         // This sets up the owner chain so views can resolve colors through Desktop's CP_APP_COLOR palette
         app.desktop.init_palette_chain();
 
-        Ok(app)
+        app
+    }
+
+    /// Whether an embedder steps this application with [`pump`](Self::pump)
+    /// instead of it owning a terminal and an event loop. When true, modal
+    /// loops ([`exec_view`](Self::exec_view) on a modal view,
+    /// [`execute_modal`](Self::execute_modal)) refuse to run and return
+    /// `CM_CANCEL`.
+    #[must_use]
+    pub fn is_host_driven(&self) -> bool {
+        self.driver == Driver::Host
     }
 
     /// Whether the menu bar has a submenu dropped down.
@@ -415,6 +455,14 @@ impl Application {
             return 0;
         }
 
+        if self.is_host_driven() {
+            // A modal loop would spin here waiting for events the embedder
+            // can only deliver after this call returns. Fail visibly instead.
+            log::error!("modal view executed on a host-driven Application; returning CM_CANCEL");
+            self.desktop.remove_child_by_id(view_id);
+            return CM_CANCEL;
+        }
+
         // Modal view - run event loop
         // Matches Borland: TProgram::execView() runs modal loop (tprogram.cc:184-194)
         // Matches magiblot: Only calls idle() when no events (true event-driven)
@@ -501,6 +549,13 @@ impl Application {
         V: WindowLike + ?Sized,
         F: FnMut(&mut Application, &mut V) -> ModalTick,
     {
+        if self.is_host_driven() {
+            // A modal loop would spin here waiting for events the embedder
+            // can only deliver after this call returns. Fail visibly instead.
+            log::error!("modal view executed on a host-driven Application; returning CM_CANCEL");
+            return CM_CANCEL;
+        }
+
         loop {
             // Draw desktop first (clears the background), then the modal view
             // on top: a view that is not on the desktop is a child of the
@@ -603,77 +658,113 @@ impl Application {
         let _ = self.terminal.flush();
 
         while self.running {
-            // Optimized drawing strategy (matches Borland's approach):
-            // Draw first, then wait for events
-            // Only redraw when something changed (not every frame)
-            let needs_draw = self.needs_redraw;
-
-            if needs_draw {
-                // Explicit redraw requested (window closed, resize, palette change, etc.)
-                self.draw();
-                self.needs_redraw = false;
-                let _ = self.terminal.flush();
-            }
-
             // Poll for event with 20ms timeout (matches magiblot's eventTimeoutMs)
             // This blocks until an event arrives or timeout occurs
-            match self.poll_event_or_quit() {
-                Some(mut event) => {
-                    // Event received - handle it immediately without calling idle()
-                    // Matches magiblot: idle() is NOT called when events are present
-                    handler.pre_event(self, &mut event);
-                    self.handle_event(&mut event);
-                    if event.what == EventType::Command
-                        && handler.handle_command(self, event.command, &event)
-                    {
-                        event.clear();
-                    }
+            let event = self.poll_event_or_quit();
+            self.iterate(handler, event);
+        }
+    }
 
-                    // Event occurred: do full redraw for content changes
-                    // This could be optimized further by tracking which views changed
-                    self.draw();
-                    let _ = self.terminal.flush();
+    /// One pass of the event loop around an already-polled `event` (`None`
+    /// for a poll that timed out): the body shared by
+    /// [`run_with`](Self::run_with) and [`pump`](Self::pump).
+    fn iterate<H: AppHandler>(&mut self, handler: &mut H, event: Option<Event>) {
+        // Optimized drawing strategy (matches Borland's approach):
+        // Draw first, then wait for events
+        // Only redraw when something changed (not every frame)
+        let needs_draw = self.needs_redraw;
+
+        if needs_draw {
+            // Explicit redraw requested (window closed, resize, palette change, etc.)
+            self.draw();
+            self.needs_redraw = false;
+            let _ = self.terminal.flush();
+        }
+
+        // The event the caller polled; `None` means the poll timed out
+        match event {
+            Some(mut event) => {
+                // Event received - handle it immediately without calling idle()
+                // Matches magiblot: idle() is NOT called when events are present
+                handler.pre_event(self, &mut event);
+                self.handle_event(&mut event);
+                if event.what == EventType::Command
+                    && handler.handle_command(self, event.command, &event)
+                {
+                    event.clear();
                 }
-                None => {
-                    // Timeout with no events - call idle() to update animations, etc.
-                    // Matches magiblot: idle() only called when truly idle
-                    self.idle();
-                    handler.idle(self);
 
-                    // After idle, draw overlay widgets (animations) if any
-                    // Don't redraw everything, just flush overlay widget changes
-                    if !self.overlay_widgets.is_empty() {
-                        for widget in &mut self.overlay_widgets {
-                            widget.draw(&mut self.terminal);
-                        }
-                        let _ = self.terminal.flush();
-                    }
-                }
-            }
-
-            // Remove closed windows (those with State::CLOSED flag)
-            // In Borland, views call CLY_destroy() to remove themselves
-            // In Rust, views set State::CLOSED and parent removes them
-            let closed = self.desktop.remove_closed_windows();
-            for id in &closed {
-                handler.window_closed(self, *id);
-            }
-            if !closed.is_empty() {
-                self.needs_redraw = true; // Window removal requires full redraw
-            }
-
-            // Check for moved windows and redraw affected areas (Borland's drawUnderRect pattern)
-            // Matches Borland: TView::locate() checks for movement and calls drawUnderRect
-            // This optimized redraw only redraws the union of old + new position
-            self.terminal.push_origin(self.desktop.bounds().a);
-            let had_moved_windows = self.desktop.handle_moved_windows(&mut self.terminal);
-            self.terminal.pop_origin();
-            if had_moved_windows {
-                // Window movement: partial redraw already done via draw_under_rect
-                // Just flush the terminal buffer
+                // Event occurred: do full redraw for content changes
+                // This could be optimized further by tracking which views changed
+                self.draw();
                 let _ = self.terminal.flush();
             }
+            None => {
+                // Timeout with no events - call idle() to update animations, etc.
+                // Matches magiblot: idle() only called when truly idle
+                self.idle();
+                handler.idle(self);
+
+                // After idle, draw overlay widgets (animations) if any
+                // Don't redraw everything, just flush overlay widget changes
+                if !self.overlay_widgets.is_empty() {
+                    for widget in &mut self.overlay_widgets {
+                        widget.draw(&mut self.terminal);
+                    }
+                    let _ = self.terminal.flush();
+                }
+            }
         }
+
+        // Remove closed windows (those with State::CLOSED flag)
+        // In Borland, views call CLY_destroy() to remove themselves
+        // In Rust, views set State::CLOSED and parent removes them
+        let closed = self.desktop.remove_closed_windows();
+        for id in &closed {
+            handler.window_closed(self, *id);
+        }
+        if !closed.is_empty() {
+            self.needs_redraw = true; // Window removal requires full redraw
+        }
+
+        // Check for moved windows and redraw affected areas (Borland's drawUnderRect pattern)
+        // Matches Borland: TView::locate() checks for movement and calls drawUnderRect
+        // This optimized redraw only redraws the union of old + new position
+        self.terminal.push_origin(self.desktop.bounds().a);
+        let had_moved_windows = self.desktop.handle_moved_windows(&mut self.terminal);
+        self.terminal.pop_origin();
+        if had_moved_windows {
+            // Window movement: partial redraw already done via draw_under_rect
+            // Just flush the terminal buffer
+            let _ = self.terminal.flush();
+        }
+    }
+
+    /// One embedder step: resize to the backend's size if it changed, handle
+    /// every queued event, idle once, and leave a full frame in
+    /// `terminal.buffer()`. Never waits, provided the backend's `poll_event`
+    /// doesn't (a [`HostBackend`] never does).
+    ///
+    /// Returns `false` once the application has quit (`CM_QUIT`).
+    pub fn pump<H: AppHandler>(&mut self, handler: &mut H) -> bool {
+        // The same re-layout a terminal resize gets: crossterm reports one as
+        // a CM_REDRAW broadcast, which handle_event routes to handle_redraw.
+        if let Ok(size) = self.terminal.backend_size() {
+            if size != self.terminal.size() {
+                self.handle_redraw();
+            }
+        }
+        while self.running {
+            let Some(event) = self.poll_event_or_quit() else {
+                break;
+            };
+            self.iterate(handler, Some(event));
+        }
+        if self.running {
+            self.iterate(handler, None);
+        }
+        self.draw();
+        self.running
     }
 
     pub fn draw(&mut self) {
@@ -1536,6 +1627,7 @@ mod resize_tests {
             help_file: None,
             help_context: HelpContext::new(),
             current_help_ctx: 0,
+            driver: Driver::Terminal,
         };
 
         app.set_menu_bar(MenuBar::new(Rect::new(0, 0, width, 1)));

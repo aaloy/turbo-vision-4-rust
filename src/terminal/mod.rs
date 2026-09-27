@@ -55,6 +55,7 @@
 mod backend;
 #[cfg(feature = "native")]
 mod crossterm_backend;
+mod host_backend;
 pub mod remote_input;
 
 #[cfg(feature = "ssh")]
@@ -65,6 +66,7 @@ mod ssh_backend;
 pub use backend::{Backend, Capabilities};
 #[cfg(feature = "native")]
 pub use crossterm_backend::{CrosstermBackend, restore_terminal};
+pub use host_backend::{HostBackend, HostInput};
 
 #[cfg(feature = "ssh")]
 pub use input_parser::InputParser;
@@ -293,6 +295,12 @@ impl Terminal {
         }
 
         Ok(())
+    }
+
+    /// Whether this terminal's backend is a `B`, e.g. a
+    /// [`HostBackend`] that an embedder steps instead of a real terminal.
+    pub fn backend_is<B: 'static>(&mut self) -> bool {
+        self.backend.as_any_mut().is::<B>()
     }
 
     /// Get terminal size.
