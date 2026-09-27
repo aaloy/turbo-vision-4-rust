@@ -102,3 +102,46 @@ fn set_size_resizes_on_the_next_pump() {
     app.pump(&mut ());
     assert_eq!(app.terminal.size(), (60, 20));
 }
+
+#[test]
+fn a_refused_modal_leaves_the_desktop_child_count_unchanged() {
+    let (mut app, _input) = app(40, 10);
+    let before = app.desktop.child_count();
+    let dialog = *Dialog::new_modal(Rect::new(5, 2, 35, 8), "Modal");
+    let _ = app.exec_view(dialog);
+    assert_eq!(app.desktop.child_count(), before);
+}
+
+#[test]
+fn execute_modal_on_a_host_driven_app_returns_promptly() {
+    use turbo_vision::app::ModalTick;
+
+    let (mut app, _input) = app(40, 10);
+    let mut dialog = *Dialog::new_modal(Rect::new(5, 2, 35, 8), "Modal");
+    let started = std::time::Instant::now();
+    let result: CommandId = app.execute_modal(&mut dialog, |_, _| ModalTick::Continue);
+    assert_eq!(result, CM_CANCEL);
+    assert!(started.elapsed().as_millis() < 500);
+}
+
+#[test]
+fn a_pumped_show_history_command_returns_promptly_without_popping_up() {
+    use turbo_vision::core::command::CM_SHOW_HISTORY;
+
+    let (mut app, input) = app(40, 10);
+    input.push(Event::command(CM_SHOW_HISTORY));
+    let started = std::time::Instant::now();
+    app.pump(&mut ());
+    assert!(started.elapsed().as_millis() < 500);
+}
+
+#[test]
+fn a_pumped_show_dropdown_command_returns_promptly_without_popping_up() {
+    use turbo_vision::core::command::CM_SHOW_DROPDOWN;
+
+    let (mut app, input) = app(40, 10);
+    input.push(Event::command(CM_SHOW_DROPDOWN));
+    let started = std::time::Instant::now();
+    app.pump(&mut ());
+    assert!(started.elapsed().as_millis() < 500);
+}

@@ -217,6 +217,20 @@ impl Application {
         self.driver == Driver::Host
     }
 
+    /// True (after logging) when this Application is host-driven and `what`
+    /// must therefore refuse to run rather than spin waiting for events the
+    /// embedder can only deliver after the current call returns. Shared by
+    /// every blocking-loop entry point reachable from [`pump`](Self::pump):
+    /// `exec_view`, `execute_modal`, and the History/Dropdown popup openers.
+    fn refuse_modal_if_host_driven(&self, what: &str) -> bool {
+        if self.is_host_driven() {
+            log::error!("{what} executed on a host-driven Application; returning CM_CANCEL");
+            true
+        } else {
+            false
+        }
+    }
+
     /// Whether the menu bar has a submenu dropped down.
     ///
     /// A handler's `pre_event` sees keys before the menu bar does, so one
@@ -455,10 +469,7 @@ impl Application {
             return 0;
         }
 
-        if self.is_host_driven() {
-            // A modal loop would spin here waiting for events the embedder
-            // can only deliver after this call returns. Fail visibly instead.
-            log::error!("modal view executed on a host-driven Application; returning CM_CANCEL");
+        if self.refuse_modal_if_host_driven("modal view") {
             self.desktop.remove_child_by_id(view_id);
             return CM_CANCEL;
         }
@@ -549,10 +560,7 @@ impl Application {
         V: WindowLike + ?Sized,
         F: FnMut(&mut Application, &mut V) -> ModalTick,
     {
-        if self.is_host_driven() {
-            // A modal loop would spin here waiting for events the embedder
-            // can only deliver after this call returns. Fail visibly instead.
-            log::error!("modal view executed on a host-driven Application; returning CM_CANCEL");
+        if self.refuse_modal_if_host_driven("modal view") {
             return CM_CANCEL;
         }
 
@@ -920,6 +928,10 @@ impl Application {
                     // A History button was clicked in a window running under
                     // exec_view()/run(); open the popup here where we have
                     // terminal access, then fill the linked input.
+                    if self.refuse_modal_if_host_driven("History popup") {
+                        event.clear();
+                        return;
+                    }
                     use crate::core::geometry::Point;
                     use crate::core::history::HistoryManager;
 
@@ -942,6 +954,10 @@ impl Application {
                 crate::core::command::CM_SHOW_DROPDOWN => {
                     // A ComboBox on a plain window asked to drop its list down;
                     // open it here, where the terminal is reachable.
+                    if self.refuse_modal_if_host_driven("Dropdown popup") {
+                        event.clear();
+                        return;
+                    }
                     crate::views::dialog::show_dropdown_popup(event, &mut self.terminal);
                 }
                 _ => {}
