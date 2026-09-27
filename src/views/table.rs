@@ -514,7 +514,7 @@ impl View for Table {
 
         let ctrl = event
             .key_modifiers
-            .contains(crossterm::event::KeyModifiers::CONTROL);
+            .contains(crate::core::keys::KeyModifiers::CONTROL);
         let page = self.visible_rows().max(1) as i32;
 
         match event.key_code {
@@ -652,7 +652,7 @@ mod tests {
 
     fn press_ctrl(t: &mut Table, code: u16) {
         let mut e = Event::keyboard(code);
-        e.key_modifiers = crossterm::event::KeyModifiers::CONTROL;
+        e.key_modifiers = crate::core::keys::KeyModifiers::CONTROL;
         t.handle_event(&mut e);
     }
 

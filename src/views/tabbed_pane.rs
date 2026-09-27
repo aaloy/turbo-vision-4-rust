@@ -523,8 +523,8 @@ impl View for TabbedPane {
 
         if event.what == EventType::Keyboard {
             let modifiers = event.key_modifiers;
-            let ctrl = modifiers.contains(crossterm::event::KeyModifiers::CONTROL);
-            let shift = modifiers.contains(crossterm::event::KeyModifiers::SHIFT);
+            let ctrl = modifiers.contains(crate::core::keys::KeyModifiers::CONTROL);
+            let shift = modifiers.contains(crate::core::keys::KeyModifiers::SHIFT);
 
             let switched = match event.key_code {
                 KB_F6 => self.cycle(!shift),
@@ -536,7 +536,7 @@ impl View for TabbedPane {
                 event.clear();
                 return;
             }
-            if modifiers.contains(crossterm::event::KeyModifiers::ALT) {
+            if modifiers.contains(crate::core::keys::KeyModifiers::ALT) {
                 let letter = (event.key_code & 0xFF) as u8 as char;
                 if let Some(index) = self.tab_for_hotkey(letter) {
                     self.set_active(index);
@@ -630,8 +630,8 @@ impl Default for TabbedPaneBuilder {
 mod tests {
     use super::*;
     use crate::core::event::{KB_DOWN, KB_TAB};
+    use crate::core::keys::KeyModifiers;
     use crate::views::group::GroupLike;
-    use crossterm::event::KeyModifiers;
 
     fn pane() -> TabbedPane {
         TabbedPaneBuilder::new()

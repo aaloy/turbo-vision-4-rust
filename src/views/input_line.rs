@@ -304,7 +304,7 @@ impl View for InputLine {
                 KB_LEFT => {
                     let shift = event
                         .key_modifiers
-                        .contains(crossterm::event::KeyModifiers::SHIFT);
+                        .contains(crate::core::keys::KeyModifiers::SHIFT);
                     if self.cursor_pos > 0 {
                         if shift {
                             // Anchor the selection at the old cursor position
@@ -329,7 +329,7 @@ impl View for InputLine {
                 KB_RIGHT => {
                     let shift = event
                         .key_modifiers
-                        .contains(crossterm::event::KeyModifiers::SHIFT);
+                        .contains(crate::core::keys::KeyModifiers::SHIFT);
                     if self.cursor_pos < char_len(&self.text) {
                         if shift {
                             if !self.has_selection() {
@@ -801,7 +801,7 @@ mod tests {
 
     #[test]
     fn shift_arrows_extend_selection() {
-        use crossterm::event::KeyModifiers;
+        use crate::core::keys::KeyModifiers;
 
         let mut input = make("abcd");
         // Collapse the focus-selection and put the cursor at the end

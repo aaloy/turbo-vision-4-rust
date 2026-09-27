@@ -64,7 +64,7 @@ static CLIPBOARD: Mutex<String> = Mutex::new(String::new());
 
 // Serializes access to the OS clipboard: platform pasteboard APIs (e.g. macOS
 // NSPasteboard via arboard) are not safe to drive from multiple threads at once.
-#[cfg(not(any(test, target_os = "unknown")))]
+#[cfg(all(feature = "native", not(any(test, target_os = "unknown"))))]
 static OS_CLIPBOARD_LOCK: Mutex<()> = Mutex::new(());
 
 /// Set the clipboard content (both in-memory and OS clipboard)
@@ -75,7 +75,7 @@ pub fn set_clipboard(text: &str) {
     }
 
     // Try to update OS clipboard (best effort, don't fail if unavailable)
-    #[cfg(not(any(test, target_os = "unknown")))]
+    #[cfg(all(feature = "native", not(any(test, target_os = "unknown"))))]
     {
         let _ = set_os_clipboard(text);
     }
@@ -84,7 +84,7 @@ pub fn set_clipboard(text: &str) {
 /// Get the clipboard content (prefers OS clipboard, falls back to in-memory)
 pub fn get_clipboard() -> String {
     // Try OS clipboard first
-    #[cfg(not(any(test, target_os = "unknown")))]
+    #[cfg(all(feature = "native", not(any(test, target_os = "unknown"))))]
     {
         if let Ok(text) = get_os_clipboard() {
             if !text.is_empty() {
@@ -103,7 +103,7 @@ pub fn get_clipboard() -> String {
 /// Check if the clipboard has content
 pub fn has_clipboard_content() -> bool {
     // Check OS clipboard first
-    #[cfg(not(any(test, target_os = "unknown")))]
+    #[cfg(all(feature = "native", not(any(test, target_os = "unknown"))))]
     {
         if let Ok(text) = get_os_clipboard() {
             if !text.is_empty() {
@@ -125,14 +125,14 @@ pub fn clear_clipboard() {
         clipboard.clear();
     }
 
-    #[cfg(not(any(test, target_os = "unknown")))]
+    #[cfg(all(feature = "native", not(any(test, target_os = "unknown"))))]
     {
         let _ = set_os_clipboard("");
     }
 }
 
 /// Set OS clipboard content
-#[cfg(not(any(test, target_os = "unknown")))]
+#[cfg(all(feature = "native", not(any(test, target_os = "unknown"))))]
 fn set_os_clipboard(text: &str) -> Result<(), Box<dyn std::error::Error>> {
     use arboard::Clipboard;
     let _guard = OS_CLIPBOARD_LOCK.lock();
@@ -142,7 +142,7 @@ fn set_os_clipboard(text: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Get OS clipboard content
-#[cfg(not(any(test, target_os = "unknown")))]
+#[cfg(all(feature = "native", not(any(test, target_os = "unknown"))))]
 fn get_os_clipboard() -> Result<String, Box<dyn std::error::Error>> {
     use arboard::Clipboard;
     let _guard = OS_CLIPBOARD_LOCK.lock();

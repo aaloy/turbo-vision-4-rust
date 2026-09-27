@@ -55,6 +55,7 @@ pub mod error;
 pub mod event;
 pub mod geometry;
 pub mod history;
+pub mod keys;
 pub mod menu_data;
 pub mod palette;
 pub mod palette_chain;

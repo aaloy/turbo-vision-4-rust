@@ -333,7 +333,7 @@ impl ClusterGroup {
         // a dialog's Alt shortcuts are expected to behave.
         if event
             .key_modifiers
-            .contains(crossterm::event::KeyModifiers::ALT)
+            .contains(crate::core::keys::KeyModifiers::ALT)
         {
             let letter = (event.key_code & 0xFF) as u8 as char;
             if let Some(index) = self.item_for_hotkey(letter) {
@@ -589,7 +589,7 @@ impl RadioButtons {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crossterm::event::KeyModifiers;
+    use crate::core::keys::KeyModifiers;
 
     fn labels() -> Vec<String> {
         vec!["~B~old".into(), "~I~talic".into(), "~U~nderline".into()]

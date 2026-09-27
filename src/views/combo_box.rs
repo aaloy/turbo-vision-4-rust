@@ -327,7 +327,7 @@ impl View for ComboBox {
 
         let alt = event
             .key_modifiers
-            .contains(crossterm::event::KeyModifiers::ALT);
+            .contains(crate::core::keys::KeyModifiers::ALT);
 
         match event.key_code {
             KB_F4 => {

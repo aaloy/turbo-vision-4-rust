@@ -1893,7 +1893,7 @@ impl View for EditorWindow {
             // from the global block-edit mode, not from a modifier, because
             // terminals disagree on delivering Alt/Option (see
             // set_selection_mode_for).
-            use crossterm::event::KeyModifiers;
+            use crate::core::keys::KeyModifiers;
             let shift_pressed = event.key_modifiers.contains(KeyModifiers::SHIFT);
             let extend = shift_pressed;
 
@@ -2431,7 +2431,7 @@ mod tests {
 
     #[test]
     fn word_movement_crosses_lines() {
-        use crossterm::event::KeyModifiers;
+        use crate::core::keys::KeyModifiers;
 
         let mut editor = EditorWindow::new(Rect::new(0, 0, 80, 25));
         editor.set_text("foo bar\nbaz");
@@ -2608,7 +2608,7 @@ mod tests {
 
     #[test]
     fn arrow_starts_block_selection_in_block_edit_mode() {
-        use crossterm::event::KeyModifiers;
+        use crate::core::keys::KeyModifiers;
 
         let _mode = BlockModeGuard::on();
 

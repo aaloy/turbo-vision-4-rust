@@ -36,14 +36,19 @@ name = "turbo_vision"
 path = "src/lib.rs"
 
 [features]
+default = ["native"]
+# A real terminal: the crossterm backend and the OS clipboard. Off for an
+# embedder that supplies its own backend, such as a WASM guest.
+native = ["dep:crossterm", "dep:arboard"]
 # Test utilities for applications using turbo-vision
 test-util = []
 # SSH server support for serving TUI applications over SSH
-ssh = ["dep:russh", "dep:russh-keys", "dep:async-trait", "dep:parking_lot", "dep:tokio", "dep:rand", "dep:ssh-key"]
+ssh = ["native", "dep:russh", "dep:russh-keys", "dep:async-trait", "dep:parking_lot", "dep:tokio", "dep:rand", "dep:ssh-key"]
 
 [[bin]]
 name = "key_debug"
 path = "debug/key_debug.rs"
+required-features = ["native"]
 
 # The SSH example only compiles with the `ssh` feature; gating it here lets
 # `cargo build/clippy --all-targets` (without features) skip it instead of
@@ -53,9 +58,9 @@ name = "ssh_server"
 required-features = ["ssh"]
 
 [dependencies]
-crossterm = "0.29"
+crossterm = { version = "0.29", optional = true }
 unicode-width = "0.1"
-arboard = "3.6"
+arboard = { version = "3.6", optional = true }
 chrono = "0.4.45"
 qcell = "0.5"
 log = "0.4.33"

@@ -128,6 +128,7 @@ impl Application {
     ///     Ok(())
     /// }
     /// ```
+    #[cfg(feature = "native")]
     pub fn new() -> Result<Self> {
         let terminal = Terminal::init()?;
         let (width, height) = terminal.size();

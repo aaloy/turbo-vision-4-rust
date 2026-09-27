@@ -343,7 +343,7 @@ impl View for ListBox {
             if clicked < self.items.len() {
                 if event
                     .key_modifiers
-                    .contains(crossterm::event::KeyModifiers::SHIFT)
+                    .contains(crate::core::keys::KeyModifiers::SHIFT)
                 {
                     self.mark_run_to(clicked);
                 } else {
@@ -593,7 +593,7 @@ mod tests {
         e.what = EventType::MouseDown;
         e.mouse.buttons = MB_LEFT_BUTTON;
         e.mouse.pos = crate::core::geometry::Point::new(1, row);
-        e.key_modifiers = crossterm::event::KeyModifiers::SHIFT;
+        e.key_modifiers = crate::core::keys::KeyModifiers::SHIFT;
         lb.handle_event(&mut e);
     }
 

@@ -53,6 +53,7 @@
 //! ```
 
 mod backend;
+#[cfg(feature = "native")]
 mod crossterm_backend;
 pub mod remote_input;
 
@@ -62,6 +63,7 @@ mod input_parser;
 mod ssh_backend;
 
 pub use backend::{Backend, Capabilities};
+#[cfg(feature = "native")]
 pub use crossterm_backend::{CrosstermBackend, restore_terminal};
 
 #[cfg(feature = "ssh")]
@@ -178,6 +180,7 @@ impl Terminal {
     ///     Ok(())
     /// }
     /// ```
+    #[cfg(feature = "native")]
     pub fn init() -> Result<Self> {
         let backend = CrosstermBackend::new()?;
         Self::with_backend(Box::new(backend))
@@ -303,6 +306,7 @@ impl Terminal {
     /// [`backend_size`](Self::backend_size) when a Terminal instance is
     /// available: this static version always asks crossterm, which is wrong
     /// for non-local backends (e.g. SSH sessions).
+    #[cfg(feature = "native")]
     pub fn query_size() -> io::Result<(i16, i16)> {
         let (width, height) = crossterm::terminal::size()?;
         Ok((width as i16, height as i16))
@@ -322,6 +326,7 @@ impl Terminal {
     /// Returns `(horizontal, vertical)` shadow multipliers to make shadows
     /// appear visually proportional. This static version can be called before
     /// a Terminal instance is created.
+    #[cfg(feature = "native")]
     pub fn query_cell_aspect_ratio() -> (i16, i16) {
         use crossterm::terminal::window_size;
 
@@ -337,6 +342,14 @@ impl Terminal {
             }
         }
         // Fallback: typical terminal fonts are ~10x16 pixels (1.6:1 ratio)
+        (2, 1)
+    }
+
+    /// Without `native` there is no terminal to query; use the same fallback
+    /// ratio the native path falls back to when the terminal doesn't report
+    /// pixel sizes.
+    #[cfg(not(feature = "native"))]
+    pub fn query_cell_aspect_ratio() -> (i16, i16) {
         (2, 1)
     }
 
@@ -373,12 +386,18 @@ impl Terminal {
     pub fn set_esc_timeout(&mut self, timeout_ms: u64) {
         // Only the crossterm backend has an ESC-disambiguation timeout;
         // other backends ignore the setting
-        if let Some(ct_backend) = self.backend_as_crossterm_mut() {
-            ct_backend.set_esc_timeout(timeout_ms);
+        #[cfg(feature = "native")]
+        {
+            if let Some(ct_backend) = self.backend_as_crossterm_mut() {
+                ct_backend.set_esc_timeout(timeout_ms);
+            }
         }
+        #[cfg(not(feature = "native"))]
+        let _ = timeout_ms;
     }
 
     /// Get a mutable reference to the backend as CrosstermBackend, if applicable.
+    #[cfg(feature = "native")]
     fn backend_as_crossterm_mut(&mut self) -> Option<&mut CrosstermBackend> {
         self.backend.as_any_mut().downcast_mut::<CrosstermBackend>()
     }
@@ -682,6 +701,7 @@ impl Terminal {
     /// reported window size, or `None` if the terminal does not report pixel
     /// dimensions. This is used to render screenshots at the same resolution
     /// the font is actually displayed at.
+    #[cfg(feature = "native")]
     pub fn query_font_pixel_size() -> Option<(u16, u16)> {
         use crossterm::terminal::window_size;
 
@@ -690,6 +710,12 @@ impl Terminal {
                 return Some((ws.width / ws.columns, ws.height / ws.rows));
             }
         }
+        None
+    }
+
+    /// Without `native` there is no terminal to query pixel sizes from.
+    #[cfg(not(feature = "native"))]
+    pub fn query_font_pixel_size() -> Option<(u16, u16)> {
         None
     }
 

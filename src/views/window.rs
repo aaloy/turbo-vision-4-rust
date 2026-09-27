@@ -529,7 +529,7 @@ pub trait WindowLike: GroupLike {
                 };
                 let shift = event
                     .key_modifiers
-                    .contains(crossterm::event::KeyModifiers::SHIFT);
+                    .contains(crate::core::keys::KeyModifiers::SHIFT);
                 let (mut dx, mut dy) = (0i16, 0i16);
                 match event.key_code {
                     KB_LEFT => dx = -1,
@@ -1374,7 +1374,7 @@ mod tests {
     fn keyboard_resize_mode_moves_resizes_and_restores() {
         use crate::core::command::CM_RESIZE;
         use crate::core::event::{Event, EventType, KB_DOWN, KB_ESC, KB_RIGHT};
-        use crossterm::event::KeyModifiers;
+        use crate::core::keys::KeyModifiers;
 
         let mut window = Window::new(Rect::new(10, 5, 40, 15), "Test");
         window.set_focus(true);

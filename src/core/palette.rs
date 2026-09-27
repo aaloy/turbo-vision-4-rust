@@ -8,6 +8,7 @@
 //! palette to determine the actual color attribute.
 // Color Palette
 // Color definitions, attributes, and palette management matching Borland Turbo Vision
+#[cfg(feature = "native")]
 use crossterm::style::Color;
 
 // Button palette indices (maps to CP_BUTTON)
@@ -176,74 +177,10 @@ impl TvColor {
     }
 
     /// Converts TvColor to crossterm Color with RGB values
+    #[cfg(feature = "native")]
     pub fn to_crossterm(self) -> Color {
-        match self {
-            TvColor::Black => Color::Rgb { r: 0, g: 0, b: 0 },
-            TvColor::Blue => Color::Rgb { r: 0, g: 0, b: 170 },
-            TvColor::Green => Color::Rgb { r: 0, g: 170, b: 0 },
-            TvColor::Cyan => Color::Rgb {
-                r: 0,
-                g: 170,
-                b: 170,
-            },
-            TvColor::Red => Color::Rgb { r: 170, g: 0, b: 0 },
-            TvColor::Magenta => Color::Rgb {
-                r: 170,
-                g: 0,
-                b: 170,
-            },
-            TvColor::Brown => Color::Rgb {
-                r: 170,
-                g: 85,
-                b: 0,
-            },
-            TvColor::LightGray => Color::Rgb {
-                r: 170,
-                g: 170,
-                b: 170,
-            },
-            TvColor::DarkGray => Color::Rgb {
-                r: 85,
-                g: 85,
-                b: 85,
-            },
-            TvColor::LightBlue => Color::Rgb {
-                r: 85,
-                g: 85,
-                b: 255,
-            },
-            TvColor::LightGreen => Color::Rgb {
-                r: 85,
-                g: 255,
-                b: 85,
-            },
-            TvColor::LightCyan => Color::Rgb {
-                r: 85,
-                g: 255,
-                b: 255,
-            },
-            TvColor::LightRed => Color::Rgb {
-                r: 255,
-                g: 85,
-                b: 85,
-            },
-            TvColor::LightMagenta => Color::Rgb {
-                r: 255,
-                g: 85,
-                b: 255,
-            },
-            TvColor::Yellow => Color::Rgb {
-                r: 255,
-                g: 255,
-                b: 85,
-            },
-            TvColor::White => Color::Rgb {
-                r: 255,
-                g: 255,
-                b: 255,
-            },
-            TvColor::Rgb { r, g, b } => Color::Rgb { r, g, b },
-        }
+        let (r, g, b) = self.to_rgb();
+        Color::Rgb { r, g, b }
     }
 
     /// Gets the RGB components of this color

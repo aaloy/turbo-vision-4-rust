@@ -4,7 +4,7 @@
 
 use super::command::CommandId;
 use super::geometry::Point;
-use crossterm::event::{KeyCode as CKC, KeyEvent, KeyModifiers};
+use crate::core::keys::{KeyCode as CKC, KeyEvent, KeyModifiers};
 use std::fmt;
 use std::time::{Duration, Instant};
 
