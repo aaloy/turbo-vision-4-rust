@@ -928,12 +928,12 @@ impl Application {
                     // A History button was clicked in a window running under
                     // exec_view()/run(); open the popup here where we have
                     // terminal access, then fill the linked input.
+                    use crate::core::geometry::Point;
+                    use crate::core::history::HistoryManager;
                     if self.refuse_modal_if_host_driven("History popup") {
                         event.clear();
                         return;
                     }
-                    use crate::core::geometry::Point;
-                    use crate::core::history::HistoryManager;
 
                     let history_id = event.info;
                     let pos = Point::new((event.mouse.pos.x - 20).max(0), event.mouse.pos.y + 1);
