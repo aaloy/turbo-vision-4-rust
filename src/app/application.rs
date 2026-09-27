@@ -666,6 +666,8 @@ impl Application {
         let _ = self.terminal.flush();
 
         while self.running {
+            self.draw_if_needed();
+
             // Poll for event with 20ms timeout (matches magiblot's eventTimeoutMs)
             // This blocks until an event arrives or timeout occurs
             let event = self.poll_event_or_quit();
@@ -673,10 +675,8 @@ impl Application {
         }
     }
 
-    /// One pass of the event loop around an already-polled `event` (`None`
-    /// for a poll that timed out): the body shared by
-    /// [`run_with`](Self::run_with) and [`pump`](Self::pump).
-    fn iterate<H: AppHandler>(&mut self, handler: &mut H, event: Option<Event>) {
+    /// Draw and flush a full frame if one was asked for since the last.
+    fn draw_if_needed(&mut self) {
         // Optimized drawing strategy (matches Borland's approach):
         // Draw first, then wait for events
         // Only redraw when something changed (not every frame)
@@ -688,7 +688,13 @@ impl Application {
             self.needs_redraw = false;
             let _ = self.terminal.flush();
         }
+    }
 
+    /// The half of one event-loop pass that follows the poll, around an
+    /// already-polled `event` (`None` for a poll that timed out): shared by
+    /// [`run_with`](Self::run_with) and [`pump`](Self::pump), which each call
+    /// [`draw_if_needed`](Self::draw_if_needed) before it.
+    fn iterate<H: AppHandler>(&mut self, handler: &mut H, event: Option<Event>) {
         // The event the caller polled; `None` means the poll timed out
         match event {
             Some(mut event) => {
@@ -763,6 +769,7 @@ impl Application {
             }
         }
         while self.running {
+            self.draw_if_needed();
             let Some(event) = self.poll_event_or_quit() else {
                 break;
             };
@@ -1669,6 +1676,82 @@ mod resize_tests {
         app.desktop.add(group_view);
 
         (app, size, set_bounds_calls)
+    }
+
+    /// A backend that logs every poll and flush, so a test can see which of
+    /// the two the loop does first.
+    struct OrderBackend {
+        log: Arc<std::sync::Mutex<Vec<&'static str>>>,
+    }
+
+    impl crate::terminal::Backend for OrderBackend {
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+        fn init(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn cleanup(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn size(&self) -> std::io::Result<(u16, u16)> {
+            Ok((80, 25))
+        }
+        fn poll_event(&mut self, _timeout: Duration) -> std::io::Result<Option<Event>> {
+            self.log.lock().unwrap().push("poll");
+            Ok(None)
+        }
+        fn write_raw(&mut self, _data: &[u8]) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.log.lock().unwrap().push("flush");
+            Ok(())
+        }
+        fn show_cursor(&mut self, _x: u16, _y: u16) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn hide_cursor(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn run_with_draws_a_pending_redraw_before_it_polls() {
+        struct AskRedrawOnce {
+            log: Arc<std::sync::Mutex<Vec<&'static str>>>,
+            idles: u32,
+        }
+        impl AppHandler for AskRedrawOnce {
+            fn idle(&mut self, app: &mut Application) {
+                self.idles += 1;
+                self.log.lock().unwrap().push("idle");
+                if self.idles == 1 {
+                    app.needs_redraw();
+                } else {
+                    app.running = false;
+                }
+            }
+        }
+        let log = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let (mut app, _size, _calls) = build_test_app(80, 25);
+        app.terminal = Terminal::with_backend(Box::new(OrderBackend {
+            log: Arc::clone(&log),
+        }))
+        .unwrap();
+        app.needs_redraw = false;
+        let mut handler = AskRedrawOnce {
+            log: Arc::clone(&log),
+            idles: 0,
+        };
+        app.run_with(&mut handler);
+
+        let log = log.lock().unwrap();
+        let first_idle = log.iter().position(|e| *e == "idle").unwrap();
+        // The redraw the first idle asked for is flushed before the next poll,
+        // not after it (a poll can wait 20 ms).
+        assert_eq!(log[first_idle + 1], "flush", "log: {log:?}");
+        assert_eq!(log[first_idle + 2], "poll", "log: {log:?}");
     }
 
     #[test]
