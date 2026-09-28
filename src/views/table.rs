@@ -52,6 +52,9 @@ use crate::terminal::Terminal;
 /// Blank cells between two columns.
 const COLUMN_GAP: usize = 1;
 
+/// Drawn in the gap between two columns when separators are on.
+const COLUMN_SEPARATOR: char = '│';
+
 /// How a cell's text sits inside its column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Align {
@@ -104,6 +107,8 @@ pub struct Table {
     first_col: usize,
     /// Whether the header row is drawn.
     show_header: bool,
+    /// Whether a `│` is drawn in each gap between two columns.
+    column_separator: bool,
     /// Command emitted by Enter or a double-click.
     on_select: CommandId,
     view_state: StateFlags,
@@ -124,6 +129,7 @@ impl Table {
             focused_col: 0,
             first_col: 0,
             show_header: true,
+            column_separator: false,
             on_select,
             view_state: State::empty(),
         }
@@ -207,6 +213,19 @@ impl Table {
     pub fn set_show_header(&mut self, show: bool) {
         self.show_header = show;
         self.scroll_row_into_view();
+    }
+
+    /// Whether a `│` is drawn in each gap between two columns, header and
+    /// body alike. Off by default. The separator sits in the existing
+    /// one-cell gap, so column positions and mouse hit-testing are the same
+    /// either way.
+    pub fn set_column_separator(&mut self, on: bool) {
+        self.column_separator = on;
+    }
+
+    /// Whether column separators are drawn.
+    pub fn column_separator(&self) -> bool {
+        self.column_separator
     }
 
     /// Command emitted by Enter or a double-click.
@@ -335,13 +354,16 @@ impl Table {
     /// Lay one row of text into a buffer, one column at a time.
     ///
     /// `cell` yields the text for a column index; `attr_for` its attribute, so
-    /// the header and the body share this code.
+    /// the header and the body share this code. `gap` is the attribute of
+    /// the gap after each column but the last, where the separator goes when
+    /// it is on; the gaps are otherwise left as the caller filled them.
     fn write_row(
         &self,
         buf: &mut DrawBuffer,
         width: usize,
         cell: impl Fn(usize) -> String,
         attr_for: impl Fn(usize) -> crate::core::palette::Attr,
+        gap: crate::core::palette::Attr,
     ) {
         for index in self.first_col..self.columns.len() {
             let Some(offset) = self.column_offset(index) else {
@@ -364,6 +386,29 @@ impl Table {
                 Align::Right => col_width - shown_len,
             };
             buf.move_str(offset + pad, &shown, attr);
+
+            let gap_at = offset + column.width as usize;
+            if self.column_separator && index + 1 < self.columns.len() && gap_at < width {
+                buf.move_char(gap_at, COLUMN_SEPARATOR, gap, COLUMN_GAP);
+            }
+        }
+    }
+
+    /// Which palette the table resolves through: `CP_LISTBOX` when its
+    /// dialog-relative indices fit the owner palette (a dialog), the
+    /// window's scroller entries otherwise (a window, whose palette is too
+    /// short for them).
+    fn palette_slice(&self) -> &'static [u8] {
+        use crate::core::palette::palettes::{CP_LISTBOX, CP_TABLE_WINDOW};
+        let needed = CP_LISTBOX.iter().copied().max().unwrap_or(0) as usize;
+        match self
+            .core
+            .palette_chain
+            .as_ref()
+            .and_then(crate::core::palette_chain::PaletteChainNode::nearest_palette_len)
+        {
+            Some(len) if len < needed => CP_TABLE_WINDOW,
+            _ => CP_LISTBOX,
         }
     }
 }
@@ -428,16 +473,22 @@ impl View for Table {
             return;
         }
 
-        let normal = if self.is_focused() {
+        // The same state-to-index mapping as ListBox: the list colour depends
+        // on whether the table has focus, the focused row takes the selected
+        // colour. The palette those indices go through depends on the owner
+        // (see `palette_slice`).
+        let focused = self.is_focused();
+        let normal = if focused {
             self.map_color(LISTBOX_FOCUSED)
         } else {
             self.map_color(LISTBOX_NORMAL)
         };
         let selected = self.map_color(LISTBOX_SELECTED);
         let header = self.map_color(LISTBOX_DIVIDER);
-        // The four-entry list palette has no dedicated cursor colour; the
-        // divider entry is the one that reads as distinct from both.
-        let cursor = header;
+        // The focused cell is the selected colour reversed: always distinct
+        // from the row it sits in, whatever the palette, and it follows the
+        // theme instead of hard-coding an attribute.
+        let cursor = selected.swap();
 
         let mut y = 0;
 
@@ -449,6 +500,7 @@ impl View for Table {
                 width,
                 |i| self.columns[i].title.clone(),
                 |_| header,
+                header,
             );
             write_line_to_terminal(terminal, 0, y, &buf);
             y += 1;
@@ -456,25 +508,28 @@ impl View for Table {
 
         for screen_row in 0..self.visible_rows() {
             let mut buf = DrawBuffer::new(width);
-            buf.move_char(0, ' ', normal, width);
-
             let row_index = self.list_state.top_item + screen_row;
+            let row_selected = Some(row_index) == self.list_state.focused;
+            let row_attr = if row_selected { selected } else { normal };
+            // Fill the whole line, gaps included, so the selected row reads
+            // as one bar, as ListBox draws its selected item.
+            buf.move_char(0, ' ', row_attr, width);
+
             if let Some(row) = self.rows.get(row_index) {
-                let row_focused = Some(row_index) == self.list_state.focused;
                 self.write_row(
                     &mut buf,
                     width,
                     |i| row.get(i).cloned().unwrap_or_default(),
                     |i| {
-                        // The selected row lifts as a whole. Within it, the
-                        // focused cell is marked separately while the table has
-                        // focus, so Left and Right are visible.
-                        match (row_focused, self.is_focused() && i == self.focused_col) {
-                            (true, true) => cursor,
-                            (true, false) => selected,
-                            (false, _) => normal,
+                        // Within the selected row the focused cell is marked
+                        // while the table has focus, so Left and Right show.
+                        if row_selected && focused && i == self.focused_col {
+                            cursor
+                        } else {
+                            row_attr
                         }
                     },
+                    row_attr,
                 );
             }
             write_line_to_terminal(terminal, 0, y + screen_row as i16, &buf);
@@ -540,8 +595,9 @@ impl View for Table {
     }
 
     fn get_palette(&self) -> Option<crate::core::palette::Palette> {
-        use crate::core::palette::{Palette, palettes};
-        Some(Palette::from_slice(palettes::CP_LISTBOX))
+        Some(crate::core::palette::Palette::from_slice(
+            self.palette_slice(),
+        ))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -559,6 +615,7 @@ pub struct TableBuilder {
     columns: Vec<Column>,
     rows: Vec<Vec<String>>,
     show_header: bool,
+    column_separator: bool,
     on_select: CommandId,
 }
 
@@ -569,6 +626,7 @@ impl TableBuilder {
             columns: Vec::new(),
             rows: Vec::new(),
             show_header: true,
+            column_separator: false,
             on_select: 0,
         }
     }
@@ -597,6 +655,13 @@ impl TableBuilder {
         self
     }
 
+    /// Draw a `│` between columns. Off by default.
+    #[must_use]
+    pub fn column_separator(mut self, on: bool) -> Self {
+        self.column_separator = on;
+        self
+    }
+
     #[must_use]
     pub fn on_select(mut self, command: CommandId) -> Self {
         self.on_select = command;
@@ -607,6 +672,7 @@ impl TableBuilder {
         let bounds = self.bounds.expect("Table bounds must be set");
         let mut table = Table::new(bounds, self.on_select);
         table.set_show_header(self.show_header);
+        table.set_column_separator(self.column_separator);
         table.set_columns(self.columns);
         table.set_rows(self.rows);
         table
@@ -869,5 +935,27 @@ mod tests {
             .build();
         assert_eq!(t.row_count(), 1);
         assert_eq!(t.visible_rows(), 4, "no header row");
+    }
+
+    #[test]
+    fn the_separator_is_off_by_default_and_the_builder_turns_it_on() {
+        assert!(!table(1).column_separator());
+        let t = TableBuilder::new()
+            .bounds(Rect::new(0, 0, 20, 4))
+            .column_separator(true)
+            .build();
+        assert!(t.column_separator());
+    }
+
+    #[test]
+    fn separators_do_not_move_the_hit_test() {
+        // Name is x 0..10, gap at 10, Size x 11..17: the same with or without.
+        for on in [false, true] {
+            let mut t = table(3);
+            t.set_column_separator(on);
+            assert_eq!(t.cell_at(Point::new(9, 1)), Some((0, 0)));
+            assert_eq!(t.cell_at(Point::new(11, 1)), Some((0, 1)));
+            assert_eq!(t.column_offset(1), Some(11));
+        }
     }
 }

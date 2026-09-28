@@ -724,6 +724,18 @@ pub mod palettes {
         26, 26, 27, 28,  // 1-4: Normal, focused, selected, divider
     ];
 
+    // Table palette when the table sits in a window rather than a dialog.
+    // CP_LISTBOX's indices 26-28 are dialog-relative: a window palette has
+    // fewer entries, so they fall through unmapped to the app palette and
+    // land on the Gray Window block (green on gray, cyan on blue). A window's
+    // own list-like content is the scroller pair (Borland cpScroller
+    // "\x06\x07": normal text, selected text), with the scroll bar page
+    // entry for the header band. Same four slots as CP_LISTBOX.
+    #[rustfmt::skip]
+    pub const CP_TABLE_WINDOW: &[u8] = &[
+        6, 6, 7, 4,  // 1-4: Normal, focused, selected, header
+    ];
+
     // ScrollBar palette
     #[rustfmt::skip]
     pub const CP_SCROLLBAR: &[u8] = &[

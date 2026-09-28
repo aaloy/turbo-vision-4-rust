@@ -71,6 +71,21 @@ impl PaletteChainNode {
         }
     }
 
+    /// Length of the nearest non-empty palette on the way up the chain, or
+    /// `None` when no ancestor below the application carries one.
+    ///
+    /// A view whose indices are only meaningful against a particular owner
+    /// palette asks this to learn which kind of owner it sits in: a dialog's
+    /// palette has 32 entries, a window's far fewer.
+    pub fn nearest_palette_len(&self) -> Option<usize> {
+        let token = palette_token();
+        let data = self.inner.ro(token);
+        match data.palette {
+            Some(ref palette) if !palette.is_empty() => Some(palette.len()),
+            _ => data.parent.as_ref().and_then(Self::nearest_palette_len),
+        }
+    }
+
     /// Walk up the owner chain, remapping a color index through each ancestor's palette.
     ///
     /// Faithful reproduction of the Borland `TView::mapColor()` owner-chain walk:
