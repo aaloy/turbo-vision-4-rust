@@ -233,6 +233,24 @@ pub trait Backend: Send {
         self.flush()
     }
 
+    /// Whether an embedder steps the application over this backend instead
+    /// of the application running its own event loop.
+    ///
+    /// A host-driven backend belongs to a host that owns the screen and the
+    /// input, such as a WASM guest's frame: the host calls into the
+    /// application once per frame and can only deliver the next event after
+    /// that call returns. [`Application`](crate::app::Application) reads this
+    /// once, when it is built, and on a host-driven backend refuses every
+    /// loop that would block waiting for input (modal views, the History and
+    /// dropdown popups) with `CM_CANCEL`. `poll_event` on such a backend
+    /// should never wait either.
+    ///
+    /// Defaults to `false`, which is right for every backend that owns a
+    /// terminal.
+    fn is_host_driven(&self) -> bool {
+        false
+    }
+
     /// Clear the entire screen.
     ///
     /// # Errors
@@ -244,5 +262,48 @@ pub trait Backend: Send {
         self.write_raw(b"\x1b[2J")?;
         self.write_raw(b"\x1b[H")?;
         self.flush()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Only the required methods: every provided one keeps its default.
+    struct Plain;
+
+    impl Backend for Plain {
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+        fn init(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+        fn cleanup(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+        fn size(&self) -> io::Result<(u16, u16)> {
+            Ok((80, 25))
+        }
+        fn poll_event(&mut self, _timeout: Duration) -> io::Result<Option<Event>> {
+            Ok(None)
+        }
+        fn write_raw(&mut self, _data: &[u8]) -> io::Result<()> {
+            Ok(())
+        }
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+        fn show_cursor(&mut self, _x: u16, _y: u16) -> io::Result<()> {
+            Ok(())
+        }
+        fn hide_cursor(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn a_backend_is_not_host_driven_unless_it_says_so() {
+        assert!(!Plain.is_host_driven());
     }
 }

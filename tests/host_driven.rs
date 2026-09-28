@@ -1,18 +1,74 @@
-//! An embedder drives an Application by pushing events and reading cells.
+//! The hooks an embedder uses to step an Application itself: a backend that
+//! says it is host-driven, `Application::step`, and the modal and popup
+//! refusals that keep a host-driven application from blocking.
+//!
+//! The embedder side (a backend fed by the host, and a `pump` built on these
+//! hooks) lives outside core; this file only needs a stand-in backend.
+
+use std::collections::VecDeque;
+use std::io;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use turbo_vision::app::{AppHandler, Application};
 use turbo_vision::core::command::{CM_CANCEL, CommandId};
 use turbo_vision::core::event::Event;
 use turbo_vision::core::geometry::Rect;
 use turbo_vision::core::keys::{KeyCode, KeyEvent, KeyModifiers};
-use turbo_vision::terminal::{HostBackend, Terminal};
+use turbo_vision::terminal::{Backend, Terminal};
 use turbo_vision::views::dialog::Dialog;
 use turbo_vision::views::input_line::InputLine;
 use turbo_vision::views::window::WindowBuilder;
 use turbo_vision::views::{GroupLike, View};
 
-fn app(w: u16, h: u16) -> (Application, turbo_vision::terminal::HostInput) {
-    let (backend, input) = HostBackend::new(w, h);
+/// A backend with no screen and no waiting: `poll_event` pops whatever the
+/// test queued, and it reports itself host-driven.
+struct Hosted {
+    queue: Arc<Mutex<VecDeque<Event>>>,
+    size: (u16, u16),
+}
+
+impl Backend for Hosted {
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+        self
+    }
+    fn init(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn cleanup(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn size(&self) -> io::Result<(u16, u16)> {
+        Ok(self.size)
+    }
+    fn poll_event(&mut self, _timeout: Duration) -> io::Result<Option<Event>> {
+        Ok(self.queue.lock().unwrap().pop_front())
+    }
+    fn write_raw(&mut self, _data: &[u8]) -> io::Result<()> {
+        Ok(())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn show_cursor(&mut self, _x: u16, _y: u16) -> io::Result<()> {
+        Ok(())
+    }
+    fn hide_cursor(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn is_host_driven(&self) -> bool {
+        true
+    }
+}
+
+type Queue = Arc<Mutex<VecDeque<Event>>>;
+
+fn app(w: u16, h: u16) -> (Application, Queue) {
+    let queue: Queue = Arc::default();
+    let backend = Hosted {
+        queue: Arc::clone(&queue),
+        size: (w, h),
+    };
     let terminal = Terminal::with_backend(Box::new(backend)).expect("terminal");
     let mut app = Application::with_terminal(terminal);
     // Without a menu bar and status line the desktop keeps a spare row at
@@ -20,7 +76,7 @@ fn app(w: u16, h: u16) -> (Application, turbo_vision::terminal::HostInput) {
     // r.b.y--); give it the whole screen so window rows are screen rows.
     let (sw, sh) = app.terminal.size();
     app.desktop.set_bounds(Rect::new(0, 0, sw, sh));
-    (app, input)
+    (app, queue)
 }
 
 fn key(c: char) -> Event {
@@ -32,25 +88,14 @@ fn row_text(app: &Application, y: usize) -> String {
 }
 
 #[test]
-fn pump_draws_without_blocking_and_reports_running() {
-    let (mut app, _input) = app(40, 10);
-    let mut window = WindowBuilder::new()
-        .bounds(Rect::new(0, 0, 40, 10))
-        .title("Hello")
-        .build();
-    window.add(InputLine::new(Rect::new(1, 1, 30, 2), 50));
-    app.desktop.add(window);
-    assert!(app.pump(&mut ()));
-    assert!(
-        row_text(&app, 0).contains("Hello"),
-        "{:?}",
-        row_text(&app, 0)
-    );
+fn a_backend_that_says_so_makes_the_application_host_driven() {
+    let (app, _queue) = app(40, 10);
+    assert!(app.is_host_driven());
 }
 
 #[test]
-fn pushed_keys_reach_the_focused_view() {
-    let (mut app, input) = app(40, 10);
+fn stepped_keys_reach_the_focused_view() {
+    let (mut app, _queue) = app(40, 10);
     let mut window = WindowBuilder::new()
         .bounds(Rect::new(0, 0, 40, 10))
         .title("T")
@@ -60,18 +105,64 @@ fn pushed_keys_reach_the_focused_view() {
     window.add(InputLine::new(Rect::new(1, 0, 30, 1), 50));
     app.desktop.add(window);
     for c in "Hi".chars() {
-        input.push(key(c));
+        app.step(&mut (), Some(key(c)));
     }
-    assert_eq!(input.len(), 2);
-    app.pump(&mut ());
-    assert_eq!(input.len(), 0, "pump drains the queue");
     assert!(row_text(&app, 1).contains("Hi"), "{:?}", row_text(&app, 1));
 }
 
 #[test]
+fn a_step_without_an_event_idles_and_leaves_a_frame() {
+    let (mut app, _queue) = app(40, 10);
+    let window = WindowBuilder::new()
+        .bounds(Rect::new(0, 0, 40, 10))
+        .title("Hello")
+        .build();
+    app.desktop.add(window);
+    struct Idles(u32);
+    impl AppHandler for Idles {
+        fn idle(&mut self, _: &mut Application) {
+            self.0 += 1;
+        }
+    }
+    let mut idles = Idles(0);
+    app.step(&mut idles, None);
+    assert_eq!(idles.0, 1);
+    assert!(
+        row_text(&app, 0).contains("Hello"),
+        "{:?}",
+        row_text(&app, 0)
+    );
+}
+
+#[test]
+fn a_handler_sees_stepped_commands() {
+    struct Seen(Vec<CommandId>);
+    impl AppHandler for Seen {
+        fn handle_command(&mut self, _: &mut Application, c: CommandId, _: &Event) -> bool {
+            self.0.push(c);
+            true
+        }
+    }
+    let (mut app, _queue) = app(40, 10);
+    let mut seen = Seen(Vec::new());
+    app.step(&mut seen, Some(Event::command(1234)));
+    assert_eq!(seen.0, vec![1234]);
+}
+
+#[test]
+fn poll_event_or_quit_returns_the_put_event_first_then_the_backend_queue() {
+    let (mut app, queue) = app(40, 10);
+    queue.lock().unwrap().push_back(Event::command(2));
+    app.put_event(Event::command(1));
+    assert_eq!(app.poll_event_or_quit().map(|e| e.command), Some(1));
+    assert_eq!(app.poll_event_or_quit().map(|e| e.command), Some(2));
+    assert!(app.poll_event_or_quit().is_none());
+    assert!(app.running, "an empty queue is not a quit");
+}
+
+#[test]
 fn a_modal_call_returns_cancel_instead_of_blocking() {
-    let (mut app, _input) = app(40, 10);
-    assert!(app.is_host_driven());
+    let (mut app, _queue) = app(40, 10);
     let dialog = *Dialog::new_modal(Rect::new(5, 2, 35, 8), "Modal");
     let started = std::time::Instant::now();
     let result: CommandId = app.exec_view(dialog);
@@ -80,32 +171,8 @@ fn a_modal_call_returns_cancel_instead_of_blocking() {
 }
 
 #[test]
-fn a_handler_sees_commands_during_pump() {
-    struct Seen(Vec<CommandId>);
-    impl AppHandler for Seen {
-        fn handle_command(&mut self, _: &mut Application, c: CommandId, _: &Event) -> bool {
-            self.0.push(c);
-            true
-        }
-    }
-    let (mut app, input) = app(40, 10);
-    input.push(Event::command(1234));
-    let mut seen = Seen(Vec::new());
-    app.pump(&mut seen);
-    assert_eq!(seen.0, vec![1234]);
-}
-
-#[test]
-fn set_size_resizes_on_the_next_pump() {
-    let (mut app, input) = app(40, 10);
-    input.set_size(60, 20);
-    app.pump(&mut ());
-    assert_eq!(app.terminal.size(), (60, 20));
-}
-
-#[test]
 fn a_refused_modal_leaves_the_desktop_child_count_unchanged() {
-    let (mut app, _input) = app(40, 10);
+    let (mut app, _queue) = app(40, 10);
     let before = app.desktop.child_count();
     let dialog = *Dialog::new_modal(Rect::new(5, 2, 35, 8), "Modal");
     let _ = app.exec_view(dialog);
@@ -116,7 +183,7 @@ fn a_refused_modal_leaves_the_desktop_child_count_unchanged() {
 fn execute_modal_on_a_host_driven_app_returns_promptly() {
     use turbo_vision::app::ModalTick;
 
-    let (mut app, _input) = app(40, 10);
+    let (mut app, _queue) = app(40, 10);
     let mut dialog = *Dialog::new_modal(Rect::new(5, 2, 35, 8), "Modal");
     let started = std::time::Instant::now();
     let result: CommandId = app.execute_modal(&mut dialog, |_, _| ModalTick::Continue);
@@ -125,29 +192,27 @@ fn execute_modal_on_a_host_driven_app_returns_promptly() {
 }
 
 #[test]
-fn a_pumped_show_history_command_returns_promptly_without_popping_up() {
+fn a_stepped_show_history_command_returns_promptly_without_popping_up() {
     use turbo_vision::core::command::CM_SHOW_HISTORY;
 
-    let (mut app, input) = app(40, 10);
-    input.push(Event::command(CM_SHOW_HISTORY));
+    let (mut app, _queue) = app(40, 10);
     let started = std::time::Instant::now();
-    app.pump(&mut ());
+    app.step(&mut (), Some(Event::command(CM_SHOW_HISTORY)));
     assert!(started.elapsed().as_millis() < 500);
 }
 
 #[test]
-fn a_pumped_show_dropdown_command_returns_promptly_without_popping_up() {
+fn a_stepped_show_dropdown_command_returns_promptly_without_popping_up() {
     use turbo_vision::core::command::CM_SHOW_DROPDOWN;
 
-    let (mut app, input) = app(40, 10);
-    input.push(Event::command(CM_SHOW_DROPDOWN));
+    let (mut app, _queue) = app(40, 10);
     let started = std::time::Instant::now();
-    app.pump(&mut ());
+    app.step(&mut (), Some(Event::command(CM_SHOW_DROPDOWN)));
     assert!(started.elapsed().as_millis() < 500);
 }
 
-/// A table in a blue window: one resolved attribute per state, and the
-/// optional separator in each gap.
+/// A table in a blue window and in a dialog: one resolved attribute per
+/// state.
 mod table_colours {
     use super::app;
     use turbo_vision::core::geometry::Rect;
@@ -168,7 +233,7 @@ mod table_colours {
     }
 
     /// Columns 4, 3 and 5 wide at x 0, 5 and 9; gaps at x 4 and 8.
-    fn table(separator: bool) -> Table {
+    fn table() -> Table {
         let mut t = Table::new(Rect::new(0, 0, 20, 4), 0);
         t.set_columns(vec![
             Column::new("A", 4),
@@ -182,7 +247,6 @@ mod table_colours {
         ]);
         t.set_selected_row(1);
         t.set_selected_col(1);
-        t.set_column_separator(separator);
         t
     }
 
@@ -194,21 +258,26 @@ mod table_colours {
         (c.ch, c.attr)
     }
 
-    fn in_blue_window(separator: bool) -> turbo_vision::app::Application {
-        let (mut app, _input) = app(40, 10);
-        let mut window = WindowBuilder::new()
-            .bounds(Rect::new(0, 0, 30, 8))
-            .title("T")
-            .build();
-        window.add(table(separator));
-        app.desktop.add(window);
-        app.pump(&mut ());
-        app
+    #[test]
+    fn a_table_reports_where_its_columns_are_drawn() {
+        let t = table();
+        assert_eq!(t.column_offsets(), vec![(0, 4), (5, 3), (9, 5)]);
+        for (x, width) in t.column_offsets() {
+            assert!(!GAPS.contains(&(x + width as usize - 1)));
+        }
     }
 
     #[test]
     fn a_table_in_a_window_uses_the_window_list_colours() {
-        let app = in_blue_window(false);
+        let (mut app, _queue) = app(40, 10);
+        let mut window = WindowBuilder::new()
+            .bounds(Rect::new(0, 0, 30, 8))
+            .title("T")
+            .build();
+        window.add(table());
+        app.desktop.add(window);
+        app.draw();
+
         // Focused list, normal row: slot 2 -> window 6 -> app 13 = 0x1E.
         let normal = resolve(CP_TABLE_WINDOW, CP_BLUE_WINDOW, 2);
         // Selected row: slot 3 -> window 7 -> app 14 = 0x71.
@@ -230,42 +299,20 @@ mod table_colours {
                 selected,
                 "gap at x {x} is part of the bar"
             );
+            assert_eq!(cell(&app, x, 1).0, ' ', "gaps are blank at x {x}");
         }
         assert_ne!(focused_cell, selected, "focused cell stands out of its row");
         assert_ne!(focused_cell, normal, "focused cell is not a normal cell");
         assert_eq!(cell(&app, 5, 2).0, 'b');
-        assert_eq!(cell(&app, 4, 1).0, ' ', "no separator unless asked for");
-    }
-
-    #[test]
-    fn the_separator_sits_in_every_gap() {
-        let app = in_blue_window(true);
-        let header = resolve(CP_TABLE_WINDOW, CP_BLUE_WINDOW, 4);
-        let normal = resolve(CP_TABLE_WINDOW, CP_BLUE_WINDOW, 2);
-        let selected = resolve(CP_TABLE_WINDOW, CP_BLUE_WINDOW, 3);
-        for x in GAPS {
-            assert_eq!(cell(&app, x, 0), ('│', header), "header gap at x {x}");
-            assert_eq!(cell(&app, x, 1), ('│', normal), "row gap at x {x}");
-            assert_eq!(cell(&app, x, 2), ('│', selected), "selected gap at x {x}");
-        }
-        // Columns keep their places: text still starts where it did.
-        assert_eq!(cell(&app, 0, 1).0, 'a');
-        assert_eq!(cell(&app, 5, 1).0, 'b');
-        assert_eq!(cell(&app, 9, 1).0, 'c');
-        assert_eq!(
-            cell(&app, 14, 1).0,
-            ' ',
-            "no separator after the last column"
-        );
     }
 
     #[test]
     fn a_table_in_a_dialog_keeps_the_dialog_list_colours() {
-        let (mut app, _input) = app(40, 10);
+        let (mut app, _queue) = app(40, 10);
         let mut dialog = Dialog::new(Rect::new(0, 0, 30, 8), "D");
-        dialog.add(table(false));
+        dialog.add(table());
         app.desktop.add(dialog);
-        app.pump(&mut ());
+        app.draw();
         // Slot 2 -> dialog 26 -> app 57 = 0x30; slot 3 -> 27 -> 58 = 0x2F.
         let normal = resolve(CP_LISTBOX, CP_GRAY_DIALOG, 2);
         let selected = resolve(CP_LISTBOX, CP_GRAY_DIALOG, 3);

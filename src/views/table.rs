@@ -52,9 +52,6 @@ use crate::terminal::Terminal;
 /// Blank cells between two columns.
 const COLUMN_GAP: usize = 1;
 
-/// Drawn in the gap between two columns when separators are on.
-const COLUMN_SEPARATOR: char = '│';
-
 /// How a cell's text sits inside its column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Align {
@@ -107,8 +104,6 @@ pub struct Table {
     first_col: usize,
     /// Whether the header row is drawn.
     show_header: bool,
-    /// Whether a `│` is drawn in each gap between two columns.
-    column_separator: bool,
     /// Command emitted by Enter or a double-click.
     on_select: CommandId,
     view_state: StateFlags,
@@ -129,7 +124,6 @@ impl Table {
             focused_col: 0,
             first_col: 0,
             show_header: true,
-            column_separator: false,
             on_select,
             view_state: State::empty(),
         }
@@ -215,19 +209,6 @@ impl Table {
         self.scroll_row_into_view();
     }
 
-    /// Whether a `│` is drawn in each gap between two columns, header and
-    /// body alike. Off by default. The separator sits in the existing
-    /// one-cell gap, so column positions and mouse hit-testing are the same
-    /// either way.
-    pub fn set_column_separator(&mut self, on: bool) {
-        self.column_separator = on;
-    }
-
-    /// Whether column separators are drawn.
-    pub fn column_separator(&self) -> bool {
-        self.column_separator
-    }
-
     /// Command emitted by Enter or a double-click.
     pub fn set_on_select(&mut self, command: CommandId) {
         self.on_select = command;
@@ -303,6 +284,31 @@ impl Table {
         Some((self.first_col..index).map(|i| self.column_span(i)).sum())
     }
 
+    /// Where each visible column lands, in draw order: its x offset from the
+    /// table's left edge and the cells it is drawn in.
+    ///
+    /// Columns scrolled off to the left are left out, and so is any that
+    /// starts past the right edge; the last one shown is clipped to the
+    /// table's width, as it is drawn. The one-cell gap after each column is
+    /// not part of its width, so a widget that draws between columns (a
+    /// separator, a resize handle) finds the gap at `x + width`.
+    #[must_use]
+    pub fn column_offsets(&self) -> Vec<(usize, u16)> {
+        let width = usize::try_from(self.core.bounds.width_clamped()).unwrap_or(0);
+        let mut spans = Vec::new();
+        for index in self.first_col..self.columns.len() {
+            let Some(offset) = self.column_offset(index) else {
+                continue;
+            };
+            if offset >= width {
+                break;
+            }
+            let room = u16::try_from(width - offset).unwrap_or(u16::MAX);
+            spans.push((offset, self.columns[index].width.min(room)));
+        }
+        spans
+    }
+
     /// Move the focused row by `delta`, clamping at both ends.
     fn move_row(&mut self, delta: i32) {
         if self.rows.is_empty() {
@@ -354,16 +360,14 @@ impl Table {
     /// Lay one row of text into a buffer, one column at a time.
     ///
     /// `cell` yields the text for a column index; `attr_for` its attribute, so
-    /// the header and the body share this code. `gap` is the attribute of
-    /// the gap after each column but the last, where the separator goes when
-    /// it is on; the gaps are otherwise left as the caller filled them.
+    /// the header and the body share this code. The gaps between columns are
+    /// left as the caller filled them.
     fn write_row(
         &self,
         buf: &mut DrawBuffer,
         width: usize,
         cell: impl Fn(usize) -> String,
         attr_for: impl Fn(usize) -> crate::core::palette::Attr,
-        gap: crate::core::palette::Attr,
     ) {
         for index in self.first_col..self.columns.len() {
             let Some(offset) = self.column_offset(index) else {
@@ -386,11 +390,6 @@ impl Table {
                 Align::Right => col_width - shown_len,
             };
             buf.move_str(offset + pad, &shown, attr);
-
-            let gap_at = offset + column.width as usize;
-            if self.column_separator && index + 1 < self.columns.len() && gap_at < width {
-                buf.move_char(gap_at, COLUMN_SEPARATOR, gap, COLUMN_GAP);
-            }
         }
     }
 
@@ -500,7 +499,6 @@ impl View for Table {
                 width,
                 |i| self.columns[i].title.clone(),
                 |_| header,
-                header,
             );
             write_line_to_terminal(terminal, 0, y, &buf);
             y += 1;
@@ -529,7 +527,6 @@ impl View for Table {
                             row_attr
                         }
                     },
-                    row_attr,
                 );
             }
             write_line_to_terminal(terminal, 0, y + screen_row as i16, &buf);
@@ -615,7 +612,6 @@ pub struct TableBuilder {
     columns: Vec<Column>,
     rows: Vec<Vec<String>>,
     show_header: bool,
-    column_separator: bool,
     on_select: CommandId,
 }
 
@@ -626,7 +622,6 @@ impl TableBuilder {
             columns: Vec::new(),
             rows: Vec::new(),
             show_header: true,
-            column_separator: false,
             on_select: 0,
         }
     }
@@ -655,13 +650,6 @@ impl TableBuilder {
         self
     }
 
-    /// Draw a `│` between columns. Off by default.
-    #[must_use]
-    pub fn column_separator(mut self, on: bool) -> Self {
-        self.column_separator = on;
-        self
-    }
-
     #[must_use]
     pub fn on_select(mut self, command: CommandId) -> Self {
         self.on_select = command;
@@ -672,7 +660,6 @@ impl TableBuilder {
         let bounds = self.bounds.expect("Table bounds must be set");
         let mut table = Table::new(bounds, self.on_select);
         table.set_show_header(self.show_header);
-        table.set_column_separator(self.column_separator);
         table.set_columns(self.columns);
         table.set_rows(self.rows);
         table
@@ -938,24 +925,33 @@ mod tests {
     }
 
     #[test]
-    fn the_separator_is_off_by_default_and_the_builder_turns_it_on() {
-        assert!(!table(1).column_separator());
-        let t = TableBuilder::new()
-            .bounds(Rect::new(0, 0, 20, 4))
-            .column_separator(true)
-            .build();
-        assert!(t.column_separator());
+    fn column_offsets_give_each_visible_column_its_x_and_width() {
+        // Name x 0..10, gap, Size x 11..17, gap, Kind x 18..26 in a 30-wide table.
+        let mut t = table(3);
+        assert_eq!(t.column_offsets(), vec![(0, 10), (11, 6), (18, 8)]);
+
+        // Scrolled one column right: Size now starts the row.
+        t.first_col = 1;
+        assert_eq!(t.column_offsets(), vec![(0, 6), (7, 8)]);
     }
 
     #[test]
-    fn separators_do_not_move_the_hit_test() {
-        // Name is x 0..10, gap at 10, Size x 11..17: the same with or without.
-        for on in [false, true] {
-            let mut t = table(3);
-            t.set_column_separator(on);
-            assert_eq!(t.cell_at(Point::new(9, 1)), Some((0, 0)));
-            assert_eq!(t.cell_at(Point::new(11, 1)), Some((0, 1)));
-            assert_eq!(t.column_offset(1), Some(11));
+    fn column_offsets_clip_the_last_column_and_skip_the_off_screen_ones() {
+        // 12 wide: Name 0..10 fits, Size starts at 11 with one cell left, Kind is past the edge.
+        let mut t = table(1);
+        t.set_bounds(Rect::new(0, 0, 12, 6));
+        t.first_col = 0;
+        assert_eq!(t.column_offsets(), vec![(0, 10), (11, 1)]);
+    }
+
+    #[test]
+    fn column_offsets_agree_with_the_hit_test() {
+        let t = table(3);
+        for (index, (x, width)) in t.column_offsets().into_iter().enumerate() {
+            let first = Point::new(x as i16, 1);
+            let last = Point::new((x + width as usize - 1) as i16, 1);
+            assert_eq!(t.cell_at(first), Some((0, index)));
+            assert_eq!(t.cell_at(last), Some((0, index)));
         }
     }
 }

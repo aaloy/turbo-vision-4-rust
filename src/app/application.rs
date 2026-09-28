@@ -13,7 +13,7 @@ use crate::core::error::Result;
 use crate::core::event::{Event, EventType, KB_ALT_X, KB_CTRL_F12, KB_F1, KB_F12};
 use crate::core::geometry::Rect;
 use crate::core::state::State;
-use crate::terminal::{HostBackend, Terminal};
+use crate::terminal::Terminal;
 use crate::views::help_context::HelpContext;
 use crate::views::help_file::HelpFile;
 use crate::views::help_window::HelpWindow;
@@ -61,9 +61,11 @@ pub struct Application {
 enum Driver {
     /// The application owns a terminal and runs its own loops.
     Terminal,
-    /// The terminal is a [`HostBackend`]: an embedder steps the application
-    /// with [`pump`](Application::pump), so nothing may block waiting for
-    /// input.
+    /// The backend is host-driven ([`Backend::is_host_driven`]): an embedder
+    /// steps the application with [`step`](Application::step), so nothing
+    /// may block waiting for input.
+    ///
+    /// [`Backend::is_host_driven`]: crate::terminal::Backend::is_host_driven
     Host,
 }
 
@@ -159,13 +161,14 @@ impl Application {
     }
 
     /// Creates an application on an already-built terminal, e.g. one over a
-    /// [`HostBackend`](crate::terminal::HostBackend) that an embedder steps
-    /// with [`pump`](Self::pump).
+    /// host-driven backend that an embedder steps with [`step`](Self::step).
     ///
     /// This is everything [`new`](Self::new) does except creating the
-    /// terminal and the `TV_REMOTE_KEYS` listener.
-    pub fn with_terminal(mut terminal: Terminal) -> Self {
-        let driver = if terminal.backend_is::<HostBackend>() {
+    /// terminal and the `TV_REMOTE_KEYS` listener. Whether the application
+    /// is host-driven is read from the backend here, once, through
+    /// [`Backend::is_host_driven`](crate::terminal::Backend::is_host_driven).
+    pub fn with_terminal(terminal: Terminal) -> Self {
+        let driver = if terminal.backend_is_host_driven() {
             Driver::Host
         } else {
             Driver::Terminal
@@ -207,8 +210,10 @@ impl Application {
         app
     }
 
-    /// Whether an embedder steps this application with [`pump`](Self::pump)
-    /// instead of it owning a terminal and an event loop. When true, modal
+    /// Whether an embedder steps this application with [`step`](Self::step)
+    /// instead of it owning a terminal and an event loop, as its backend's
+    /// [`is_host_driven`](crate::terminal::Backend::is_host_driven) said
+    /// when the application was built. When true, modal
     /// loops ([`exec_view`](Self::exec_view) on a modal view,
     /// [`execute_modal`](Self::execute_modal)) refuse to run and return
     /// `CM_CANCEL`.
@@ -220,7 +225,7 @@ impl Application {
     /// True (after logging) when this Application is host-driven and `what`
     /// must therefore refuse to run rather than spin waiting for events the
     /// embedder can only deliver after the current call returns. Shared by
-    /// every blocking-loop entry point reachable from [`pump`](Self::pump):
+    /// every blocking-loop entry point reachable from [`step`](Self::step):
     /// `exec_view`, `execute_modal`, and the History/Dropdown popup openers.
     fn refuse_modal_if_host_driven(&self, what: &str) -> bool {
         if self.is_host_driven() {
@@ -381,11 +386,6 @@ impl Application {
         }
     }
 
-    /// Poll the terminal, treating a dead backend as a quit request.
-    ///
-    /// A `poll_event` error means the backend connection is gone (e.g. the
-    /// SSH client disconnected); swallowing it would leave the event loop
-    /// spinning forever on a dead session.
     /// Queue an event to be returned before the next terminal poll.
     ///
     /// Matches Borland TProgram::putEvent: a single-slot pending event that
@@ -395,7 +395,20 @@ impl Application {
         self.pending_event = Some(event);
     }
 
-    fn poll_event_or_quit(&mut self) -> Option<Event> {
+    /// The next event: the one queued by [`put_event`](Self::put_event) if
+    /// there is one, otherwise whatever the terminal's backend returns within
+    /// 20 ms. `None` means nothing arrived.
+    ///
+    /// A backend error is treated as a quit request: it means the backend
+    /// connection is gone (e.g. the SSH client disconnected), and swallowing
+    /// it would leave the event loop spinning forever on a dead session. So
+    /// the error is logged, `running` is cleared and `None` is returned.
+    ///
+    /// This is the poll [`run_with`](Self::run_with) uses. An embedder that
+    /// steps the application itself drains its events with this and hands
+    /// each one to [`step`](Self::step); on a backend whose `poll_event`
+    /// never waits, as a host-driven one's shouldn't, it never waits either.
+    pub fn poll_event_or_quit(&mut self) -> Option<Event> {
         if let Some(pending) = self.pending_event.take() {
             return Some(pending);
         }
@@ -690,10 +703,38 @@ impl Application {
         }
     }
 
+    /// One pass of the event loop around an event the caller already has,
+    /// for an embedder that steps the application itself instead of calling
+    /// [`run_with`](Self::run_with).
+    ///
+    /// First a pending full redraw (a resize, a closed window, a palette
+    /// change) is drawn and flushed, as `run_with` does before each poll.
+    /// Then `Some(event)` goes through `handler.pre_event`, the menu bar,
+    /// status line and desktop, and `handler.handle_command` if it is still
+    /// a command, and the screen is redrawn; `None` stands for a poll that
+    /// found nothing and runs [`idle`](Self::idle) and `handler.idle`
+    /// instead. Last, windows that closed are removed (each one reported to
+    /// `handler.window_closed`) and windows that moved are redrawn.
+    ///
+    /// A host-driven embedder's frame is typically: resize to
+    /// [`Terminal::backend_size`] with [`handle_redraw`](Self::handle_redraw)
+    /// if it differs from [`Terminal::size`], then `step(handler, Some(e))`
+    /// for each event [`poll_event_or_quit`](Self::poll_event_or_quit)
+    /// returns while [`running`](Self::running), one `step(handler, None)`,
+    /// and a final [`draw`](Self::draw), after which the frame is in
+    /// [`Terminal::buffer`]. Nothing here waits for input, and on a
+    /// host-driven application nothing reachable from it does either: modal
+    /// views and popups refuse with `CM_CANCEL`.
+    pub fn step<H: AppHandler>(&mut self, handler: &mut H, event: Option<Event>) {
+        self.draw_if_needed();
+        self.iterate(handler, event);
+    }
+
     /// The half of one event-loop pass that follows the poll, around an
     /// already-polled `event` (`None` for a poll that timed out): shared by
-    /// [`run_with`](Self::run_with) and [`pump`](Self::pump), which each call
-    /// [`draw_if_needed`](Self::draw_if_needed) before it.
+    /// [`run_with`](Self::run_with), which calls
+    /// [`draw_if_needed`](Self::draw_if_needed) before its poll, and
+    /// [`step`](Self::step), which calls it first.
     fn iterate<H: AppHandler>(&mut self, handler: &mut H, event: Option<Event>) {
         // The event the caller polled; `None` means the poll timed out
         match event {
@@ -752,34 +793,6 @@ impl Application {
             // Just flush the terminal buffer
             let _ = self.terminal.flush();
         }
-    }
-
-    /// One embedder step: resize to the backend's size if it changed, handle
-    /// every queued event, idle once, and leave a full frame in
-    /// `terminal.buffer()`. Never waits, provided the backend's `poll_event`
-    /// doesn't (a [`HostBackend`] never does).
-    ///
-    /// Returns `false` once the application has quit (`CM_QUIT`).
-    pub fn pump<H: AppHandler>(&mut self, handler: &mut H) -> bool {
-        // The same re-layout a terminal resize gets: crossterm reports one as
-        // a CM_REDRAW broadcast, which handle_event routes to handle_redraw.
-        if let Ok(size) = self.terminal.backend_size() {
-            if size != self.terminal.size() {
-                self.handle_redraw();
-            }
-        }
-        while self.running {
-            self.draw_if_needed();
-            let Some(event) = self.poll_event_or_quit() else {
-                break;
-            };
-            self.iterate(handler, Some(event));
-        }
-        if self.running {
-            self.iterate(handler, None);
-        }
-        self.draw();
-        self.running
     }
 
     pub fn draw(&mut self) {
@@ -1752,6 +1765,30 @@ mod resize_tests {
         // not after it (a poll can wait 20 ms).
         assert_eq!(log[first_idle + 1], "flush", "log: {log:?}");
         assert_eq!(log[first_idle + 2], "poll", "log: {log:?}");
+    }
+
+    #[test]
+    fn an_application_over_an_ordinary_backend_is_not_host_driven() {
+        let (app, _size, _calls) = build_test_app(80, 25);
+        assert!(!app.is_host_driven());
+    }
+
+    #[test]
+    fn step_draws_a_pending_redraw_before_the_event() {
+        let log = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let (mut app, _size, _calls) = build_test_app(80, 25);
+        app.terminal = Terminal::with_backend(Box::new(OrderBackend {
+            log: Arc::clone(&log),
+        }))
+        .unwrap();
+        app.needs_redraw = true;
+        app.step(&mut (), None);
+        assert!(!app.needs_redraw, "the pending redraw was drawn");
+        assert_eq!(log.lock().unwrap().first(), Some(&"flush"));
+        assert!(
+            !log.lock().unwrap().contains(&"poll"),
+            "step never polls: the caller already has the event"
+        );
     }
 
     #[test]
