@@ -48,7 +48,9 @@ know most of this library.
 -   :material-form-textbox: **Real controls**
 
     Input lines, buttons, check boxes, radio buttons, list boxes, combo boxes, scroll bars,
-    trees, split panes, progress bars, tooltips and history dropdowns.
+    trees, tables, split panes, progress bars, sliders, tooltips and history dropdowns. Tables
+    and list boxes can also read their rows from a lazy source instead of holding them all in
+    memory.
 
 -   :material-check-decagram: **Validators**
 

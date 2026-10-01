@@ -4,6 +4,29 @@ The full history is in the [changelog](reference/changelog.md). This page tracks
 in prose, newest first. If you are moving a project onto 3.0.0, work through
 [the upgrade guide](reference/upgrading.md) instead: it is the same ground as an ordered checklist.
 
+## Unreleased
+
+Not in a release yet &mdash; coming in the next release. The crate on crates.io is still 3.0.1.
+
+A new `Slider` view: a draggable handle over a track, horizontal or vertical, for a value in a
+range.
+
+`Table` can draw a `│` separator between columns (`set_separators`, off by default), and both
+`Table` and `ListBox` can now read their rows or items from a lazy source instead of holding
+everything in memory: a `table::RowProvider` or `listbox::ListProvider`, installed with
+`set_provider` and refreshed with `refresh_rows` / `refresh_items` when the underlying data's
+length changes.
+
+The terminal layer gained extension hooks: `event_injector` for synthetic events, a capture hook
+(`set_capture_hook`, `clear_capture_hook`, `run_capture_hook`, `CaptureKind`) that Ctrl+F12, F12 and
+`CM_SCREENSHOT` now call instead of the built-in capture when one is set, and `write_raw` for bytes
+the terminal layer does not otherwise emit. `terminal::InputParser` no longer needs the `ssh`
+feature.
+
+**Upgrade note:** because a row or item can now come from a provider, `Table::selected_cell` and
+`ListBox::get_selected_item` return owned strings (`Option<String>`) and `ListBox::marked_text`
+returns `Vec<String>`, instead of borrowing. Add `.as_deref()` where a `&str` is still needed.
+
 ## 3.0.0 &mdash; September 2026
 
 A major release. The `View` trait changed, so every other breaking change rode along with it.
