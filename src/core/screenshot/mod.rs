@@ -6,7 +6,10 @@
 //! with a character and foreground/background colors) into a true-color PNG.
 //! Text glyphs are drawn from an embedded 8x16 bitmap font; the box-drawing,
 //! block and shade characters used by Turbo Vision frames are rendered
-//! procedurally so they stay crisp at any cell size.
+//! procedurally so they stay crisp at any cell size and tile across cells.
+//! CP437's other symbols, the Latin-1 Supplement and the marks the framework
+//! draws (`√`, `◆`, `✓`, ...) come from a table of hand-drawn bitmaps and
+//! accented font letters. Any other character is drawn as `?`.
 //!
 //! The PNG encoder is fully self-contained (no external crates): it emits a
 //! valid RGB PNG using uncompressed ("stored") DEFLATE blocks, so the produced
@@ -28,6 +31,9 @@
     clippy::trivially_copy_pass_by_ref,
     reason = "Byte/pixel math in a self-contained PNG encoder narrows widths deliberately, and fixed-size chunk tags are passed by reference for call-site clarity."
 )]
+
+mod glyphs;
+mod procedural;
 
 use super::draw::Cell;
 use super::palette::Attr;
@@ -133,9 +139,12 @@ pub fn render_to_png(
 
 /// Build the 8x16 pixel mask for a character.
 ///
-/// Printable ASCII comes from the embedded font; the CP437 box-drawing, block,
-/// shade and arrow glyphs used by Turbo Vision are drawn procedurally. Anything
-/// else falls back to a blank cell (whitespace/control) or `?` (other glyphs).
+/// Printable ASCII comes from the embedded font. CP437's box-drawing, block,
+/// shade and arrow glyphs are drawn procedurally ([`procedural`]); its other
+/// symbols, the Latin-1 letters and signs and the marks the framework draws
+/// are hand-drawn bitmaps or font letters with an accent ([`glyphs`]).
+/// Anything else falls back to a blank cell (whitespace/control) or `?`
+/// (other glyphs).
 fn glyph_mask(ch: char) -> GlyphMask {
     let cp = ch as u32;
 
@@ -143,7 +152,7 @@ fn glyph_mask(ch: char) -> GlyphMask {
         return font_glyph(cp);
     }
 
-    if let Some(mask) = procedural_glyph(ch) {
+    if let Some(mask) = procedural::glyph(ch).or_else(|| glyphs::glyph(ch)) {
         return mask;
     }
 
@@ -160,293 +169,6 @@ fn font_glyph(cp: u32) -> GlyphMask {
     let off = (cp - FONT_FIRST) as usize * FONT_H;
     let mut mask = [0u8; FONT_H];
     mask.copy_from_slice(&FONT_8X16[off..off + FONT_H]);
-    mask
-}
-
-// ----------------------------------------------------------------------------
-// Procedural CP437 glyphs (box drawing, blocks, shades, arrows)
-// ----------------------------------------------------------------------------
-
-/// Presence of a single-line stub in one of the four directions.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Line {
-    None,
-    Single,
-}
-
-/// Set pixel (x, y) in a mask (no-op if out of the 8x16 bounds).
-fn set_px(mask: &mut GlyphMask, x: usize, y: usize) {
-    if x < FONT_W && y < FONT_H {
-        mask[y] |= 1 << (7 - x);
-    }
-}
-
-/// Fill a rectangular pixel region `[x0, x1) x [y0, y1)`.
-fn fill_rect(mask: &mut GlyphMask, x0: usize, y0: usize, x1: usize, y1: usize) {
-    for y in y0..y1 {
-        for x in x0..x1 {
-            set_px(mask, x, y);
-        }
-    }
-}
-
-// Single-line rail position (centered): columns 3-4, rows 7-8.
-const VS0: usize = 3; // vertical single, first col (exclusive end VS0+2)
-const HS0: usize = 7; // horizontal single, first row
-
-/// Draw a single-line box-drawing glyph from its four directional stubs.
-///
-/// Each present stub runs from the cell edge to the centered rail and tiles with
-/// the neighboring cell, so corners and tees join cleanly.
-fn box_glyph(up: Line, down: Line, left: Line, right: Line) -> GlyphMask {
-    let mut mask = [0u8; FONT_H];
-    let v0 = VS0;
-    let h0 = HS0;
-    if up == Line::Single {
-        fill_rect(&mut mask, v0, 0, v0 + 2, h0 + 2);
-    }
-    if down == Line::Single {
-        fill_rect(&mut mask, v0, h0, v0 + 2, FONT_H);
-    }
-    if left == Line::Single {
-        fill_rect(&mut mask, 0, h0, v0 + 2, h0 + 2);
-    }
-    if right == Line::Single {
-        fill_rect(&mut mask, v0, h0, FONT_W, h0 + 2);
-    }
-    mask
-}
-
-// Double-line rails (8x16). The two parallel rails straddle the single-line
-// center: vertical rails occupy cols 1-2 (left, "VL") and 5-6 (right, "VR");
-// horizontal rails occupy rows 5-6 (top, "HT") and 9-10 (bottom, "HB"). Corners
-// are built so the OUTER rail bends into the OUTER rail and the INNER into the
-// INNER, matching CP437 double-line joinery.
-fn double_box(ch: char) -> Option<GlyphMask> {
-    // (x0, y0, x1, y1) rectangles for each glyph.
-    let rects: &[(usize, usize, usize, usize)] = match ch {
-        '═' => &[(0, 5, 8, 7), (0, 9, 8, 11)],
-        '║' => &[(1, 0, 3, 16), (5, 0, 7, 16)],
-        '╔' => &[(1, 5, 3, 16), (5, 9, 7, 16), (1, 5, 8, 7), (5, 9, 8, 11)],
-        '╗' => &[(5, 5, 7, 16), (1, 9, 3, 16), (0, 5, 7, 7), (0, 9, 3, 11)],
-        '╚' => &[(1, 0, 3, 11), (5, 0, 7, 7), (1, 9, 8, 11), (5, 5, 8, 7)],
-        '╝' => &[(5, 0, 7, 11), (1, 0, 3, 7), (0, 9, 7, 11), (0, 5, 3, 7)],
-        '╠' => &[(1, 0, 3, 16), (5, 0, 7, 16), (5, 5, 8, 7), (5, 9, 8, 11)],
-        '╣' => &[(1, 0, 3, 16), (5, 0, 7, 16), (0, 5, 3, 7), (0, 9, 3, 11)],
-        '╦' => &[
-            (0, 5, 8, 7),
-            (0, 9, 3, 11),
-            (5, 9, 8, 11),
-            (1, 9, 3, 16),
-            (5, 9, 7, 16),
-        ],
-        '╩' => &[
-            (0, 9, 8, 11),
-            (0, 5, 3, 7),
-            (5, 5, 8, 7),
-            (1, 0, 3, 7),
-            (5, 0, 7, 7),
-        ],
-        '╬' => &[
-            (1, 0, 3, 7),
-            (1, 9, 3, 16),
-            (5, 0, 7, 7),
-            (5, 9, 7, 16),
-            (0, 5, 3, 7),
-            (5, 5, 8, 7),
-            (0, 9, 3, 11),
-            (5, 9, 8, 11),
-        ],
-        _ => return None,
-    };
-    let mut mask = [0u8; FONT_H];
-    for &(x0, y0, x1, y1) in rects {
-        fill_rect(&mut mask, x0, y0, x1, y1);
-    }
-    Some(mask)
-}
-
-/// Return a procedurally-rendered glyph for the CP437 graphics characters that
-/// Turbo Vision uses, or `None` if the character is not one of them.
-fn procedural_glyph(ch: char) -> Option<GlyphMask> {
-    use Line::{None as N, Single as S};
-
-    // Double-line box drawing has its own corner geometry.
-    if let Some(mask) = double_box(ch) {
-        return Some(mask);
-    }
-
-    let mask = match ch {
-        // Single box drawing
-        '─' => box_glyph(N, N, S, S),
-        '│' => box_glyph(S, S, N, N),
-        '┌' => box_glyph(N, S, N, S),
-        '┐' => box_glyph(N, S, S, N),
-        '└' => box_glyph(S, N, N, S),
-        '┘' => box_glyph(S, N, S, N),
-        '├' => box_glyph(S, S, N, S),
-        '┤' => box_glyph(S, S, S, N),
-        '┬' => box_glyph(N, S, S, S),
-        '┴' => box_glyph(S, N, S, S),
-        '┼' => box_glyph(S, S, S, S),
-        // Full / half blocks
-        '█' => {
-            let mut m = [0u8; FONT_H];
-            fill_rect(&mut m, 0, 0, FONT_W, FONT_H);
-            m
-        }
-        '▀' => {
-            let mut m = [0u8; FONT_H];
-            fill_rect(&mut m, 0, 0, FONT_W, FONT_H / 2);
-            m
-        }
-        '▄' => {
-            let mut m = [0u8; FONT_H];
-            fill_rect(&mut m, 0, FONT_H / 2, FONT_W, FONT_H);
-            m
-        }
-        '▌' => {
-            let mut m = [0u8; FONT_H];
-            fill_rect(&mut m, 0, 0, FONT_W / 2, FONT_H);
-            m
-        }
-        '▐' => {
-            let mut m = [0u8; FONT_H];
-            fill_rect(&mut m, FONT_W / 2, 0, FONT_W, FONT_H);
-            m
-        }
-        // Shade patterns (dithered)
-        '░' => shade(|x, y| x % 2 == 0 && y % 2 == 0),
-        '▒' => shade(|x, y| (x + y) % 2 == 0),
-        '▓' => shade(|x, y| !(x % 2 == 1 && y % 2 == 1)),
-        // Small filled square
-        '■' => {
-            let mut m = [0u8; FONT_H];
-            fill_rect(&mut m, 1, 4, FONT_W - 1, FONT_H - 4);
-            m
-        }
-        // Arrows
-        '▲' => triangle(Dir::Up),
-        '▼' => triangle(Dir::Down),
-        '◄' => triangle(Dir::Left),
-        '►' => triangle(Dir::Right),
-        // Corner triangles (e.g. window resize handle ◢)
-        '◢' => corner_triangle(Corner::LowerRight),
-        '◣' => corner_triangle(Corner::LowerLeft),
-        '◤' => corner_triangle(Corner::UpperLeft),
-        '◥' => corner_triangle(Corner::UpperRight),
-        _ => return None,
-    };
-
-    Some(mask)
-}
-
-/// Which corner a diagonal half-cell triangle points into.
-#[derive(Clone, Copy)]
-enum Corner {
-    LowerRight,
-    LowerLeft,
-    UpperLeft,
-    UpperRight,
-}
-
-/// Build a right-triangle filling one diagonal half of the cell.
-fn corner_triangle(corner: Corner) -> GlyphMask {
-    let (w1, h1) = (FONT_W - 1, FONT_H - 1);
-    shade(|x, y| {
-        // Normalize coordinates to the diagonal test; pick the half-plane
-        // whose right angle sits in the requested corner.
-        let (dx, dy) = match corner {
-            Corner::LowerRight => (x, h1 - y),
-            Corner::LowerLeft => (w1 - x, h1 - y),
-            Corner::UpperLeft => (w1 - x, y),
-            Corner::UpperRight => (x, y),
-        };
-        dx * h1 >= dy * w1
-    })
-}
-
-/// Build a shade glyph from a per-pixel predicate.
-fn shade(on: impl Fn(usize, usize) -> bool) -> GlyphMask {
-    let mut mask = [0u8; FONT_H];
-    for y in 0..FONT_H {
-        for x in 0..FONT_W {
-            if on(x, y) {
-                set_px(&mut mask, x, y);
-            }
-        }
-    }
-    mask
-}
-
-/// Direction for arrow glyphs.
-#[derive(Clone, Copy)]
-enum Dir {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
-/// Build a filled triangle pointing in the given direction.
-fn triangle(dir: Dir) -> GlyphMask {
-    let mut mask = [0u8; FONT_H];
-    match dir {
-        // Vertical arrows: widen one row per step over the middle of the cell.
-        Dir::Up => {
-            for (i, y) in (4..12).enumerate() {
-                let half = i / 2 + 1;
-                let cx = FONT_W / 2;
-                fill_rect(
-                    &mut mask,
-                    cx.saturating_sub(half),
-                    y,
-                    (cx + half).min(FONT_W),
-                    y + 1,
-                );
-            }
-        }
-        Dir::Down => {
-            for (i, y) in (4..12).enumerate() {
-                let half = (8 - i) / 2 + 1;
-                let cx = FONT_W / 2;
-                fill_rect(
-                    &mut mask,
-                    cx.saturating_sub(half),
-                    y,
-                    (cx + half).min(FONT_W),
-                    y + 1,
-                );
-            }
-        }
-        // Horizontal arrows: widen one column per step.
-        Dir::Left => {
-            for (i, x) in (1..7).enumerate() {
-                let half = i / 2 + 1;
-                let cy = FONT_H / 2;
-                fill_rect(
-                    &mut mask,
-                    x,
-                    cy.saturating_sub(half),
-                    x + 1,
-                    (cy + half).min(FONT_H),
-                );
-            }
-        }
-        Dir::Right => {
-            for (i, x) in (1..7).enumerate() {
-                let half = (6 - i) / 2 + 1;
-                let cy = FONT_H / 2;
-                fill_rect(
-                    &mut mask,
-                    x,
-                    cy.saturating_sub(half),
-                    x + 1,
-                    (cy + half).min(FONT_H),
-                );
-            }
-        }
-    }
     mask
 }
 
@@ -560,10 +282,229 @@ fn write_png<W: Write>(w: &mut W, width: usize, height: usize, rgb: &[u8]) -> io
     write_chunk(w, b"IEND", &[])
 }
 
+/// Every non-ASCII character the framework itself puts on screen, found by
+/// scanning the non-test code in `src/` for `char` and string literals (and
+/// the partial blocks `ProgressStyle::Smooth` computes from `U+2590 - n`).
+/// `◆` is a common slider thumb. U+FE0F (after `ℹ` in the message-box
+/// titles) is zero-width and never reaches a cell, so it is not listed.
+#[cfg(test)]
+const FRAMEWORK_GLYPHS: &str = "•ℹ→√─│┌┐└┘├┤┴═║╔╗╚╝▀▄█░■▲►▼◄◢⚠❌❓▏▎▍▌▋▊▉◆";
+
+/// CP437's graphics characters as Unicode: the symbols in 0x01-0x1F and
+/// 0x7F, and the letters and signs in 0x80-0xFF other than box drawing and
+/// blocks (those are in [`CP437_BOX`] and [`CP437_BLOCKS`]).
+#[cfg(test)]
+const CP437_SYMBOLS: &str = concat!(
+    "☺☻♥♦♣♠•◘○◙♂♀♪♫☼►◄↕‼¶§▬↨↑↓→←∟↔▲▼⌂",
+    "ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜ¢£¥₧ƒáíóúñÑªº¿⌐¬½¼¡«»",
+    "αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■",
+);
+
+/// CP437's box-drawing characters (single, double and mixed).
+#[cfg(test)]
+const CP437_BOX: &str = "─│┌┐└┘├┤┬┴┼═║╒╓╔╕╖╗╘╙╚╛╜╝╞╟╠╡╢╣╤╥╦╧╨╩╪╫╬";
+
+/// CP437's block and shade characters.
+#[cfg(test)]
+const CP437_BLOCKS: &str = "▀▄█▌▐░▒▓";
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::core::palette::TvColor;
+
+    /// Panic with the characters that render as `?` or blank.
+    fn assert_all_drawn(what: &str, chars: impl IntoIterator<Item = char>) {
+        let question = glyph_mask('?');
+        let missing: String = chars
+            .into_iter()
+            .filter(|&c| {
+                let m = glyph_mask(c);
+                m == question || m == [0u8; FONT_H]
+            })
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "{what} drawn as `?` or blank: {missing}"
+        );
+    }
+
+    #[test]
+    fn every_framework_glyph_has_a_bitmap() {
+        assert_all_drawn("framework glyphs", FRAMEWORK_GLYPHS.chars());
+        assert_all_drawn("marks", "◆✓▏▎▍▋▊▉".chars());
+    }
+
+    #[test]
+    fn cp437_repertoire_has_bitmaps() {
+        assert_all_drawn("CP437 symbols", CP437_SYMBOLS.chars());
+        assert_all_drawn("CP437 box drawing", CP437_BOX.chars());
+        assert_all_drawn("CP437 blocks", CP437_BLOCKS.chars());
+    }
+
+    #[test]
+    fn whole_block_range_has_bitmaps() {
+        assert_all_drawn(
+            "blocks U+2580-U+259F",
+            (0x2580..=0x259F).filter_map(char::from_u32),
+        );
+    }
+
+    #[test]
+    fn latin1_letters_have_bitmaps() {
+        // U+00A0 (no-break space) is blank by design; everything after it
+        // is a printable sign or letter.
+        assert_all_drawn("Latin-1", (0xA1..=0xFF).filter_map(char::from_u32));
+    }
+
+    #[test]
+    fn unknown_characters_still_fall_back_to_a_question_mark() {
+        assert_eq!(glyph_mask('\u{4E2D}'), glyph_mask('?'));
+        assert_eq!(glyph_mask('\u{1F600}'), glyph_mask('?'));
+    }
+
+    /// Weight of a box-drawing stroke at one cell edge.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum W {
+        N,
+        S,
+        D,
+    }
+
+    /// The pixels a stroke of `w` sets along an edge 8 (columns) or 16
+    /// (rows) pixels long; what a neighbour cell must match to join it.
+    fn profile(w: W, len: usize) -> Vec<bool> {
+        let on: &[usize] = match (w, len) {
+            (W::N, _) => &[],
+            (W::S, 8) => &[3, 4],
+            (W::D, 8) => &[1, 2, 5, 6],
+            (W::S, _) => &[7, 8],
+            (W::D, _) => &[5, 6, 9, 10],
+        };
+        (0..len).map(|i| on.contains(&i)).collect()
+    }
+
+    fn px(m: &GlyphMask, x: usize, y: usize) -> bool {
+        m[y] >> (7 - x) & 1 != 0
+    }
+
+    #[test]
+    fn box_drawing_joins_at_cell_edges() {
+        use W::{D, N, S};
+        // (char, up, down, left, right)
+        let cases = [
+            ('─', N, N, S, S),
+            ('│', S, S, N, N),
+            ('┌', N, S, N, S),
+            ('┐', N, S, S, N),
+            ('└', S, N, N, S),
+            ('┘', S, N, S, N),
+            ('├', S, S, N, S),
+            ('┤', S, S, S, N),
+            ('┬', N, S, S, S),
+            ('┴', S, N, S, S),
+            ('┼', S, S, S, S),
+            ('═', N, N, D, D),
+            ('║', D, D, N, N),
+            ('╒', N, S, N, D),
+            ('╓', N, D, N, S),
+            ('╔', N, D, N, D),
+            ('╕', N, S, D, N),
+            ('╖', N, D, S, N),
+            ('╗', N, D, D, N),
+            ('╘', S, N, N, D),
+            ('╙', D, N, N, S),
+            ('╚', D, N, N, D),
+            ('╛', S, N, D, N),
+            ('╜', D, N, S, N),
+            ('╝', D, N, D, N),
+            ('╞', S, S, N, D),
+            ('╟', D, D, N, S),
+            ('╠', D, D, N, D),
+            ('╡', S, S, D, N),
+            ('╢', D, D, S, N),
+            ('╣', D, D, D, N),
+            ('╤', N, S, D, D),
+            ('╥', N, D, S, S),
+            ('╦', N, D, D, D),
+            ('╧', S, N, D, D),
+            ('╨', D, N, S, S),
+            ('╩', D, N, D, D),
+            ('╪', S, S, D, D),
+            ('╫', D, D, S, S),
+            ('╬', D, D, D, D),
+        ];
+        for (ch, up, down, left, right) in cases {
+            let m = glyph_mask(ch);
+            let top: Vec<bool> = (0..FONT_W).map(|x| px(&m, x, 0)).collect();
+            let bottom: Vec<bool> = (0..FONT_W).map(|x| px(&m, x, FONT_H - 1)).collect();
+            let west: Vec<bool> = (0..FONT_H).map(|y| px(&m, 0, y)).collect();
+            let east: Vec<bool> = (0..FONT_H).map(|y| px(&m, FONT_W - 1, y)).collect();
+            assert_eq!(top, profile(up, FONT_W), "{ch}: top edge");
+            assert_eq!(bottom, profile(down, FONT_W), "{ch}: bottom edge");
+            assert_eq!(west, profile(left, FONT_H), "{ch}: left edge");
+            assert_eq!(east, profile(right, FONT_H), "{ch}: right edge");
+        }
+    }
+
+    #[test]
+    fn double_tees_open_the_rail_they_branch_from() {
+        // ╠'s right rail turns into the branch: no pixel between the two
+        // horizontal rails on it, unlike ╟, whose rail runs straight down.
+        let tee = glyph_mask('╠');
+        assert!(!px(&tee, 5, 7) && !px(&tee, 5, 8), "╠ inner rail is open");
+        let single = glyph_mask('╟');
+        assert!(px(&single, 5, 7) && px(&single, 5, 8), "╟ rail is closed");
+    }
+
+    #[test]
+    fn distinct_glyphs_look_distinct() {
+        for (a, b) in [
+            ('►', '◄'),
+            ('▲', '▼'),
+            ('é', 'e'),
+            ('è', 'é'),
+            ('ì', 'i'),
+            ('Å', 'A'),
+            ('▏', '▎'),
+            ('▍', '▌'),
+            ('½', '¼'),
+            ('≤', '≥'),
+            ('♂', '♀'),
+            ('√', '✓'),
+            ('◆', '♦'),
+            ('❓', '?'),
+        ] {
+            assert_ne!(glyph_mask(a), glyph_mask(b), "{a} and {b} look the same");
+        }
+    }
+
+    #[test]
+    fn eighth_blocks_grow_by_one_column() {
+        // ▏ ▎ ▍ ▌ ▋ ▊ ▉ █: 1..=8 columns from the left.
+        for (n, ch) in "▏▎▍▌▋▊▉█".chars().enumerate() {
+            let row = (0xFF00u16 >> (n + 1)) as u8;
+            assert_eq!(glyph_mask(ch), [row; FONT_H], "{ch}");
+        }
+    }
+
+    #[test]
+    fn renders_the_new_glyphs_at_the_usual_size() {
+        let attr = Attr::new(TvColor::White, TvColor::Blue);
+        let row: Vec<Cell> = FRAMEWORK_GLYPHS
+            .chars()
+            .chain(CP437_SYMBOLS.chars())
+            .chain(CP437_BOX.chars())
+            .map(|c| Cell::new(c, attr))
+            .collect();
+        let cols = row.len();
+        let path = std::env::temp_dir().join("tv_screenshot_glyphs_test.png");
+        render_to_png(&[row], cols, 1, 2, &path).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        let _ = std::fs::remove_file(&path);
+        assert_eq!(&bytes[16..20], &((cols * FONT_W * 2) as u32).to_be_bytes());
+        assert_eq!(&bytes[20..24], &((FONT_H * 2) as u32).to_be_bytes());
+    }
 
     #[test]
     fn crc32_known_value() {

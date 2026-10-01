@@ -64,6 +64,10 @@ required-features = ["ssh"]
 name = "screenshot"
 required-features = ["native", "screenshot"]
 
+[[example]]
+name = "glyph_sample"
+required-features = ["screenshot"]
+
 [dependencies]
 crossterm = { version = "0.29", optional = true }
 unicode-width = "0.1"

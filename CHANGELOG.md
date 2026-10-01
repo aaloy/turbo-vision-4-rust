@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `screenshot` cargo feature, on by default: the PNG screen capture
   (`core::screenshot`, `Terminal::save_screenshot_png`,
   `Application::take_screenshot`) and its embedded font.
+- The PNG screenshot draws CP437's symbols, box drawing (single, double and
+  mixed) and the whole block range U+2580-U+259F, the Latin-1 letters and
+  signs, and the marks the framework draws (`√ ◆ ✓ ► ◄ ▏…▉`, the message-box
+  icons) instead of `?`. `cargo run --example glyph_sample` renders them to
+  `target/glyph-sample.png`.
 
 ### Changed
 - The PNG screenshot can be turned off: without the `screenshot` feature,

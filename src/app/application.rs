@@ -2175,7 +2175,11 @@ mod capture_tests {
         let before = png_captures();
         for mut event in [Event::keyboard(KB_CTRL_F12), Event::command(CM_SCREENSHOT)] {
             app.handle_event(&mut event);
-            assert_eq!(event.what, EventType::Nothing, "the capture key is consumed");
+            assert_eq!(
+                event.what,
+                EventType::Nothing,
+                "the capture key is consumed"
+            );
         }
         assert_eq!(png_captures(), before, "no PNG file is written");
     }
