@@ -646,6 +646,10 @@ impl Terminal {
     /// after a [`put_event`](Self::put_event) one and before the backend's.
     ///
     /// This is the hook automation and remote-input listeners build on.
+    /// Injected Ctrl+F12 and F12 *key* events are served as captures (see
+    /// [`set_capture_hook`](Self::set_capture_hook)) and are not returned by
+    /// `poll_event`; any other event, including a command whose `key_code`
+    /// happens to collide with those codes, passes through unchanged.
     pub fn event_injector(&mut self) -> std::sync::mpsc::Sender<Event> {
         if let Some(tx) = &self.injected_tx {
             return tx.clone();
@@ -709,17 +713,20 @@ impl Terminal {
         // captured by automation.
         let injected = self.injected_rx.as_ref().and_then(|rx| rx.try_recv().ok());
         if let Some(event) = injected {
-            match event.key_code {
-                crate::core::event::KB_CTRL_F12 => {
-                    self.capture_injected(true);
-                    return Ok(None);
+            if event.what == crate::core::event::EventType::Keyboard {
+                match event.key_code {
+                    crate::core::event::KB_CTRL_F12 => {
+                        self.capture_injected(true);
+                        return Ok(None);
+                    }
+                    crate::core::event::KB_F12 => {
+                        self.capture_injected(false);
+                        return Ok(None);
+                    }
+                    _ => {}
                 }
-                crate::core::event::KB_F12 => {
-                    self.capture_injected(false);
-                    return Ok(None);
-                }
-                _ => return Ok(Some(event)),
             }
+            return Ok(Some(event));
         }
 
         self.backend.poll_event(timeout)
@@ -1217,6 +1224,28 @@ mod tests {
     fn without_a_hook_run_capture_hook_reports_false() {
         let mut t = crate::test_util::test_terminal(20, 10);
         assert!(!t.run_capture_hook(CaptureKind::Png));
+    }
+
+    /// A command event whose `key_code` field happens to collide with
+    /// `KB_F12` (fields are independent; nothing stops a caller from
+    /// constructing one) must not be swallowed as a capture chord — only an
+    /// actual keyboard event triggers the capture interception.
+    #[test]
+    fn a_command_event_with_a_colliding_key_code_is_not_swallowed() {
+        use crate::core::event::KB_F12;
+
+        let mut t = crate::test_util::test_terminal(20, 10);
+        let tx = t.event_injector();
+        let mut cmd_event = Event::command(1234);
+        cmd_event.key_code = KB_F12;
+        tx.send(cmd_event).unwrap();
+
+        let polled = t
+            .poll_event(std::time::Duration::ZERO)
+            .unwrap()
+            .expect("the command event should be returned, not swallowed");
+        assert_eq!(polled.what, crate::core::event::EventType::Command);
+        assert_eq!(polled.command, 1234);
     }
 
     #[test]
