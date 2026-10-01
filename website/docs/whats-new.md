@@ -10,12 +10,12 @@ checklist. Moving from 3.0.0 instead uses [the 3.0 upgrade guide](reference/upgr
 SSH, remote input, Kitty/ANSI graphics, the log window and terminal widget, and the
 `turbo-vision-extras` crate all leave core for a new crate,
 [tv-extensions](https://github.com/aovestdipaperino/tv-extensions), which versions on its own pace
-so core can stay small and stable. Nothing about `View`, `Application` or `Terminal` itself
-changed shape — every item either moved verbatim or was folded into a core control that already
-existed (`ComboBox`, `Spinner`, `TabbedPane`, `ProgressBar`, `Slider`; `GridView` becomes `Table` +
-`RowProvider`, `VirtualListBox` becomes `ListBox` + `ListProvider`). [The 4.0 upgrade
-guide](reference/upgrading-4.0.md) is the ordered list of what to change, with the exact `use`
-line for every moved item.
+so core can stay small and stable. Apart from the removed methods listed below, nothing about
+`View`, `Application` or `Terminal` itself changed shape — every item either moved verbatim or was
+folded into a core control that already existed (`ComboBox`, `Spinner`, `TabbedPane`, `ProgressBar`,
+`Slider`; `GridView` becomes `Table` + `RowProvider`, `VirtualListBox` becomes `ListBox` +
+`ListProvider`). [The 4.0 upgrade guide](reference/upgrading-4.0.md) is the ordered list of what to
+change, with the exact `use` line for every moved item.
 
 ## 3.1.0 &mdash; October 2026
 

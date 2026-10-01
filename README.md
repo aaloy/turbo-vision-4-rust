@@ -210,7 +210,7 @@ For practical application development:
 1. **[Custom Application Example](docs/CUSTOM-APPLICATION-RUST-EXAMPLE.md)** - Complete walkthrough
 2. **[Biorhythm Calculator Tutorial](docs/BIORHYTHM-CALCULATOR-TUTORIAL.md)** - Build a real app step-by-step
 3. **[examples/showcase.rs](examples/showcase.rs)** - Study the comprehensive demo
-4. **[pascal_ide source](demo/pascal_ide.rs)** - See a production-ready editor
+4. **[pascal_ide source](examples/pascal_ide.rs)** - See a production-ready editor
 
 ### 🔧 Coming from Borland/C++ Turbo Vision?
 
