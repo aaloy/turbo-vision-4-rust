@@ -1,6 +1,3 @@
-[workspace]
-members = [".", "extras"]
-
 [package]
 name = "turbo-vision"
 version = "3.1.0"
