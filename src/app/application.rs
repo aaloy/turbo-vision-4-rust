@@ -902,9 +902,7 @@ impl Application {
                     return;
                 }
                 KB_CTRL_F12 => {
-                    if !self.terminal.run_capture_hook(CaptureKind::Png) {
-                        self.take_screenshot();
-                    }
+                    self.capture_png();
                     event.clear();
                     return;
                 }
@@ -995,9 +993,7 @@ impl Application {
                     event.clear();
                 }
                 CM_SCREENSHOT => {
-                    if !self.terminal.run_capture_hook(CaptureKind::Png) {
-                        self.take_screenshot();
-                    }
+                    self.capture_png();
                     event.clear();
                 }
                 crate::core::command::CM_SHOW_HISTORY => {
@@ -1060,12 +1056,28 @@ impl Application {
         Ok(())
     }
 
+    /// Serve Ctrl+F12 / `CM_SCREENSHOT`: the capture hook if one is
+    /// installed, otherwise the built-in PNG screenshot. Without the
+    /// `screenshot` feature there is no built-in one, and only the hook runs.
+    fn capture_png(&mut self) {
+        if self.terminal.run_capture_hook(CaptureKind::Png) {
+            return;
+        }
+        #[cfg(feature = "screenshot")]
+        self.take_screenshot();
+        #[cfg(not(feature = "screenshot"))]
+        log::debug!("PNG screenshots are not built in (the `screenshot` feature is off)");
+    }
+
     /// Save a PNG screenshot of the current screen (bound to Ctrl+F12).
+    ///
+    /// Needs the `screenshot` feature (on by default).
     ///
     /// The file is written to the current working directory with a
     /// timestamped name like `screenshot-20260607-194800.png`. Rendering
     /// queries the current font cell size; see
     /// [`Terminal::save_screenshot_png`](crate::terminal::Terminal::save_screenshot_png).
+    #[cfg(feature = "screenshot")]
     pub fn take_screenshot(&mut self) {
         let filename = format!(
             "screenshot-{}.png",
@@ -2139,6 +2151,33 @@ mod capture_tests {
             *seen.lock().unwrap(),
             vec![CaptureKind::Png, CaptureKind::Ansi, CaptureKind::Png]
         );
+    }
+
+    /// The PNG captures in the working directory, where the built-in
+    /// screenshot would write one.
+    #[cfg(not(feature = "screenshot"))]
+    fn png_captures() -> Vec<std::path::PathBuf> {
+        std::fs::read_dir(".")
+            .unwrap()
+            .filter_map(|entry| entry.ok().map(|e| e.path()))
+            .filter(|p| {
+                p.file_name()
+                    .and_then(|n| n.to_str())
+                    .is_some_and(|n| n.starts_with("screenshot-") && n.ends_with(".png"))
+            })
+            .collect()
+    }
+
+    #[test]
+    #[cfg(not(feature = "screenshot"))]
+    fn without_the_screenshot_feature_png_capture_does_nothing() {
+        let mut app = Application::with_terminal(crate::test_util::test_terminal(80, 25));
+        let before = png_captures();
+        for mut event in [Event::keyboard(KB_CTRL_F12), Event::command(CM_SCREENSHOT)] {
+            app.handle_event(&mut event);
+            assert_eq!(event.what, EventType::Nothing, "the capture key is consumed");
+        }
+        assert_eq!(png_captures(), before, "no PNG file is written");
     }
 }
 

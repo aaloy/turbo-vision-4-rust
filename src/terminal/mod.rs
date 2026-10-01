@@ -744,9 +744,19 @@ impl Terminal {
         }
         let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
         let (name, result) = if png {
-            let name = format!("screenshot-{stamp}.png");
-            let r = self.save_screenshot_png(&name);
-            (name, r)
+            #[cfg(not(feature = "screenshot"))]
+            {
+                log::debug!(
+                    "Remote input: PNG screenshots are not built in (the `screenshot` feature is off)"
+                );
+                return;
+            }
+            #[cfg(feature = "screenshot")]
+            {
+                let name = format!("screenshot-{stamp}.png");
+                let r = self.save_screenshot_png(&name);
+                (name, r)
+            }
         } else {
             let name = format!("screen-{stamp}.ans");
             let r = self.dump_screen(&name);
@@ -800,9 +810,12 @@ impl Terminal {
     /// back to 1x when the terminal does not report pixel sizes. See
     /// [`crate::core::screenshot`] for rendering details.
     ///
+    /// Needs the `screenshot` feature (on by default).
+    ///
     /// # Errors
     ///
     /// Returns an error if the file cannot be created or written.
+    #[cfg(feature = "screenshot")]
     pub fn save_screenshot_png(&self, path: &str) -> io::Result<()> {
         use crate::core::screenshot::{self, GLYPH_HEIGHT};
         // Pick the integer scale whose glyph height is closest to the real cell

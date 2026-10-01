@@ -59,6 +59,7 @@ pub mod keys;
 pub mod menu_data;
 pub mod palette;
 pub mod palette_chain;
+#[cfg(feature = "screenshot")]
 pub mod screenshot;
 pub mod state;
 pub mod status_data;

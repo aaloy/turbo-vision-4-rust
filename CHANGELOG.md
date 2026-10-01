@@ -17,8 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extension hooks on `Terminal`: `event_injector`, `set_capture_hook` /
   `clear_capture_hook` / `run_capture_hook` with `CaptureKind`, and
   `write_raw`. `terminal::InputParser` no longer needs the `ssh` feature.
+- `screenshot` cargo feature, on by default: the PNG screen capture
+  (`core::screenshot`, `Terminal::save_screenshot_png`,
+  `Application::take_screenshot`) and its embedded font.
 
 ### Changed
+- The PNG screenshot can be turned off: without the `screenshot` feature,
+  Ctrl+F12 and `CM_SCREENSHOT` run the capture hook if one is installed and
+  otherwise do nothing. The ANSI dump (F12, `dump_screen`, `dump_region`) is
+  always built. The wasm build (`--no-default-features`) leaves it out.
 - `Table::selected_cell` returns `Option<String>`, and
   `ListBox::get_selected_item` / `marked_text` return owned strings, because
   rows and items can now come from a provider. Add `.as_deref()` where a

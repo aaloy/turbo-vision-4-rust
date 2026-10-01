@@ -91,6 +91,7 @@ The built-in file dialog with directory navigation, file list, and keyboard/mous
 - **Modal Dialogs**: Built-in support for modal dialog execution
 - **Focus Management**: Tab navigation and keyboard shortcuts
 - **Screen Capture**: F12 saves an ASCII (ANSI) dump of the whole screen; Ctrl+F12 saves a PNG screenshot. Programmatic dumps of screen/views/regions via `dump_screen`/`dump_region`/`dump_to_file`
+- **`screenshot` Feature** (on by default): the PNG capture and its embedded 8x16 font; build with `--no-default-features --features native` to leave it out (F12 dumps and the capture hook still work)
 
 ## Quick Start
 

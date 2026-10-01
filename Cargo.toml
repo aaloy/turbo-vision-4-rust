@@ -36,10 +36,12 @@ name = "turbo_vision"
 path = "src/lib.rs"
 
 [features]
-default = ["native"]
+default = ["native", "screenshot"]
 # A real terminal: the crossterm backend and the OS clipboard. Off for an
 # embedder that supplies its own backend, such as a WASM guest.
 native = ["dep:crossterm", "dep:arboard"]
+# PNG screen captures (Ctrl+F12): the 8x16 renderer and its embedded font.
+screenshot = []
 # Test utilities for applications using turbo-vision
 test-util = []
 # SSH server support for serving TUI applications over SSH
@@ -56,6 +58,11 @@ required-features = ["native"]
 [[example]]
 name = "ssh_server"
 required-features = ["ssh"]
+
+# The screenshot example demonstrates the PNG capture (Ctrl+F12).
+[[example]]
+name = "screenshot"
+required-features = ["native", "screenshot"]
 
 [dependencies]
 crossterm = { version = "0.29", optional = true }
