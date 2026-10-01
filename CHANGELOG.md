@@ -33,6 +33,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ctrl+F12, F12 and `CM_SCREENSHOT` run the capture hook when one is set,
   instead of the built-in capture.
 
+### Fixed
+- **A `ComboBox` inside a dialog or window opened its list near the
+  terminal's top-left corner** (#112). The popup was placed with the
+  control's owner-relative bounds; the open request now carries the field's
+  position up through its owners, as `History` does, and the list opens under
+  the field.
+
 ## [3.0.1] - 2026-09-17
 
 ### Fixed

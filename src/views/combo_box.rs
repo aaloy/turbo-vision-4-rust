@@ -68,7 +68,9 @@ pub struct ComboState {
     pub items: Vec<String>,
     /// Index into `items`, or `None` when nothing is chosen.
     pub selected: Option<usize>,
-    /// Screen rect of the field, so the popup can be placed under it.
+    /// Screen rect of the field, filled in when the list opens, so the popup
+    /// can be placed under it. Between openings it holds the control's
+    /// owner-relative bounds, of which only the size is used.
     pub field: Rect,
 }
 
@@ -231,11 +233,15 @@ impl ComboBox {
 
     /// Build the command event that asks the dialog to open the list.
     ///
-    /// The field rect travels in the shared state, so the event only needs to
-    /// name the control.
+    /// The event names the control and carries the field's top-left in the
+    /// control's own space, (0, 0). Every owner adds its child's origin as the
+    /// event travels back up (`dispatch_to_child`), so by the time the dialog
+    /// loop or the application sees the command, `mouse.pos` is the field's
+    /// screen position, the same way `History` reports its anchor.
     fn open_request(&self) -> Event {
         let mut event = Event::command(CM_SHOW_DROPDOWN);
         event.info = self.id;
+        event.mouse.pos = Point::new(0, 0);
         event
     }
 }

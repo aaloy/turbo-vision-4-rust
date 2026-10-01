@@ -183,7 +183,9 @@ impl Dialog {
 ///
 /// The combo box registered its items under `event.info`; the popup writes the
 /// user's choice straight back into that shared state, so nothing needs to be
-/// broadcast afterwards. An unknown id is ignored, which is what happens when
+/// broadcast afterwards. `event.mouse.pos` must be the field's top-left in
+/// screen space, which it is once the command has bubbled up to whoever owns
+/// the terminal. An unknown id is ignored, which is what happens when
 /// the control was dropped between the click and this call.
 ///
 /// Free function rather than a method because `Application` runs the same step
@@ -192,6 +194,16 @@ pub(crate) fn show_dropdown_popup(event: &mut Event, terminal: &mut Terminal) {
     use crate::views::combo_box::{DropdownWindow, lookup};
 
     if let Some(state) = lookup(event.info) {
+        // The command arrives with the field's screen position in
+        // `mouse.pos` (see `ComboBox::open_request`); the shared state only
+        // knows the field's owner-relative bounds, so keep their size and
+        // place it there.
+        {
+            let mut s = state.borrow_mut();
+            let p = event.mouse.pos;
+            let (fw, fh) = (s.field.width(), s.field.height());
+            s.field = Rect::new(p.x, p.y, p.x + fw, p.y + fh);
+        }
         let (w, h) = terminal.size();
         let screen = Rect::new(0, 0, w as i16, h as i16);
         DropdownWindow::new(state, screen).execute(terminal);

@@ -2047,3 +2047,97 @@ mod capture_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod dropdown_tests {
+    use super::*;
+    use crate::core::event::{KB_ESC, KB_F4, MB_LEFT_BUTTON};
+    use crate::core::geometry::Point;
+    use crate::views::combo_box::ComboBox;
+    use crate::views::dialog::Dialog;
+    use crate::views::group::GroupLike;
+
+    /// An application with a menu bar, so the desktop starts at row 1 and a
+    /// mistake in any owner's origin shows up in the popup anchor.
+    fn app() -> Application {
+        let mut app = Application::with_terminal(crate::test_util::test_terminal(80, 25));
+        app.set_menu_bar(MenuBar::new(Rect::new(0, 0, 80, 1)));
+        app
+    }
+
+    fn combo(id: u16) -> ComboBox {
+        ComboBox::with_items(
+            Rect::new(2, 2, 22, 3),
+            id,
+            vec!["one".into(), "two".into(), "three".into()],
+        )
+    }
+
+    /// Screen rect of the 20-cell field, measured from where its drop arrow
+    /// was drawn (the arrow owns the field's last cell).
+    fn drawn_field(app: &Application) -> Rect {
+        let (w, h) = app.terminal.size();
+        for y in 0..h as i16 {
+            for x in 0..w as i16 {
+                if app.terminal.read_cell(x, y).unwrap().ch == '\u{25BC}' {
+                    return Rect::new(x - 19, y, x + 1, y + 1);
+                }
+            }
+        }
+        panic!("the combo box arrow was not drawn");
+    }
+
+    #[test]
+    fn the_popup_opens_under_the_field_inside_a_dialog() {
+        let mut app = app();
+        let mut dialog = Dialog::new(Rect::new(10, 5, 50, 15), "D");
+        let c = combo(9701);
+        let state = c.state();
+        dialog.add(c);
+
+        // F4 opens the list; Esc closes it; Esc ends the dialog.
+        let tx = app.terminal.event_injector();
+        tx.send(Event::keyboard(KB_F4)).unwrap();
+        tx.send(Event::keyboard(KB_ESC)).unwrap();
+        tx.send(Event::keyboard(KB_ESC)).unwrap();
+        assert_eq!(dialog.execute(&mut app), CM_CANCEL);
+
+        // The last frame drawn before the dialog ended shows the field.
+        let field = drawn_field(&app);
+        assert!(
+            field.a.x > 10 && field.a.y > 5,
+            "drawn inside the dialog: {field:?}"
+        );
+        assert_eq!(
+            state.borrow().field,
+            field,
+            "popup anchored on the field's screen rect"
+        );
+    }
+
+    #[test]
+    fn the_popup_opens_under_the_field_of_a_window_on_the_desktop() {
+        let mut app = app();
+        let mut dialog = Dialog::new(Rect::new(10, 5, 50, 15), "D");
+        let c = combo(9702);
+        let state = c.state();
+        dialog.add(c);
+        app.desktop.add(dialog);
+        app.draw();
+        let field = drawn_field(&app);
+
+        let tx = app.terminal.event_injector();
+        tx.send(Event::keyboard(KB_ESC)).unwrap(); // closes the popup
+        let mut ev = Event::keyboard(KB_F4);
+        app.handle_event(&mut ev);
+        assert_eq!(state.borrow().field, field);
+
+        // A click anywhere on the field anchors on the field, not the pointer.
+        state.borrow_mut().field = Rect::new(0, 0, 20, 1);
+        tx.send(Event::keyboard(KB_ESC)).unwrap();
+        let at = Point::new(field.a.x + 5, field.a.y);
+        let mut down = Event::mouse(EventType::MouseDown, at, MB_LEFT_BUTTON, false);
+        app.handle_event(&mut down);
+        assert_eq!(state.borrow().field, field);
+    }
+}
