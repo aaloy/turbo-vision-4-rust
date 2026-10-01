@@ -11,6 +11,9 @@
 //! between columns, and the grid scrolls in both directions to keep the focused
 //! cell on screen.
 //!
+//! Rows come from `set_rows`, or lazily from a [`RowProvider`] given to
+//! [`Table::set_provider`], which asks only for the rows on screen.
+//!
 //! # Keys
 //!
 //! | Key | Action |
@@ -94,11 +97,50 @@ impl Column {
     }
 }
 
+/// A source of rows a [`Table`] reads only as it draws them, so a table can
+/// browse more rows than would fit in memory as strings.
+///
+/// `cell` is only asked for rows below `rows()` and columns the table has.
+/// A provider whose length changes must be followed by
+/// [`Table::refresh_rows`].
+pub trait RowProvider {
+    /// How many rows there are.
+    fn rows(&self) -> usize;
+    /// The text of one cell.
+    fn cell(&self, row: usize, col: usize) -> String;
+}
+
+/// Where a table's rows come from.
+enum Rows {
+    /// Rows held by the table, as `set_rows` and `add_row` give them.
+    Owned(Vec<Vec<String>>),
+    /// Rows read on demand.
+    Provided(Box<dyn RowProvider>),
+}
+
+impl Rows {
+    fn len(&self) -> usize {
+        match self {
+            Rows::Owned(rows) => rows.len(),
+            Rows::Provided(p) => p.rows(),
+        }
+    }
+
+    /// The cell, or `None` past the end of the row (an owned ragged row) or
+    /// of the table.
+    fn get(&self, row: usize, col: usize) -> Option<String> {
+        match self {
+            Rows::Owned(rows) => rows.get(row)?.get(col).cloned(),
+            Rows::Provided(p) => (row < p.rows()).then(|| p.cell(row, col)),
+        }
+    }
+}
+
 /// A scrollable grid of rows and sized columns.
 pub struct Table {
     core: ViewCore,
     columns: Vec<Column>,
-    rows: Vec<Vec<String>>,
+    rows: Rows,
     /// Row focus and vertical scrolling, shared with the other list views.
     list_state: ListViewerState,
     /// Index of the focused column.
@@ -124,7 +166,7 @@ impl Table {
                 ..ViewCore::default()
             },
             columns: Vec::new(),
-            rows: Vec::new(),
+            rows: Rows::Owned(Vec::new()),
             list_state: ListViewerState::new(),
             focused_col: 0,
             first_col: 0,
@@ -151,27 +193,45 @@ impl Table {
     /// missing cells draw blank and extra cells are ignored, so a ragged row
     /// never panics.
     pub fn set_rows(&mut self, rows: Vec<Vec<String>>) {
-        self.rows = rows;
+        self.rows = Rows::Owned(rows);
         self.list_state.set_range(self.rows.len());
         self.scroll_row_into_view();
     }
 
-    /// Append one row.
+    /// Append one row. On a provider-backed table this starts a new
+    /// in-memory list holding just this row.
     pub fn add_row(&mut self, row: Vec<String>) {
-        self.rows.push(row);
+        match &mut self.rows {
+            Rows::Owned(rows) => rows.push(row),
+            Rows::Provided(_) => self.rows = Rows::Owned(vec![row]),
+        }
         self.list_state.set_range(self.rows.len());
     }
 
     /// Drop every row, keeping the columns.
     pub fn clear_rows(&mut self) {
-        self.rows.clear();
+        self.rows = Rows::Owned(Vec::new());
         self.list_state.set_range(0);
         self.first_col = 0;
     }
 
-    /// Number of rows.
+    /// Read rows from `provider` instead of an in-memory list. The focus is
+    /// kept where it was, clamped to the new length.
+    pub fn set_provider(&mut self, provider: Box<dyn RowProvider>) {
+        self.rows = Rows::Provided(provider);
+        self.refresh_rows();
+    }
+
+    /// Re-read the row count, after a provider's source has grown or shrunk.
+    pub fn refresh_rows(&mut self) {
+        self.list_state.set_range(self.rows.len());
+        self.scroll_row_into_view();
+    }
+
+    /// Number of rows. Cached from the row source at the last `set_rows`,
+    /// `add_row`, `set_provider` or `refresh_rows`.
     pub fn row_count(&self) -> usize {
-        self.rows.len()
+        self.list_state.range
     }
 
     /// Index of the focused row.
@@ -185,14 +245,13 @@ impl Table {
     }
 
     /// Text of the focused cell, if there is one.
-    pub fn selected_cell(&self) -> Option<&str> {
-        let row = self.rows.get(self.list_state.focused?)?;
-        row.get(self.focused_col).map(|s| &**s)
+    pub fn selected_cell(&self) -> Option<String> {
+        self.rows.get(self.list_state.focused?, self.focused_col)
     }
 
     /// Focus a row, clamped to the rows that exist.
     pub fn set_selected_row(&mut self, row: usize) {
-        if self.rows.is_empty() {
+        if self.rows.len() == 0 {
             return;
         }
         let row = row.min(self.rows.len() - 1);
@@ -329,7 +388,7 @@ impl Table {
 
     /// Move the focused row by `delta`, clamping at both ends.
     fn move_row(&mut self, delta: i32) {
-        if self.rows.is_empty() {
+        if self.rows.len() == 0 {
             return;
         }
         let last = self.rows.len() as i32 - 1;
@@ -465,10 +524,13 @@ impl ListViewer for Table {
     /// The table draws itself column by column and never calls this; it exists
     /// so a `Table` satisfies the same contract as the other list views.
     fn get_text(&self, item: usize, max_len: usize) -> String {
-        let Some(row) = self.rows.get(item) else {
+        if item >= self.rows.len() {
             return String::new();
-        };
-        let joined = row.join(" ");
+        }
+        let joined = (0..self.columns.len())
+            .filter_map(|col| self.rows.get(item, col))
+            .collect::<Vec<_>>()
+            .join(" ");
         joined.chars().take(max_len).collect()
     }
 }
@@ -549,11 +611,11 @@ impl View for Table {
             // as one bar, as ListBox draws its selected item.
             buf.move_char(0, ' ', row_attr, width);
 
-            if let Some(row) = self.rows.get(row_index) {
+            if row_index < self.rows.len() {
                 self.write_row(
                     &mut buf,
                     width,
-                    |i| row.get(i).cloned().unwrap_or_default(),
+                    |i| self.rows.get(row_index, i).unwrap_or_default(),
                     |i| {
                         // Within the selected row the focused cell is marked
                         // while the table has focus, so Left and Right show.
@@ -760,7 +822,7 @@ mod tests {
         let t = table(3);
         assert_eq!(t.selected_row(), Some(0));
         assert_eq!(t.selected_col(), 0);
-        assert_eq!(t.selected_cell(), Some("file0"));
+        assert_eq!(t.selected_cell().as_deref(), Some("file0"));
     }
 
     #[test]
@@ -785,7 +847,7 @@ mod tests {
         assert_eq!(t.selected_row(), Some(1));
         press(&mut t, KB_RIGHT);
         assert_eq!(t.selected_col(), 1);
-        assert_eq!(t.selected_cell(), Some("10"));
+        assert_eq!(t.selected_cell().as_deref(), Some("10"));
 
         for _ in 0..10 {
             press(&mut t, KB_RIGHT);
@@ -1066,5 +1128,107 @@ mod tests {
             .separators(true)
             .build();
         assert!(t.separators());
+    }
+
+    use std::cell::Cell as Counter;
+    use std::rc::Rc;
+
+    /// Row `n` is `[n, n²]`; counts how many cells were asked for.
+    struct Squares {
+        rows: usize,
+        calls: Rc<Counter<usize>>,
+    }
+
+    impl RowProvider for Squares {
+        fn rows(&self) -> usize {
+            self.rows
+        }
+        fn cell(&self, row: usize, col: usize) -> String {
+            self.calls.set(self.calls.get() + 1);
+            match col {
+                0 => row.to_string(),
+                1 => (row * row).to_string(),
+                _ => String::new(),
+            }
+        }
+    }
+
+    fn squares(rows: usize) -> (Table, Rc<Counter<usize>>) {
+        let calls = Rc::new(Counter::new(0));
+        let mut t = Table::new(Rect::new(0, 0, 30, 6), 0);
+        t.set_columns(vec![Column::new("N", 10), Column::right("N2", 12)]);
+        t.set_provider(Box::new(Squares { rows, calls: Rc::clone(&calls) }));
+        t.set_state(State::FOCUSED);
+        (t, calls)
+    }
+
+    #[test]
+    fn a_provider_supplies_rows_lazily() {
+        let (mut t, calls) = squares(1_000_000);
+        assert_eq!(t.row_count(), 1_000_000);
+        t.set_selected_row(999_999);
+        assert_eq!(t.selected_cell().as_deref(), Some("999999"));
+
+        calls.set(0);
+        let term = draw(&mut t, 30, 6);
+        // Five visible rows times two columns, never the whole source.
+        assert!(calls.get() <= 10, "asked for {} cells", calls.get());
+        let shown = (1..6).any(|y| {
+            let line: String = (0..10).map(|x| ch(&term, x, y)).collect();
+            line.trim_end() == "999999"
+        });
+        assert!(shown, "the focused last row is on screen");
+    }
+
+    #[test]
+    fn a_shorter_provider_clamps_the_focus() {
+        let (mut t, _) = squares(100);
+        t.set_selected_row(99);
+        t.set_provider(Box::new(Squares { rows: 3, calls: Rc::new(Counter::new(0)) }));
+        assert_eq!(t.selected_row(), Some(2));
+        // Drawing after the swap must not index past the new end.
+        let term = draw(&mut t, 30, 6);
+        assert!(ch(&term, 0, 1).is_ascii_digit());
+    }
+
+    #[test]
+    fn refresh_rows_picks_up_a_grown_source() {
+        struct Growing(Rc<Counter<usize>>);
+        impl RowProvider for Growing {
+            fn rows(&self) -> usize {
+                self.0.get()
+            }
+            fn cell(&self, row: usize, _col: usize) -> String {
+                row.to_string()
+            }
+        }
+        let len = Rc::new(Counter::new(2));
+        let mut t = Table::new(Rect::new(0, 0, 30, 6), 0);
+        t.set_columns(vec![Column::new("N", 10)]);
+        t.set_provider(Box::new(Growing(Rc::clone(&len))));
+        len.set(5);
+        assert_eq!(t.row_count(), 2, "cached until refreshed");
+        t.refresh_rows();
+        assert_eq!(t.row_count(), 5);
+    }
+
+    #[test]
+    fn set_rows_and_add_row_replace_a_provider() {
+        let (mut t, _) = squares(10);
+        t.add_row(vec!["only".into(), "row".into()]);
+        assert_eq!(t.row_count(), 1);
+        assert_eq!(t.selected_cell().as_deref(), Some("only"));
+
+        let (mut t, _) = squares(10);
+        t.set_rows(vec![vec!["a".into()], vec!["b".into()]]);
+        assert_eq!(t.row_count(), 2);
+    }
+
+    #[test]
+    fn a_ragged_owned_row_still_reports_no_cell() {
+        let mut t = table(1);
+        t.set_rows(vec![vec!["short".into()]]);
+        t.set_selected_col(2);
+        assert_eq!(t.selected_cell(), None);
     }
 }
