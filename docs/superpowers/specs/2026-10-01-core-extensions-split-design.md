@@ -53,20 +53,28 @@ Additions:
   drew in that gap. This is the logic of `tv_extensions::Grid`, moved in.
 - `table::RowProvider` trait (`rows()`, `cell(row, col)`) and
   `Table::set_provider(Box<dyn RowProvider>)`. When a provider is set, rows
-  are fetched lazily and `set_rows`/`add_row` replace it with an in-memory
-  `VecRowProvider`. The existing API keeps working unchanged.
+  are fetched lazily; `set_rows`/`add_row` switch back to in-memory rows
+  (`add_row` on a provider-backed table starts a new list). `refresh_rows()`
+  re-reads a provider whose length changed. The existing API keeps working
+  unchanged, except `selected_cell` now returns `Option<String>` instead of
+  `Option<&str>`, since a selected cell can come from a provider.
 - `listbox::ListProvider` trait (`len()`, `item(i)`) and
-  `ListBox::set_provider(Box<dyn ListProvider>)`. Same rules as `Table`.
+  `ListBox::set_provider(Box<dyn ListProvider>)`. Same rules as `Table`,
+  plus `refresh_items()`. `get_selected_item`/`marked_text` return owned
+  strings for the same reason `selected_cell` does.
 - `views::slider::Slider`, moved from extras. It uses palette mapping like
-  the other core controls, so it draws correctly in a `Dialog`.
+  the other core controls, so it draws correctly in a `Dialog`. Its thumb
+  is `■`, a CP437 glyph.
 - Extension hooks, the only new public surface the extensions need:
   - `Terminal::event_injector() -> Sender<Event>`, a public way to queue
     events from another thread. This replaces the private remote-input
     channel.
-  - `Terminal::set_capture_hook(Box<dyn FnMut(CaptureKind, &[Vec<Cell>])>)`,
-    with `CaptureKind::{Png, Ansi}`. `Application` calls it on Ctrl+F12 and
-    F12 instead of `take_screenshot`/`dump_screen_ansi`. With no hook set,
-    the keys do nothing.
+  - `Terminal::set_capture_hook(Box<dyn FnMut(CaptureKind, &Terminal)>)`,
+    with `CaptureKind::{Png, Ansi}` (the PNG renderer needs the font-size
+    query as well as the cells), plus `clear_capture_hook` and
+    `run_capture_hook`. `Application` calls it on Ctrl+F12 and F12 instead
+    of `take_screenshot`/`dump_screen_ansi`. With no hook set, the built-in
+    capture still runs.
   - `Terminal::write_raw(&[u8])`, a passthrough to the backend for protocols
     such as Kitty graphics.
   - `terminal::InputParser` exported unconditionally instead of only under
