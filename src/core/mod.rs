@@ -45,7 +45,6 @@
 //! }
 //! ```
 
-pub mod ansi;
 pub mod ansi_dump;
 pub mod clipboard;
 pub mod command;

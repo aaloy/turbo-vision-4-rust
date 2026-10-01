@@ -63,7 +63,6 @@
 //! window.add(button);
 //! ```
 
-pub mod ansi_background;
 pub mod background;
 pub mod button;
 pub mod chdir_dialog;
@@ -96,7 +95,6 @@ pub mod history_viewer;
 pub mod history_window;
 pub mod indicator;
 pub mod input_line;
-pub mod kitty_image;
 pub mod label;
 pub mod list_viewer;
 pub mod listbox;
