@@ -57,7 +57,6 @@ mod backend;
 mod crossterm_backend;
 pub mod remote_input;
 
-#[cfg(feature = "ssh")]
 mod input_parser;
 #[cfg(feature = "ssh")]
 mod ssh_backend;
@@ -66,7 +65,6 @@ pub use backend::{Backend, Capabilities};
 #[cfg(feature = "native")]
 pub use crossterm_backend::{CrosstermBackend, restore_terminal};
 
-#[cfg(feature = "ssh")]
 pub use input_parser::InputParser;
 #[cfg(feature = "ssh")]
 pub use ssh_backend::{SshBackend, SshSessionBuilder, SshSessionHandle};
@@ -894,6 +892,17 @@ impl Terminal {
         self.backend.capabilities()
     }
 
+    /// Send bytes straight to the terminal, bypassing the cell buffer, and
+    /// flush. For protocols drawn outside the cells, such as Kitty graphics.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the backend cannot write or flush.
+    pub fn write_raw(&mut self, data: &[u8]) -> io::Result<()> {
+        self.backend.write_raw(data)?;
+        self.backend.flush()
+    }
+
     /// Write raw Kitty graphics protocol data to the terminal.
     ///
     /// This method sends data directly to the terminal without buffering,
@@ -915,8 +924,7 @@ impl Terminal {
     /// terminal.write_kitty_graphics(b"\x1b_Ga=T,f=100;...\x1b\\")?;
     /// ```
     pub fn write_kitty_graphics(&mut self, data: &[u8]) -> io::Result<()> {
-        self.backend.write_raw(data)?;
-        self.backend.flush()
+        self.write_raw(data)
     }
 
     /// Check if the terminal supports Kitty graphics protocol.
@@ -1233,5 +1241,24 @@ mod tests {
         );
         assert!(t.clear_capture_hook().is_some());
         assert!(!t.run_capture_hook(CaptureKind::Png));
+    }
+
+    #[test]
+    fn write_raw_reaches_the_backend_unchanged() {
+        let written = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let mut terminal = Terminal::with_backend(Box::new(RecordingBackend {
+            written: std::sync::Arc::clone(&written),
+        }))
+        .unwrap();
+        written.lock().unwrap().clear();
+        terminal.write_raw(b"\x1b_Ga=d\x1b\\").unwrap();
+        assert_eq!(&*written.lock().unwrap(), b"\x1b_Ga=d\x1b\\");
+    }
+
+    #[test]
+    fn input_parser_is_available_without_ssh() {
+        let mut parser = InputParser::new();
+        let events = parser.parse(b"a");
+        assert_eq!(events.len(), 1);
     }
 }
