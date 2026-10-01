@@ -2026,11 +2026,13 @@ mod capture_tests {
 
     #[test]
     fn capture_keys_run_the_capture_hook() {
+        use std::sync::{Arc, Mutex};
+
         let mut app = Application::with_terminal(crate::test_util::test_terminal(80, 25));
-        let seen = Rc::new(RefCell::new(Vec::new()));
-        let log = Rc::clone(&seen);
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let log = Arc::clone(&seen);
         app.terminal
-            .set_capture_hook(Box::new(move |kind, _| log.borrow_mut().push(kind)));
+            .set_capture_hook(Box::new(move |kind, _| log.lock().unwrap().push(kind)));
 
         for mut event in [
             Event::keyboard(KB_CTRL_F12),
@@ -2039,6 +2041,9 @@ mod capture_tests {
         ] {
             app.handle_event(&mut event);
         }
-        assert_eq!(*seen.borrow(), vec![CaptureKind::Png, CaptureKind::Ansi, CaptureKind::Png]);
+        assert_eq!(
+            *seen.lock().unwrap(),
+            vec![CaptureKind::Png, CaptureKind::Ansi, CaptureKind::Png]
+        );
     }
 }

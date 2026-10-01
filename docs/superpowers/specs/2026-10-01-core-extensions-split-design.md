@@ -69,7 +69,7 @@ Additions:
   - `Terminal::event_injector() -> Sender<Event>`, a public way to queue
     events from another thread. This replaces the private remote-input
     channel.
-  - `Terminal::set_capture_hook(Box<dyn FnMut(CaptureKind, &Terminal)>)`,
+  - `Terminal::set_capture_hook(Box<dyn FnMut(CaptureKind, &Terminal) + Send>)`,
     with `CaptureKind::{Png, Ansi}` (the PNG renderer needs the font-size
     query as well as the cells), plus `clear_capture_hook` and
     `run_capture_hook`. `Application` calls it on Ctrl+F12 and F12 instead

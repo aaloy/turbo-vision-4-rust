@@ -137,7 +137,7 @@ pub enum CaptureKind {
 
 /// Called with the kind of capture and the terminal to capture. Install one
 /// with [`Terminal::set_capture_hook`].
-pub type CaptureHook = Box<dyn FnMut(CaptureKind, &Terminal)>;
+pub type CaptureHook = Box<dyn FnMut(CaptureKind, &Terminal) + Send>;
 
 pub struct Terminal {
     backend: Box<dyn Backend>,
@@ -1222,13 +1222,14 @@ mod tests {
     #[test]
     fn injected_capture_chords_go_to_the_hook() {
         use crate::core::event::{KB_CTRL_F12, KB_F12};
-        use std::cell::RefCell;
-        use std::rc::Rc;
+        use std::sync::{Arc, Mutex};
 
         let mut t = crate::test_util::test_terminal(20, 10);
-        let seen = Rc::new(RefCell::new(Vec::new()));
-        let log = Rc::clone(&seen);
-        t.set_capture_hook(Box::new(move |kind, term| log.borrow_mut().push((kind, term.size()))));
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let log = Arc::clone(&seen);
+        t.set_capture_hook(Box::new(move |kind, term| {
+            log.lock().unwrap().push((kind, term.size()))
+        }));
         let tx = t.event_injector();
         tx.send(Event::keyboard(KB_CTRL_F12)).unwrap();
         tx.send(Event::keyboard(KB_F12)).unwrap();
@@ -1236,11 +1237,20 @@ mod tests {
         assert!(t.poll_event(std::time::Duration::ZERO).unwrap().is_none());
         assert!(t.poll_event(std::time::Duration::ZERO).unwrap().is_none());
         assert_eq!(
-            *seen.borrow(),
+            *seen.lock().unwrap(),
             vec![(CaptureKind::Png, (20, 10)), (CaptureKind::Ansi, (20, 10))]
         );
         assert!(t.clear_capture_hook().is_some());
         assert!(!t.run_capture_hook(CaptureKind::Png));
+    }
+
+    /// `Terminal` must stay `Send` so it can move across threads (e.g. be
+    /// owned by an `Application` constructed on one thread and run on
+    /// another). The capture hook's `+ Send` bound is what makes this hold.
+    #[test]
+    fn terminal_is_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<Terminal>();
     }
 
     #[test]
