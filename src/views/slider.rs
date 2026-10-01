@@ -38,8 +38,6 @@ pub struct Slider {
     step: i64,
     /// Broadcast on every user change; 0 sends nothing.
     on_change: CommandId,
-    /// True while the user is dragging the thumb.
-    dragging: bool,
 }
 
 impl Slider {
@@ -59,7 +57,6 @@ impl Slider {
             value: min,
             step: 1,
             on_change: 0,
-            dragging: false,
         }
     }
 
@@ -89,6 +86,17 @@ impl Slider {
     /// Broadcast `command` whenever the user changes the value; 0 turns it off.
     pub fn set_on_change(&mut self, command: CommandId) {
         self.on_change = command;
+    }
+
+    /// Whether the user is actively dragging the thumb.
+    fn is_dragging(&self) -> bool {
+        self.view_state.contains(State::DRAGGING)
+    }
+
+    /// Set the dragging state. While dragging, the Group will forward MouseMove
+    /// and MouseUp events even if the pointer leaves the track.
+    fn set_dragging(&mut self, dragging: bool) {
+        self.set_state_flag(State::DRAGGING, dragging);
     }
 
     /// The span of the range, in a type that cannot overflow.
@@ -174,21 +182,27 @@ impl View for Slider {
                 if event.mouse.buttons & MB_LEFT_BUTTON != 0
                     && self.extent().contains(event.mouse.pos) =>
             {
-                self.dragging = true;
+                self.set_dragging(true);
                 let changed = self.set_value(self.value_at(event.mouse.pos.x, width));
                 self.report(event, changed);
             }
             EventType::MouseMove => {
                 // If dragging, continue to update even if the pointer leaves the track.
-                if self.dragging {
+                if self.is_dragging() {
                     if event.mouse.buttons & MB_LEFT_BUTTON != 0 {
                         let changed = self.set_value(self.value_at(event.mouse.pos.x, width));
                         self.report(event, changed);
                     } else {
                         // Button released; end the drag.
-                        self.dragging = false;
+                        self.set_dragging(false);
                         event.clear();
                     }
+                }
+            }
+            EventType::MouseUp => {
+                if self.is_dragging() {
+                    self.set_dragging(false);
+                    event.clear();
                 }
             }
             EventType::Keyboard if self.is_focused() => {
@@ -335,20 +349,70 @@ mod tests {
         // Start a drag at x=5 (value 5).
         mouse_down(&mut s, 5, 0);
         assert_eq!(s.value(), 5);
+        assert!(s.state().contains(State::DRAGGING));
 
         // Drag far to the right, past the track's edge, clamping to max.
         mouse_move(&mut s, 40, 3, MB_LEFT_BUTTON);
         assert_eq!(s.value(), 10, "drag to x=40 (far right) clamps to max");
+        assert!(s.state().contains(State::DRAGGING));
 
         // Drag far to the left, past the track's edge, clamping to min.
         mouse_move(&mut s, -20, 0, MB_LEFT_BUTTON);
         assert_eq!(s.value(), 0, "drag to x=-20 (far left) clamps to min");
+        assert!(s.state().contains(State::DRAGGING));
 
-        // Release the button; end the drag.
-        mouse_move(&mut s, 5, 0, 0);
+        // Release with MouseUp; end the drag.
+        let mut up_event = Event::nothing();
+        up_event.what = EventType::MouseUp;
+        up_event.mouse.pos = Point::new(5, 0);
+        s.handle_event(&mut up_event);
+        assert!(!s.state().contains(State::DRAGGING));
 
         // A subsequent move at the same position without the button changes nothing.
         mouse_move(&mut s, 5, 0, 0);
         assert_eq!(s.value(), 0, "after release, moves without button do nothing");
+        assert!(!s.state().contains(State::DRAGGING));
+    }
+
+    #[test]
+    fn a_drag_keeps_working_inside_a_group() {
+        use crate::views::group::{Group, GroupLike};
+
+        // Create a group and add a slider inside it.
+        let mut group = Group::new(Rect::new(0, 0, 30, 5));
+        let slider_id = group.add(Slider::new(Rect::new(2, 1, 13, 2), 0, 10));
+
+        // Set focus to the slider so it receives events.
+        group.set_focus_to(0);
+
+        // Send a MouseDown event at x=7 (within the group's coordinate space).
+        // The slider is at group position (2, 1), so x=7 is x=5 in slider coordinates (0..=10 range).
+        let mut down = Event::nothing();
+        down.what = EventType::MouseDown;
+        down.mouse.pos = Point::new(7, 1);
+        down.mouse.buttons = MB_LEFT_BUTTON;
+        group.handle_event(&mut down);
+
+        // Send a MouseMove far to the right (x=40), off the slider and group row (y=4).
+        let mut move_right = Event::nothing();
+        move_right.what = EventType::MouseMove;
+        move_right.mouse.pos = Point::new(40, 4);
+        move_right.mouse.buttons = MB_LEFT_BUTTON;
+        group.handle_event(&mut move_right);
+
+        // Send a MouseUp to end the drag.
+        let mut up = Event::nothing();
+        up.what = EventType::MouseUp;
+        up.mouse.pos = Point::new(40, 4);
+        group.handle_event(&mut up);
+
+        // Read the slider back and verify its value changed to max (10).
+        let slider = group
+            .child_by_id_mut(slider_id)
+            .expect("slider should exist")
+            .as_any_mut()
+            .downcast_mut::<Slider>()
+            .expect("child should be a Slider");
+        assert_eq!(slider.value(), 10, "drag far right in group should clamp to max");
     }
 }
