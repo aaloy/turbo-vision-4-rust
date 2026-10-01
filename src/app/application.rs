@@ -13,7 +13,7 @@ use crate::core::error::Result;
 use crate::core::event::{Event, EventType, KB_ALT_X, KB_CTRL_F12, KB_F1, KB_F12};
 use crate::core::geometry::Rect;
 use crate::core::state::State;
-use crate::terminal::Terminal;
+use crate::terminal::{CaptureKind, Terminal};
 use crate::views::help_context::HelpContext;
 use crate::views::help_file::HelpFile;
 use crate::views::help_window::HelpWindow;
@@ -868,12 +868,16 @@ impl Application {
                     return;
                 }
                 KB_F12 => {
-                    self.dump_screen_ansi();
+                    if !self.terminal.run_capture_hook(CaptureKind::Ansi) {
+                        self.dump_screen_ansi();
+                    }
                     event.clear();
                     return;
                 }
                 KB_CTRL_F12 => {
-                    self.take_screenshot();
+                    if !self.terminal.run_capture_hook(CaptureKind::Png) {
+                        self.take_screenshot();
+                    }
                     event.clear();
                     return;
                 }
@@ -941,7 +945,9 @@ impl Application {
                     event.clear();
                 }
                 CM_SCREENSHOT => {
-                    self.take_screenshot();
+                    if !self.terminal.run_capture_hook(CaptureKind::Png) {
+                        self.take_screenshot();
+                    }
                     event.clear();
                 }
                 crate::core::command::CM_SHOW_HISTORY => {
@@ -2011,5 +2017,28 @@ mod resize_tests {
             .expect("last desktop child should be the Window");
 
         assert_eq!(window.bounds(), window_bounds);
+    }
+}
+
+#[cfg(test)]
+mod capture_tests {
+    use super::*;
+
+    #[test]
+    fn capture_keys_run_the_capture_hook() {
+        let mut app = Application::with_terminal(crate::test_util::test_terminal(80, 25));
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let log = Rc::clone(&seen);
+        app.terminal
+            .set_capture_hook(Box::new(move |kind, _| log.borrow_mut().push(kind)));
+
+        for mut event in [
+            Event::keyboard(KB_CTRL_F12),
+            Event::keyboard(KB_F12),
+            Event::command(CM_SCREENSHOT),
+        ] {
+            app.handle_event(&mut event);
+        }
+        assert_eq!(*seen.borrow(), vec![CaptureKind::Png, CaptureKind::Ansi, CaptureKind::Png]);
     }
 }

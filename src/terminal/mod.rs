@@ -128,6 +128,19 @@ fn attr_to_sgr(attr: Attr) -> String {
 /// silently skipped, leaving whatever was on the terminal underneath.
 const FORCE_REDRAW_CELL: Cell = Cell::new('\0', Attr::from_u8(0xFF));
 
+/// Which capture the user asked for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CaptureKind {
+    /// Ctrl+F12: an image of the screen.
+    Png,
+    /// F12: a text dump of the screen with ANSI colours.
+    Ansi,
+}
+
+/// Called with the kind of capture and the terminal to capture. Install one
+/// with [`Terminal::set_capture_hook`].
+pub type CaptureHook = Box<dyn FnMut(CaptureKind, &Terminal)>;
+
 pub struct Terminal {
     backend: Box<dyn Backend>,
     buffer: Vec<Vec<Cell>>,
@@ -145,6 +158,10 @@ pub struct Terminal {
     /// The sending half of `injected_rx`, kept so every `event_injector`
     /// call hands out a clone of one channel.
     injected_tx: Option<std::sync::mpsc::Sender<Event>>,
+    /// Installed with [`set_capture_hook`](Self::set_capture_hook); tried
+    /// before the built-in capture by Ctrl+F12, F12, `CM_SCREENSHOT`, and
+    /// injected capture chords.
+    capture_hook: Option<CaptureHook>,
 }
 
 impl Terminal {
@@ -239,6 +256,7 @@ impl Terminal {
             pending_event: None,
             injected_rx: None,
             injected_tx: None,
+            capture_hook: None,
         })
     }
 
@@ -640,6 +658,29 @@ impl Terminal {
         tx
     }
 
+    /// Handle Ctrl+F12 and F12 with `hook` instead of the built-in capture.
+    /// The hook gets the whole terminal, so it can read `buffer()` and
+    /// `size()`. Replaces any earlier hook.
+    pub fn set_capture_hook(&mut self, hook: CaptureHook) {
+        self.capture_hook = Some(hook);
+    }
+
+    /// Remove the capture hook, returning it.
+    pub fn clear_capture_hook(&mut self) -> Option<CaptureHook> {
+        self.capture_hook.take()
+    }
+
+    /// Run the capture hook for `kind`. Returns `false`, doing nothing,
+    /// when no hook is installed.
+    pub fn run_capture_hook(&mut self, kind: CaptureKind) -> bool {
+        let Some(mut hook) = self.capture_hook.take() else {
+            return false;
+        };
+        hook(kind, self);
+        self.capture_hook = Some(hook);
+        true
+    }
+
     /// Enable the remote keyboard-input listener on the given TCP port.
     ///
     /// This is **off by default**. Once enabled, the terminal listens on
@@ -668,19 +709,18 @@ impl Terminal {
         // chords are served here rather than in the application's command
         // handling, so that an example driving its own event loop can still be
         // captured by automation.
-        if let Some(rx) = &self.injected_rx {
-            if let Ok(event) = rx.try_recv() {
-                match event.key_code {
-                    crate::core::event::KB_CTRL_F12 => {
-                        self.capture_injected(true);
-                        return Ok(None);
-                    }
-                    crate::core::event::KB_F12 => {
-                        self.capture_injected(false);
-                        return Ok(None);
-                    }
-                    _ => return Ok(Some(event)),
+        let injected = self.injected_rx.as_ref().and_then(|rx| rx.try_recv().ok());
+        if let Some(event) = injected {
+            match event.key_code {
+                crate::core::event::KB_CTRL_F12 => {
+                    self.capture_injected(true);
+                    return Ok(None);
                 }
+                crate::core::event::KB_F12 => {
+                    self.capture_injected(false);
+                    return Ok(None);
+                }
+                _ => return Ok(Some(event)),
             }
         }
 
@@ -692,7 +732,11 @@ impl Terminal {
     /// Serves the `CTRL+F12` (PNG) and `F12` (ANSI dump) chords arriving over
     /// the remote-input listener; failures are logged and otherwise ignored,
     /// since a capture is never essential to the running application.
-    fn capture_injected(&self, png: bool) {
+    fn capture_injected(&mut self, png: bool) {
+        let kind = if png { CaptureKind::Png } else { CaptureKind::Ansi };
+        if self.run_capture_hook(kind) {
+            return;
+        }
         let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
         let (name, result) = if png {
             let name = format!("screenshot-{stamp}.png");
@@ -1159,5 +1203,35 @@ mod tests {
         assert_eq!(a.key_code, KB_ENTER);
         assert_eq!(b.command, 1234);
         assert!(t.poll_event(std::time::Duration::ZERO).unwrap().is_none());
+    }
+
+    #[test]
+    fn without_a_hook_run_capture_hook_reports_false() {
+        let mut t = crate::test_util::test_terminal(20, 10);
+        assert!(!t.run_capture_hook(CaptureKind::Png));
+    }
+
+    #[test]
+    fn injected_capture_chords_go_to_the_hook() {
+        use crate::core::event::{KB_CTRL_F12, KB_F12};
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        let mut t = crate::test_util::test_terminal(20, 10);
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let log = Rc::clone(&seen);
+        t.set_capture_hook(Box::new(move |kind, term| log.borrow_mut().push((kind, term.size()))));
+        let tx = t.event_injector();
+        tx.send(Event::keyboard(KB_CTRL_F12)).unwrap();
+        tx.send(Event::keyboard(KB_F12)).unwrap();
+
+        assert!(t.poll_event(std::time::Duration::ZERO).unwrap().is_none());
+        assert!(t.poll_event(std::time::Duration::ZERO).unwrap().is_none());
+        assert_eq!(
+            *seen.borrow(),
+            vec![(CaptureKind::Png, (20, 10)), (CaptureKind::Ansi, (20, 10))]
+        );
+        assert!(t.clear_capture_hook().is_some());
+        assert!(!t.run_capture_hook(CaptureKind::Png));
     }
 }
