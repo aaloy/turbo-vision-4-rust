@@ -140,9 +140,11 @@ pub struct Terminal {
     /// (Borland: the owner chain walked by `TView::writeLine`).
     origin_stack: Vec<Point>,
     pending_event: Option<Event>,
-    /// Receiver for keyboard events injected by the remote-input listener.
-    /// `None` unless [`enable_remote_input`](Self::enable_remote_input) was called.
+    /// Receiver for events queued through [`event_injector`](Self::event_injector).
     injected_rx: Option<Receiver<Event>>,
+    /// The sending half of `injected_rx`, kept so every `event_injector`
+    /// call hands out a clone of one channel.
+    injected_tx: Option<std::sync::mpsc::Sender<Event>>,
 }
 
 impl Terminal {
@@ -236,6 +238,7 @@ impl Terminal {
             origin_stack: Vec::new(),
             pending_event: None,
             injected_rx: None,
+            injected_tx: None,
         })
     }
 
@@ -621,6 +624,22 @@ impl Terminal {
         self.pending_event = Some(event);
     }
 
+    /// A sender that queues events for [`poll_event`](Self::poll_event), as
+    /// if they had been typed. Safe to use from another thread; every call
+    /// returns a clone of the same channel, and injected events are served
+    /// after a [`put_event`](Self::put_event) one and before the backend's.
+    ///
+    /// This is the hook automation and remote-input listeners build on.
+    pub fn event_injector(&mut self) -> std::sync::mpsc::Sender<Event> {
+        if let Some(tx) = &self.injected_tx {
+            return tx.clone();
+        }
+        let (tx, rx) = std::sync::mpsc::channel();
+        self.injected_rx = Some(rx);
+        self.injected_tx = Some(tx.clone());
+        tx
+    }
+
     /// Enable the remote keyboard-input listener on the given TCP port.
     ///
     /// This is **off by default**. Once enabled, the terminal listens on
@@ -634,10 +653,8 @@ impl Terminal {
     ///
     /// Returns an error if the port cannot be bound.
     pub fn enable_remote_input(&mut self, port: u16) -> io::Result<()> {
-        let (tx, rx) = std::sync::mpsc::channel();
-        remote_input::spawn(port, tx)?;
-        self.injected_rx = Some(rx);
-        Ok(())
+        let tx = self.event_injector();
+        remote_input::spawn(port, tx)
     }
 
     /// Poll for an event with timeout.
@@ -1124,5 +1141,23 @@ mod tests {
         t.push_origin(Point::new(3, 2));
         t.show_cursor(1, 1).unwrap();
         assert_eq!(*cursor.lock().unwrap(), Some((4, 3)));
+    }
+
+    #[test]
+    fn injected_events_arrive_in_order_from_any_sender() {
+        use crate::core::event::KB_ENTER;
+        let mut t = crate::test_util::test_terminal(20, 10);
+        let first = t.event_injector();
+        let second = t.event_injector();
+        std::thread::spawn(move || first.send(Event::keyboard(KB_ENTER)).unwrap())
+            .join()
+            .unwrap();
+        second.send(Event::command(1234)).unwrap();
+
+        let a = t.poll_event(std::time::Duration::ZERO).unwrap().unwrap();
+        let b = t.poll_event(std::time::Duration::ZERO).unwrap().unwrap();
+        assert_eq!(a.key_code, KB_ENTER);
+        assert_eq!(b.command, 1234);
+        assert!(t.poll_event(std::time::Duration::ZERO).unwrap().is_none());
     }
 }
