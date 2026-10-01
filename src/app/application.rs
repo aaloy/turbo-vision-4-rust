@@ -2689,4 +2689,30 @@ mod window_key_tests {
             "the status line's CM_CLOSE reaches the window"
         );
     }
+
+    #[test]
+    fn alt_number_does_not_switch_windows_under_a_modal_one() {
+        use crate::core::event::KB_ALT_1;
+        let mut app = app();
+        let mut numbered = Window::new(Rect::new(1, 1, 30, 10), "One");
+        numbered.set_number(1);
+        app.desktop.add(numbered);
+        let mut modal = Window::new(Rect::new(5, 3, 35, 12), "Modal");
+        modal.set_state(modal.state() | State::MODAL);
+        let id = app.desktop.add(modal);
+        press(&mut app, KB_ALT_1, KeyModifiers::empty());
+        assert_eq!(
+            app.desktop.top_view_id(),
+            Some(id),
+            "the modal window stays on top"
+        );
+        assert!(
+            app.desktop
+                .child_by_id(id)
+                .unwrap()
+                .state()
+                .contains(State::ACTIVE),
+            "and stays selected"
+        );
+    }
 }

@@ -648,7 +648,10 @@ impl View for Desktop {
         // Alt+1..9 window selection (Borland: TWindow handles
         // cmSelectWindowNum; here the desktop resolves the number since it
         // owns z-order and focus)
-        if event.what == EventType::Broadcast
+        // Not while a modal window is on top: like F6, Alt+number must not
+        // pull another window over it.
+        if !has_modal
+            && event.what == EventType::Broadcast
             && event.command == crate::core::command::CM_SELECT_WINDOW_NUM
         {
             let wanted = event.info as u8;
