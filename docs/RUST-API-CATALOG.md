@@ -364,11 +364,14 @@ Generated: 2025-11-06
 - `set_capture_hook(&mut self, hook: CaptureHook)` - Handle Ctrl+F12 and F12 with `hook` instead of the built-in capture; replaces any earlier hook
 - `clear_capture_hook(&mut self) -> Option<CaptureHook>` - Remove the capture hook, returning it
 - `run_capture_hook(&mut self, kind: CaptureKind) -> bool` - Run the capture hook for `kind`; returns `false` when none is installed
-- `write_raw(&mut self, data: &[u8]) -> io::Result<()>` - Send bytes straight to the terminal, bypassing the cell buffer, and flush (for protocols drawn outside the cells, such as Kitty graphics)
+- `write_raw(&mut self, data: &[u8]) -> io::Result<()>` - Send bytes straight to the terminal, bypassing the cell buffer, and flush (for protocols drawn outside the cells, such as tv-extensions' Kitty graphics)
 - `CaptureKind` enum: `Png` (Ctrl+F12, an image of the screen), `Ansi` (F12, a text dump with ANSI colours)
 - `CaptureHook` type alias: `Box<dyn FnMut(CaptureKind, &Terminal) + Send>`
 
-Note: `terminal::InputParser` is exported unconditionally; it no longer requires the `ssh` feature.
+Note: `terminal::InputParser` is exported unconditionally, with no `ssh` cargo
+feature in core any more — it is public so that tv-extensions' SSH and
+remote-input backends (or any other custom `Backend`) can convert raw bytes
+into events.
 
 ---
 

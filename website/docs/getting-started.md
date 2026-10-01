@@ -12,15 +12,17 @@ Or in `Cargo.toml`:
 
 ```toml
 [dependencies]
-turbo-vision = "3.0"
+turbo-vision = "4.0"
 ```
 
-Two optional features exist. `ssh` builds the SSH backend so an application can be served over a
-network connection. `test-util` exposes the mock terminal so your own tests can draw views and read
-cells back.
+One optional feature lives in core: `test-util` exposes the mock terminal so your own tests can
+draw views and read cells back. SSH, remote input, Kitty/ANSI graphics and a log window live in
+the companion [tv-extensions](https://github.com/aovestdipaperino/tv-extensions) crate, each
+behind its own feature:
 
 ```toml
-turbo-vision = { version = "3.1", features = ["ssh"] }
+turbo-vision = "4.0"
+tv-extensions = { version = "0.2", features = ["ssh"] }
 ```
 
 ## The smallest application
@@ -125,7 +127,7 @@ Returning `true` marks the command consumed. Start the program with `app.run_wit
 
 ## Running the bundled examples
 
-The repository carries 48 examples that double as the downstream API test.
+The repository carries 39 examples that double as the downstream API test.
 
 ```bash
 git clone https://github.com/aovestdipaperino/turbo-vision-4-rust

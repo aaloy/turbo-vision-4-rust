@@ -69,8 +69,10 @@ know most of this library.
 
 -   :material-console-network: **A terminal layer**
 
-    A `Backend` trait with a crossterm implementation, an optional SSH server behind a feature
-    flag, and a mock terminal your tests can draw into and read cells back from.
+    A `Backend` trait with a crossterm implementation and a mock terminal your tests can draw
+    into and read cells back from. An SSH server, remote input over TCP, Kitty/ANSI graphics and
+    a log window live in the companion [tv-extensions](https://github.com/aovestdipaperino/tv-extensions)
+    crate.
 
 </div>
 
@@ -109,8 +111,9 @@ fn main() -> turbo_vision::core::error::Result<()> {
 | Follow a complete worked project | [The biorhythm calculator tutorial](tutorials/biorhythm.md) |
 | Understand the trait layering | [Views and groups](guide/chapter-08.md), [the class diagram](reference/class-diagram.md) and [the design document](reference/design.md) |
 | Port a C++ Turbo Vision program | [The application model, side by side](compare/app-model.md) |
-| See what changed in 3.0.0 | [What's new](whats-new.md) |
-| Move an existing project onto 3.0.0 | [The upgrade guide](reference/upgrading.md) |
+| See what changed recently | [What's new](whats-new.md) |
+| Move an existing project onto 4.0.0 | [The 4.0 upgrade guide](reference/upgrading-4.0.md) |
+| Move an existing project onto 3.0.0 | [The 3.0 upgrade guide](reference/upgrading.md) |
 
 ## It looks like this
 

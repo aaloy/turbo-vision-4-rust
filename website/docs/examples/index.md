@@ -1,12 +1,12 @@
 # Examples
 
-The repository ships 48 runnable examples under `examples/`. They are not decoration: building them
+The repository ships 39 runnable examples under `examples/`. They are not decoration: building them
 all is how the crate checks that its public API still works from outside, so any change that breaks
 a downstream program breaks the example build first.
 
 ```bash
 cargo run --example showcase     # run one
-cargo build --examples           # build all 48
+cargo build --examples           # build all 39
 ```
 
 !!! warning "Quit with Alt+X"
@@ -31,7 +31,6 @@ cargo build --examples           # build all 48
 - **`menu_status`** &mdash; a menu bar with submenus, a right-click context menu, and a status line with hot spots and hints.
 - **`command_set`** &mdash; buttons that enable and disable themselves as application state changes, driven by the global command set.
 - **`function_keys`** &mdash; F1 through F10, and what actually arrives from the terminal.
-- **`desktop_logo`** &mdash; a custom desktop background, ported from Borland's `desklogo` example.
 - **`dynamic_title`** &mdash; changing a window title while the application runs.
 
 ![The File menu open over the desktop, its items showing their key chords](../assets/captures/menu_status.png)
@@ -72,19 +71,23 @@ cargo build --examples           # build all 48
 
 - **`palette_themes`** &mdash; replacing the application palette at runtime.
 - **`text_styling`** &mdash; a table of every text style the terminal layer can emit.
-- **`kitty_image`**, **`kitty_background`**, **`kitty_biorhythm`** &mdash; real images in the terminal through the Kitty graphics protocol.
+
+Real images in the terminal through the Kitty graphics protocol, and ANSI-art backgrounds, moved to
+[tv-extensions](https://github.com/aovestdipaperino/tv-extensions)' `examples/` (feature `graphics`).
 
 ![The palette themes demo after switching to the Solarized theme, every control recoloured](../assets/captures/palette_themes.png)
 
 ### Terminal and plumbing
 
-- **`terminal_widget`** &mdash; a scrolling output viewer fed by a simulated build log, matching Borland's `terminal.cc`.
-- **`log_window`** &mdash; `tracing` output routed into a scrollable window.
 - **`suspend_resume`** &mdash; handing the terminal back to the shell and taking it again.
 - **`screenshot`** &mdash; the built-in screen capture shortcuts.
 - **`beep`** &mdash; audio feedback.
-- **`ssh_server`** &mdash; serving the application over SSH. Requires `--features ssh`.
 - **`test_events`**, **`test_mouse`** &mdash; diagnostic tools that print every event, for when a key or a click is not arriving.
+
+A scrolling output viewer fed by a simulated build log, `tracing` output routed into a scrollable
+window, and serving the application over SSH all moved to
+[tv-extensions](https://github.com/aovestdipaperino/tv-extensions)' `examples/` (features `log`
+and `ssh`).
 
 ### Whole applications
 

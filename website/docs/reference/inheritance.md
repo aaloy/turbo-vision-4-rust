@@ -1,5 +1,12 @@
 # Expressing Turbo Vision's Inheritance in Rust
 
+> **Note (4.0.0):** this analysis and the implementation plan below predate
+> the 4.0.0 extraction. `log_window.rs`, `terminal_widget.rs`, `kitty_image.rs`
+> and `ansi_background.rs`, named throughout as part of the 3.0 migration,
+> have since moved to [tv-extensions](https://github.com/aovestdipaperino/tv-extensions);
+> the inheritance patterns described here still apply to them there. See
+> [UPGRADING-TO-4.0.md](../reference/upgrading-4.0.md).
+
 Turbo Vision was designed around single inheritance. Every widget is a `TView`, every
 container is a `TGroup`, and `TDialog` is a `TWindow` that overrides four methods. This
 crate has no inheritance to lean on, so the hierarchy is emulated with a mixture of a

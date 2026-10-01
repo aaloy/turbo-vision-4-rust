@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+- **SSH server support** (`turbo_vision::ssh`, `turbo_vision::terminal::{SshBackend, SshSessionBuilder, SshSessionHandle}`, the `ssh` cargo feature, `examples/ssh_server.rs`): now `tv_extensions::ssh` (feature `ssh`) in the [tv-extensions](https://github.com/aovestdipaperino/tv-extensions) crate. See [UPGRADING-TO-4.0.md](UPGRADING-TO-4.0.md).
+- **Remote input over TCP** (`turbo_vision::terminal::remote_input`, `Terminal::enable_remote_input`, `Application::enable_remote_input`, the `TV_REMOTE_KEYS` env var read in `Application::new`): now `tv_extensions::remote_input::{spawn, enable, enable_from_env}` (feature `remote-input`). See [UPGRADING-TO-4.0.md](UPGRADING-TO-4.0.md).
+- **Kitty images and ANSI-art backgrounds** (`turbo_vision::views::{kitty_image, ansi_background}`, `turbo_vision::core::ansi`, `Terminal::{write_kitty_graphics, supports_kitty_graphics, delete_kitty_image, clear_kitty_images}`, the `base64` dependency, `examples/{kitty_image,kitty_background,kitty_biorhythm,desktop_logo}.rs`): now `tv_extensions::graphics` (feature `graphics`). See [UPGRADING-TO-4.0.md](UPGRADING-TO-4.0.md).
+- **LogWindow and TerminalWidget** (`turbo_vision::views::{log_window, terminal_widget}`, the `SharedTerminalWidget` newtype in `views::shared`, the `tracing` and `simplelog` dependencies, `examples/{log_window,terminal_widget}.rs`): now `tv_extensions::log` (feature `log`). See [UPGRADING-TO-4.0.md](UPGRADING-TO-4.0.md).
+- **The `turbo-vision-extras` crate**: duplicated controls folded into core (`ComboBox`, `Spinner`, `TabbedPane`, `ProgressBar`, `Slider`), the rest moved to `tv-extensions` (`ScrollPane`, `popup_menu`) or replaced by a core provider trait (`GridView` → `Table` + `RowProvider`, `VirtualListBox` → `ListBox` + `ListProvider`). See [UPGRADING-TO-4.0.md](UPGRADING-TO-4.0.md).
+
 ## [3.1.0] - 2026-10-01
 
 A minor release with one deliberate exception to semver: three accessors

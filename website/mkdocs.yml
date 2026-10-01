@@ -136,6 +136,7 @@ nav:
   - Reference:
       - reference/index.md
       - reference/upgrading.md
+      - reference/upgrading-4.0.md
       - reference/changelog.md
       - Architecture:
           - reference/design.md

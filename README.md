@@ -13,7 +13,8 @@
   <a href="https://tv.enzolombardi.net/tutorials/">Tutorials</a> &middot;
   <a href="https://tv.enzolombardi.net/compare/app-model/">vs. C++</a> &middot;
   <a href="https://tv.enzolombardi.net/whats-new/">What's new</a> &middot;
-  <a href="https://tv.enzolombardi.net/reference/upgrading/">Upgrading to 3.0</a>
+  <a href="https://tv.enzolombardi.net/reference/upgrading/">Upgrading to 3.0</a> &middot;
+  <a href="https://tv.enzolombardi.net/reference/upgrading-4.0/">Upgrading to 4.0</a>
 </p>
 
 
@@ -24,7 +25,7 @@ A Rust implementation of the classic Borland Turbo Vision text user interface fr
 Full documentation, user guide, tutorials and a side-by-side comparison with the original
 C++ application model live at **[tv.enzolombardi.net](https://tv.enzolombardi.net/)**.
 
-**Version 3.1.0 - PRODUCTION READY** ✅
+**Version 4.0.0 - PRODUCTION READY** ✅
 
 Based on
 kloczek Borland Turbo Vision C++ port [here](https://github.com/kloczek/tvision)
@@ -87,11 +88,22 @@ The built-in file dialog with directory navigation, file list, and keyboard/mous
 - **Text Styling**: Bold, dim, italic, underline, reverse, and strikethrough attributes — composable via `Attr::new(fg, bg).bold().italic()`, emitted as real SGR codes on the terminal and in ANSI dumps (see `cargo run --example text_styling`)
 - **Editor Selection**: Stream selection (Shift+arrows / drag) plus rectangular **block selection** with columnar copy/cut and single-step undo, switched with the global block-edit mode (`Application::set_block_edit_mode`, `CM_TOGGLE_BLOCK_MODE`) rather than a modifier key; `CM_SELECT_ALL` command and Ctrl+A select all content of the focused window
 - **Cross-Platform**: Built on crossterm for wide terminal compatibility
-- **SSH Support**: Optional SSH backend to serve TUI applications over SSH connections
 - **Modal Dialogs**: Built-in support for modal dialog execution
 - **Focus Management**: Tab navigation and keyboard shortcuts
 - **Screen Capture**: F12 saves an ASCII (ANSI) dump of the whole screen; Ctrl+F12 saves a PNG screenshot. Programmatic dumps of screen/views/regions via `dump_screen`/`dump_region`/`dump_to_file`
 - **`screenshot` Feature** (on by default): the PNG capture and its embedded 8x16 font; build with `--no-default-features --features native` to leave it out (F12 dumps and the capture hook still work)
+
+## Extensions
+
+Niche features that version on their own pace live in the separate
+[`tv-extensions`](https://github.com/aovestdipaperino/tv-extensions) crate: an
+SSH server (`ssh`), remote input over TCP for testing and automation
+(`remote-input`), Kitty images and ANSI-art backgrounds (`graphics`), the log
+window and terminal widget (`log`), a CSV table editor (`csv`), host-driven
+embedding for a non-terminal host such as a WASM guest (`host`, no feature
+flag), plus `ScrollPane` and popup menus (no feature flag). See
+[UPGRADING-TO-4.0.md](UPGRADING-TO-4.0.md) if you used any of these from core
+before 4.0.0.
 
 ## Quick Start
 
@@ -318,71 +330,16 @@ Currently implements:
 - ✅ EditWindow (ready-to-use editor window wrapper)
 - ✅ OS Clipboard integration (cross-platform with arboard)
 - ✅ Help System (markdown-based with HelpFile, HelpViewer, HelpWindow, HelpContext)
-- ✅ SSH TUI Bridge (optional feature for serving TUI apps over SSH)
 
 ## SSH Support
 
-Turbo Vision can serve TUI applications over SSH connections, enabling remote terminal access to your application. This is useful for admin consoles, monitoring dashboards, and tools that need to be accessed remotely.
-
-### Enabling SSH Support
-
-SSH support is behind a feature flag. Enable it in your `Cargo.toml`:
-
-```toml
-[dependencies]
-turbo-vision = { version = "2.3", features = ["ssh"] }
-```
-
-Or build with the feature:
-
-```bash
-cargo build --features ssh
-```
-
-### Quick Example
-
-```rust
-use turbo_vision::prelude::*;
-use turbo_vision::terminal::{Backend, SshBackend, SshSessionBuilder};
-use turbo_vision::ssh::{SshServer, SshServerConfig};
-use std::sync::Arc;
-
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = SshServerConfig::default();
-    let server = SshServer::new(config)?;
-
-    server.run("0.0.0.0:2222", |backend| {
-        // Create Terminal with SSH backend
-        let terminal = Terminal::with_backend(backend).unwrap();
-        run_your_tui_app(terminal);
-    }).await?;
-
-    Ok(())
-}
-```
-
-### Running the Example
-
-```bash
-# Start the SSH server
-cargo run --example ssh_server --features ssh
-
-# Connect from another terminal
-ssh -p 2222 user@localhost
-# Password: any (accepts any password in the example)
-```
-
-### Architecture
-
-The SSH support uses a Backend trait abstraction:
-
-- **Backend trait**: Abstracts terminal I/O operations
-- **CrosstermBackend**: Default implementation for local terminals
-- **SshBackend**: Implementation for SSH channel I/O
-- **InputParser**: Converts raw terminal bytes to turbo-vision events
-
-This allows the same TUI application to run locally or over SSH with no code changes.
+SSH support moved to [tv-extensions](https://github.com/aovestdipaperino/tv-extensions)
+in 4.0.0: `tv_extensions::ssh` (feature `ssh`) serves TUI applications over SSH
+connections the same way core's removed `ssh` feature did, built on the same
+`Backend` trait abstraction — `SshBackend` plugs in beside `CrosstermBackend`,
+and `InputParser` (still public in core) converts raw bytes to events either
+way. See tv-extensions' [SSH docs](https://github.com/aovestdipaperino/tv-extensions/blob/main/docs/ssh.md)
+and [UPGRADING-TO-4.0.md](UPGRADING-TO-4.0.md).
 
 ## Architecture
 

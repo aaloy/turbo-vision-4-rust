@@ -19,6 +19,7 @@ SITE_DOCS = REPO / "website" / "docs"
 COPIES: dict[str, str] = {
     "CHANGELOG.md": "reference/changelog.md",
     "UPGRADING-TO-3.0.md": "reference/upgrading.md",
+    "UPGRADING-TO-4.0.md": "reference/upgrading-4.0.md",
     "docs/TURBO-VISION-DESIGN.md": "reference/design.md",
     "docs/OWNER-COORDINATES.md": "reference/owner-coordinates.md",
     "docs/MISSING-INHERITANCE.md": "reference/inheritance.md",
@@ -44,6 +45,9 @@ IMAGE_DIRS: list[str] = []  # captures live in docs/assets/captures
 # Links that point at repository paths and must be rewritten for the site.
 LINK_REWRITES = [
     (r"\]\(\.\./CHANGELOG\.md", "](../reference/changelog.md"),
+    # MISSING-INHERITANCE.md and TURBO-VISION-DESIGN.md point at the 4.0 upgrade
+    # guide, which lives under reference/ on the site, same as ../CHANGELOG.md above.
+    (r"\]\(\.\./UPGRADING-TO-4\.0\.md", "](../reference/upgrading-4.0.md"),
     # Chapter 7 points at the class diagram, which lives under reference/ on the site.
     (r"\]\(\.\./CLASS-DIAGRAM\.md", "](../reference/class-diagram.md"),
     # The class diagram points back at chapter 7 from reference/.

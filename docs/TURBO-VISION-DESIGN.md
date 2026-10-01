@@ -3606,13 +3606,13 @@ The Terminal module provides the interface between turbo-vision and the physical
               │                              │
               ▼                              ▼
 ┌─────────────────────────┐    ┌─────────────────────────────┐
-│   CrosstermBackend      │    │       SshBackend            │
-│   (Local terminal)      │    │   (SSH channel)             │
-├─────────────────────────┤    ├─────────────────────────────┤
-│ • Uses crossterm crate  │    │ • Channel-based I/O         │
-│ • Direct stdout access  │    │ • InputParser for events    │
-│ • Full feature support  │    │ • Async/sync bridge         │
-│ • ESC sequence tracking │    │ • Shared size state         │
+│   CrosstermBackend      │    │  Other Backend impls        │
+│   (Local terminal)      │    │  (e.g. tv-extensions'       │
+├─────────────────────────┤    │  SshBackend)                │
+│ • Uses crossterm crate  │    ├─────────────────────────────┤
+│ • Direct stdout access  │    │ • Channel-based I/O         │
+│ • Full feature support  │    │ • InputParser for events    │
+│ • ESC sequence tracking │    │ • Async/sync bridge         │
 └─────────────────────────┘    └─────────────────────────────┘
 ```
 
@@ -3681,46 +3681,17 @@ let terminal = Terminal::init()?;
 - True color support
 - Cell aspect ratio detection for proper shadow rendering
 
-### SshBackend (Feature: `ssh`)
+### Other backends (tv-extensions)
 
-Enables serving turbo-vision applications over SSH connections.
-
-```rust
-use turbo_vision::terminal::{Terminal, SshSessionBuilder};
-
-// SSH handler creates a session
-let (backend, handle) = SshSessionBuilder::new()
-    .size(width, height)
-    .build();
-
-// TUI runs with the backend
-let terminal = Terminal::with_backend(Box::new(backend))?;
-
-// SSH handler uses the handle to communicate
-handle.process_input(&data);
-let output = handle.try_recv_output();
-```
-
-**Architecture:**
-```
-┌──────────────────┐          ┌──────────────────┐
-│   SSH Handler    │          │   SshBackend     │
-│   (async)        │          │   (sync)         │
-├──────────────────┤          ├──────────────────┤
-│                  │  events  │                  │
-│  InputParser ────┼─────────▶│  event_rx        │
-│                  │          │                  │
-│                  │  output  │                  │
-│  SSH channel ◀───┼──────────┤  output_tx       │
-│                  │          │                  │
-│  PTY size ───────┼─────────▶│  size (shared)   │
-└──────────────────┘          └──────────────────┘
-```
-
-**Key Components:**
-- **InputParser**: Converts raw SSH input bytes into turbo-vision Events
-- **Channels**: mpsc channels bridge async SSH with sync TUI
-- **Shared size**: `Arc<Mutex<(u16, u16)>>` for resize handling
+Core ships only `CrosstermBackend`. An `SshBackend`, serving turbo-vision
+applications over SSH connections, lives in the separate
+[tv-extensions](https://github.com/aovestdipaperino/tv-extensions) crate
+(feature `ssh`), built on the same `Backend` trait described above — it
+bridges an async SSH handler to the synchronous TUI event loop with mpsc
+channels and a shared size, and uses core's public `InputParser` to convert
+raw SSH input bytes into turbo-vision `Event`s. See its
+[SSH docs](https://github.com/aovestdipaperino/tv-extensions/blob/main/docs/ssh.md)
+and [UPGRADING-TO-4.0.md](../UPGRADING-TO-4.0.md).
 
 ## Paths Not Taken
 
@@ -3846,31 +3817,12 @@ impl Terminal {
 
 ## SSH Integration
 
-The SSH feature (`--features ssh`) enables serving TUI apps over SSH:
-
-```rust
-// Example: SSH TUI server
-use turbo_vision::ssh::{SshServer, SshServerConfig};
-
-let config = SshServerConfig::new()
-    .bind_addr("0.0.0.0:2222")
-    .load_or_generate_key("ssh_host_key");
-
-let server = SshServer::new(config, || {
-    Box::new(|backend: Box<dyn Backend>| {
-        let terminal = Terminal::with_backend(backend).unwrap();
-        run_tui_app(terminal);
-    })
-});
-
-server.run().await?;
-```
-
-**Key architectural points:**
-- SSH server is async (uses tokio + russh)
-- TUI runs in a blocking thread per connection
-- Backend channels bridge the async/sync boundary
-- Each connection gets its own Terminal instance
+Moved to [tv-extensions](https://github.com/aovestdipaperino/tv-extensions)
+in 4.0.0: `tv_extensions::ssh` (feature `ssh`) serves TUI apps over SSH the
+same way core's removed `ssh` feature did — async (tokio + russh), one
+blocking TUI thread per connection, its `SshBackend` bridging the async/sync
+boundary, and each connection gets its own `Terminal`. See
+[UPGRADING-TO-4.0.md](../UPGRADING-TO-4.0.md).
 
 ---
 

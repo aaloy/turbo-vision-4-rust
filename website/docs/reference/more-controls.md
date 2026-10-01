@@ -6,8 +6,8 @@ within each section.
 
 ## What already exists
 
-Containers: `Group`, `Window`, `Dialog`, `Desktop`, `Frame`, `Background`,
-`AnsiBackground`.
+Containers: `Group`, `Window`, `Dialog`, `Desktop`, `Frame`, `Background`.
+(`AnsiBackground` moved to `tv-extensions`' `graphics` feature in 4.0.0.)
 
 Input: `InputLine` (with `Validator`, `PictureValidator`, `LookupValidator`),
 `Button`, `CheckBox`, `RadioButton`, `Cluster`, `Editor` / `EditWindow` /
@@ -15,7 +15,9 @@ Input: `InputLine` (with `Validator`, `PictureValidator`, `LookupValidator`),
 
 Display: `StaticText`, `Label`, `ParamText`, `Memo`, `TextViewer`, `ListBox`,
 `SortedListBox`, `DirListBox`, `FileList`, `Outline` (tree), `Indicator`,
-`Scroller`, `ScrollBar`, `KittyImage`, `TerminalWidget`, `LogWindow`.
+`Scroller`, `ScrollBar`. (`KittyImage`, `TerminalWidget` and `LogWindow` moved
+to `tv-extensions`' `graphics` and `log` features in 4.0.0; see
+[UPGRADING-TO-4.0.md](../reference/upgrading-4.0.md).)
 
 Chrome and canned dialogs: `MenuBar`, `MenuBox`, `MenuViewer`, `StatusLine`,
 `msgbox`, `FileDialog`, `ChDirDialog`, `ColorDialog`, `ColorSelector`,
