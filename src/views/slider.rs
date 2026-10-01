@@ -156,6 +156,17 @@ impl View for Slider {
         self.view_state = state;
     }
 
+    /// Losing focus must end any drag in progress: nothing else clears
+    /// `State::DRAGGING` for a view that stops being focused (e.g. the
+    /// window manager moves focus elsewhere mid-drag), and a stale DRAGGING
+    /// flag would make a later unrelated MouseMove misbehave.
+    fn set_focus(&mut self, focused: bool) {
+        self.set_state_flag(State::FOCUSED, focused);
+        if !focused {
+            self.set_dragging(false);
+        }
+    }
+
     fn draw(&mut self, terminal: &mut Terminal) {
         let width = usize::try_from(self.core.bounds.width_clamped()).unwrap_or(0);
         if width == 0 {
@@ -457,6 +468,23 @@ mod tests {
             *seen.borrow(),
             vec![900],
             "the MouseMove broadcast during the drag must reach the spy too, not only MouseDown's"
+        );
+    }
+
+    /// Losing focus mid-drag (e.g. the window manager focuses another view)
+    /// must end the drag, or a later unrelated MouseMove with the button up
+    /// would be wrongly treated as "still dragging, button released" instead
+    /// of simply doing nothing.
+    #[test]
+    fn losing_focus_ends_a_drag() {
+        let mut s = focused(0, 10, 11);
+        mouse_down(&mut s, 5, 0);
+        assert!(s.state().contains(State::DRAGGING));
+
+        s.set_focus(false);
+        assert!(
+            !s.state().contains(State::DRAGGING),
+            "losing focus must clear DRAGGING"
         );
     }
 
