@@ -226,6 +226,15 @@ impl Group {
     pub fn remove(&mut self, index: usize) {
         if index < self.children.len() {
             let removed_focused = self.focused == index;
+            // A removed view loses selection first, so a window gives its
+            // commands up (Borland: TGroup::remove hides the view, and
+            // resetCurrent deselects it).
+            let selected = self.children[index].state();
+            if removed_focused
+                && (selected.contains(State::FOCUSED) || selected.contains(State::ACTIVE))
+            {
+                self.children[index].set_focus(false);
+            }
             self.children.remove(index);
             // `view_ids` is a parallel vec — must stay in lock-step with
             // `children`. Forgetting it leaves stale ids that point past the

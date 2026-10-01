@@ -553,6 +553,19 @@ impl Desktop {
         true
     }
 
+    /// Whether the topmost window is modal. Modal windows capture all events
+    /// (clicks on other windows have no effect), and the desktop leaves its
+    /// window commands alone. Matches Borland: TGroup::execView() creates a
+    /// modal scope.
+    fn top_is_modal(&self) -> bool {
+        self.children.len() > 1
+            && self
+                .children
+                .child_at(self.children.len() - 1)
+                .state()
+                .contains(State::MODAL)
+    }
+
     /// Remove closed windows (those with State::CLOSED flag)
     /// In Borland, views call CLY_destroy() which removes them from the owner
     /// In Rust, views set State::CLOSED flag and the parent removes them
@@ -611,10 +624,19 @@ impl View for Desktop {
     fn handle_event(&mut self, event: &mut Event) {
         use crate::core::event::EventType;
 
+        // A modal top window owns the session: the desktop does not cycle
+        // windows out from under it or zoom it; those commands go to the
+        // modal view, which ignores them, as in Borland, where the modal
+        // view's execView loop sees them instead of the desktop.
+        let has_modal = self.top_is_modal();
+
         // cmZoom toggles the top window between zoomed and saved bounds
         // (Borland: TWindow::handleEvent cmZoom; here the desktop owns the
         // maximum extent)
-        if event.what == EventType::Command && event.command == crate::core::command::CM_ZOOM {
+        if !has_modal
+            && event.what == EventType::Command
+            && event.command == crate::core::command::CM_ZOOM
+        {
             self.zoom_top_window();
             event.clear();
             return;
@@ -639,19 +661,6 @@ impl View for Desktop {
             }
             return;
         }
-
-        // Check if the topmost window is modal
-        // Modal windows capture all events - clicks on other windows have no effect
-        // Matches Borland: TGroup::execView() creates modal scope
-        let has_modal = if self.children.len() > 1 {
-            let top_window_idx = self.children.len() - 1;
-            self.children
-                .child_at(top_window_idx)
-                .state()
-                .contains(State::MODAL)
-        } else {
-            false
-        };
 
         // Handle z-order changes on mouse down (only when no modal window is present)
         // When a window is clicked, bring it to the front if it has Options::TOP_SELECT flag
@@ -686,7 +695,7 @@ impl View for Desktop {
 
         // Handle desktop-level commands
         // Matches Borland: TDesktop::handleEvent (tdesktop.cc:103-133)
-        if event.what == EventType::Command {
+        if !has_modal && event.what == EventType::Command {
             use crate::core::command::{CM_NEXT, CM_PREV};
 
             match event.command {
@@ -749,7 +758,10 @@ impl View for Desktop {
         // comes back out of the window as cmZoom. It was a mouse event on the
         // way in, so the check above never saw it; handle it here or the
         // command leaks to the application and the click does nothing.
-        if event.what == EventType::Command && event.command == crate::core::command::CM_ZOOM {
+        if !has_modal
+            && event.what == EventType::Command
+            && event.command == crate::core::command::CM_ZOOM
+        {
             self.zoom_top_window();
             event.clear();
         }

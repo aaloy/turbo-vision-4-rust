@@ -235,6 +235,36 @@ impl Window {
         self.frame.set_title(title);
     }
 
+    /// Enable the commands this window answers while it is the selected
+    /// window: `CM_NEXT`, `CM_PREV`, `CM_RESIZE` (every window can be moved)
+    /// and `CM_CLOSE` always, `CM_ZOOM` when the window can zoom.
+    ///
+    /// Matches Borland: TWindow::setState(sfSelected) ->
+    /// enableCommands(windowCommands), with the set built from the window's
+    /// flags. Called when the window gains selection; see
+    /// [`disable_window_commands`](Self::disable_window_commands).
+    pub fn enable_window_commands(&self) {
+        use crate::core::command::{CM_NEXT, CM_PREV, CM_RESIZE, CM_ZOOM};
+        use crate::core::command_set::{disable_command, enable_command};
+        for cmd in [CM_NEXT, CM_PREV, CM_RESIZE, CM_CLOSE] {
+            enable_command(cmd);
+        }
+        if self.frame.is_zoomable() {
+            enable_command(CM_ZOOM);
+        } else {
+            disable_command(CM_ZOOM);
+        }
+    }
+
+    /// Disable the window commands, as a window does when it loses
+    /// selection (Borland: TWindow::setState -> disableCommands).
+    pub fn disable_window_commands() {
+        use crate::core::command::{CM_NEXT, CM_PREV, CM_RESIZE, CM_ZOOM};
+        for cmd in [CM_NEXT, CM_PREV, CM_RESIZE, CM_CLOSE, CM_ZOOM] {
+            crate::core::command_set::disable_command(cmd);
+        }
+    }
+
     /// Set whether the window is resizable.
     /// Resizable windows show single-line bottom corners and a resize handle.
     /// Show or hide the frame's zoom icon (Borland: wfZoom).
@@ -764,6 +794,15 @@ pub trait WindowLike: GroupLike {
         self.window_mut()
             .frame
             .set_state_flag(State::ACTIVE, focused);
+
+        // The selected window's commands are the enabled ones (Borland:
+        // TWindow::setState(sfSelected) enables or disables windowCommands).
+        // Owners deselect the old window before selecting the new one.
+        if focused {
+            self.window().enable_window_commands();
+        } else {
+            Window::disable_window_commands();
+        }
 
         // Propagate focus to the interior group
         // When the window gets focus, set focus on its first focusable child

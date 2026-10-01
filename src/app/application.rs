@@ -568,7 +568,24 @@ impl Application {
     /// Because the event goes to `view`'s own `handle_event`, an override on
     /// the outer type (a `FileDialog` around a `Dialog`) is what runs, which is
     /// how such a type reacts to its children without owning the loop.
-    pub fn execute_modal<V, F>(&mut self, view: &mut V, mut tick: F) -> CommandId
+    ///
+    /// While the loop runs, `view` is the selected window, so its window
+    /// commands are enabled; the command set from before is put back
+    /// afterwards (Borland: TGroup::execView saves and restores it).
+    pub fn execute_modal<V, F>(&mut self, view: &mut V, tick: F) -> CommandId
+    where
+        V: WindowLike + ?Sized,
+        F: FnMut(&mut Application, &mut V) -> ModalTick,
+    {
+        let saved = command_set::get_commands();
+        view.window().enable_window_commands();
+        let result = self.run_modal_loop(view, tick);
+        command_set::set_commands(saved);
+        result
+    }
+
+    /// The loop behind [`execute_modal`](Self::execute_modal).
+    fn run_modal_loop<V, F>(&mut self, view: &mut V, mut tick: F) -> CommandId
     where
         V: WindowLike + ?Sized,
         F: FnMut(&mut Application, &mut V) -> ModalTick,
@@ -925,8 +942,18 @@ impl Application {
 
         // Status line
         if let Some(ref mut status_line) = self.status_line {
+            let was_command = event.what == EventType::Command;
             Self::dispatch_child(status_line, event);
             if event.what == EventType::Nothing {
+                return;
+            }
+            // A key or click the status line turned into a command goes round
+            // again, so the menu bar and the windows see it before the
+            // application does (Borland: TStatusLine::handleEvent putEvent).
+            // Without this an Alt+F3 status item's CM_CLOSE never reached the
+            // window it was meant to close.
+            if !was_command && event.what == EventType::Command {
+                self.handle_event(event);
                 return;
             }
         }
@@ -1381,6 +1408,10 @@ impl Application {
 /// | F6 | `CM_NEXT` |
 /// | Shift+F6 | `CM_PREV` |
 ///
+/// Only enabled commands are returned: the selected window enables its
+/// window commands (see `Window::enable_window_commands`), and an
+/// application can disable any of them.
+///
 /// Matches the keys `TProgram::initStatusLine` binds (stdStatusKeys). The
 /// terminal reports Ctrl+F5 and Shift+F6 as the plain key plus a modifier;
 /// the BIOS codes `KB_CTRL_F5` and `KB_SHIFT_F6` are accepted too.
@@ -1396,7 +1427,7 @@ fn default_window_command(event: &Event) -> Option<CommandId> {
         m.contains(KeyModifiers::SHIFT),
         m.contains(KeyModifiers::ALT),
     );
-    match event.key_code {
+    let command = match event.key_code {
         KB_ALT_F3 => Some(CM_CLOSE),
         KB_CTRL_F5 => Some(CM_RESIZE),
         KB_SHIFT_F6 => Some(CM_PREV),
@@ -1405,7 +1436,9 @@ fn default_window_command(event: &Event) -> Option<CommandId> {
         KB_F6 if !ctrl && !shift && !alt => Some(CM_NEXT),
         KB_F6 if shift && !ctrl && !alt => Some(CM_PREV),
         _ => None,
-    }
+    };
+    // Like a status-line item, a key whose command is disabled does nothing.
+    command.filter(|&c| command_set::command_enabled(c))
 }
 
 impl Drop for Application {
@@ -2257,6 +2290,10 @@ mod window_key_tests {
         let front = app
             .desktop
             .add(Window::new(Rect::new(5, 3, 35, 12), "Front"));
+        assert!(
+            command_set::command_enabled(CM_CLOSE),
+            "selecting a window enabled CM_CLOSE"
+        );
         press(&mut app, KB_ALT_F3, KeyModifiers::empty());
         assert!(is_closed(&app, front), "the focused window closes");
         assert!(!is_closed(&app, back), "the other window stays open");
@@ -2291,6 +2328,10 @@ mod window_key_tests {
             }
         });
         assert_eq!(result, CM_CANCEL);
+        assert!(
+            !command_set::command_enabled(CM_CLOSE),
+            "the command set is restored after the modal loop"
+        );
     }
 
     #[test]
@@ -2418,6 +2459,97 @@ mod window_key_tests {
             app.desktop.child_by_id(id).unwrap().bounds(),
             before,
             "and the window did not zoom"
+        );
+    }
+
+    // ---- fix round 1: the command set, and modal windows on the desktop ----
+
+    use crate::core::command::{CM_CLOSE, CM_NEXT, CM_PREV, CM_RESIZE, CM_ZOOM};
+    const WINDOW_COMMANDS: [CommandId; 5] = [CM_CLOSE, CM_ZOOM, CM_RESIZE, CM_NEXT, CM_PREV];
+
+    #[test]
+    fn a_modal_window_on_the_desktop_is_not_cycled_or_zoomed_away() {
+        let mut app = app();
+        app.desktop
+            .add(Window::new(Rect::new(1, 1, 30, 10), "Back"));
+        let mut modal = Window::new(Rect::new(5, 3, 35, 12), "Modal");
+        modal.set_state(modal.state() | State::MODAL);
+        let id = app.desktop.add(modal);
+        let before = app.desktop.child_by_id(id).unwrap().bounds();
+        for (code, mods) in [
+            (KB_F6, KeyModifiers::empty()),
+            (KB_F6, KeyModifiers::SHIFT),
+            (KB_F5, KeyModifiers::empty()),
+        ] {
+            press(&mut app, code, mods);
+            assert_eq!(app.desktop.top_view_id(), Some(id), "{code:#x} {mods:?}");
+            let modal = app.desktop.child_by_id(id).unwrap();
+            assert!(modal.state().contains(State::ACTIVE), "still selected");
+            assert_eq!(modal.bounds(), before, "not zoomed");
+        }
+    }
+
+    #[test]
+    fn window_commands_follow_the_selected_window() {
+        let mut app = app();
+        for cmd in WINDOW_COMMANDS {
+            assert!(!command_set::command_enabled(cmd), "{cmd} off at startup");
+        }
+        let id = app.desktop.add(Window::new(Rect::new(1, 1, 30, 10), "W"));
+        for cmd in WINDOW_COMMANDS {
+            assert!(command_set::command_enabled(cmd), "{cmd} on once selected");
+        }
+        press(&mut app, KB_ALT_F3, KeyModifiers::empty());
+        assert!(is_closed(&app, id));
+        app.desktop.remove_closed_windows();
+        for cmd in WINDOW_COMMANDS {
+            assert!(
+                !command_set::command_enabled(cmd),
+                "{cmd} off again once the last window is gone"
+            );
+        }
+    }
+
+    #[test]
+    fn a_disabled_cm_close_turns_alt_f3_off() {
+        let mut app = app();
+        let id = app.desktop.add(Window::new(Rect::new(1, 1, 30, 10), "W"));
+        app.disable_command(CM_CLOSE);
+        press(&mut app, KB_ALT_F3, KeyModifiers::empty());
+        assert!(!is_closed(&app, id), "Alt+F3 honours the command set");
+    }
+
+    #[test]
+    fn f5_does_not_zoom_a_window_that_cannot_zoom() {
+        let mut app = app();
+        let mut window = Window::new(Rect::new(1, 1, 30, 10), "Fixed");
+        window.set_zoomable(false);
+        let id = app.desktop.add(window);
+        assert!(!command_set::command_enabled(CM_ZOOM));
+        let before = app.desktop.child_by_id(id).unwrap().bounds();
+        press(&mut app, KB_F5, KeyModifiers::empty());
+        assert_eq!(app.desktop.child_by_id(id).unwrap().bounds(), before);
+    }
+
+    #[test]
+    fn a_status_line_alt_f3_item_closes_the_window() {
+        use crate::core::status_data::StatusItemBuilder;
+        let mut app = app();
+        app.set_status_line(StatusLine::new(
+            Rect::new(0, 24, 80, 25),
+            vec![
+                StatusItemBuilder::new()
+                    .text("~Alt+F3~ Close")
+                    .key("Alt+F3")
+                    .command(CM_CLOSE)
+                    .build(),
+            ],
+        ));
+        let id = app.desktop.add(Window::new(Rect::new(1, 1, 30, 10), "W"));
+        press(&mut app, KB_ALT_F3, KeyModifiers::empty());
+        assert!(
+            is_closed(&app, id),
+            "the status line's CM_CLOSE reaches the window"
         );
     }
 }

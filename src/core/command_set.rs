@@ -98,6 +98,24 @@ pub fn disable_command(command: CommandId) {
     });
 }
 
+/// A copy of the global command set, to put back later with
+/// [`set_commands`]. Matches Borland: TView::getCommands.
+pub fn get_commands() -> CommandSet {
+    GLOBAL_COMMAND_SET.with(|cs| cs.borrow().clone())
+}
+
+/// Replace the global command set, flagging a change if it differs.
+/// Matches Borland: TView::setCommands.
+pub fn set_commands(commands: CommandSet) {
+    GLOBAL_COMMAND_SET.with(|cs| {
+        let mut set = cs.borrow_mut();
+        if *set != commands {
+            COMMAND_SET_CHANGED.with(|changed| *changed.borrow_mut() = true);
+        }
+        *set = commands;
+    });
+}
+
 /// Check if command set has changed (needs broadcast)
 /// Matches Borland: TView::commandSetChanged (tview.cc:51)
 pub fn command_set_changed() -> bool {

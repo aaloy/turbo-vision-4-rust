@@ -45,6 +45,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   loops. They apply only when no view and no status-line binding took the
   key, so a `TabbedPane`'s F6 still switches pages. Adds `KB_CTRL_F5` and
   `KB_SHIFT_F6`.
+- **Window commands are now enabled for the selected window** (#111). They
+  started disabled and nothing turned them on, so menu and status-line items
+  for `CM_CLOSE`, `CM_ZOOM`, `CM_RESIZE`, `CM_NEXT` and `CM_PREV` never
+  fired. As in Borland's `TWindow::setState(sfSelected)`, a window enables
+  them when it is selected (`CM_ZOOM` only if it can zoom) and disables them
+  when it loses selection or is removed; a modal loop restores the command
+  set it found. The window keys honour the command set. The desktop no
+  longer cycles or zooms windows while its top window is modal. A command
+  the status line produces from a key or click now goes through the menu
+  bar and the desktop before the application, so a status-line `Alt+F3`
+  item closes the window.
 - **"See also" links in help could not be clicked** (#110). Help text was
   measured in UTF-8 bytes, so the `→` before each entry pushed the link two
   columns past its cross-reference, and inline links after non-ASCII text

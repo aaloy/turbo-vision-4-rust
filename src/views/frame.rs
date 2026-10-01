@@ -116,6 +116,11 @@ impl Frame {
         self.resizable = resizable;
     }
 
+    /// Whether the window can zoom: the zoom icon is drawn (Borland: wfZoom).
+    pub fn is_zoomable(&self) -> bool {
+        self.zoomable
+    }
+
     /// Set whether the zoom icon is drawn (matches Borland's wfZoom flag).
     pub fn set_zoomable(&mut self, zoomable: bool) {
         self.zoomable = zoomable;
