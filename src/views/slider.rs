@@ -93,8 +93,8 @@ impl Slider {
         self.view_state.contains(State::DRAGGING)
     }
 
-    /// Set the dragging state. While dragging, the Group will forward MouseMove
-    /// and MouseUp events even if the pointer leaves the track.
+    /// Set the dragging state. While dragging, the `Group` will forward
+    /// `MouseMove` and `MouseUp` events even if the pointer leaves the track.
     fn set_dragging(&mut self, dragging: bool) {
         self.set_state_flag(State::DRAGGING, dragging);
     }
@@ -158,8 +158,8 @@ impl View for Slider {
 
     /// Losing focus must end any drag in progress: nothing else clears
     /// `State::DRAGGING` for a view that stops being focused (e.g. the
-    /// window manager moves focus elsewhere mid-drag), and a stale DRAGGING
-    /// flag would make a later unrelated MouseMove misbehave.
+    /// window manager moves focus elsewhere mid-drag), and a stale
+    /// `DRAGGING` flag would make a later unrelated `MouseMove` misbehave.
     fn set_focus(&mut self, focused: bool) {
         self.set_state_flag(State::FOCUSED, focused);
         if !focused {
@@ -345,7 +345,8 @@ mod tests {
             key(&mut s, KB_END);
             key(&mut s, KB_LEFT);
             click(&mut s, width - 1);
-            let mut term = crate::test_util::test_terminal(width as u16, 1);
+            let mut term =
+                crate::test_util::test_terminal(u16::try_from(width).unwrap_or(0), 1);
             s.draw(&mut term);
             let thumbs = (0..width).filter(|&x| term.read_cell(x, 0).unwrap().ch == THUMB).count();
             assert_eq!(thumbs, 1, "one thumb inside the view for {min}..={max} in {width}");
@@ -472,7 +473,7 @@ mod tests {
     }
 
     /// Losing focus mid-drag (e.g. the window manager focuses another view)
-    /// must end the drag, or a later unrelated MouseMove with the button up
+    /// must end the drag, or a later unrelated `MouseMove` with the button up
     /// would be wrongly treated as "still dragging, button released" instead
     /// of simply doing nothing.
     #[test]
