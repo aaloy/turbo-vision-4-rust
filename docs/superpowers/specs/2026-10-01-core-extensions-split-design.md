@@ -14,8 +14,9 @@ becomes usable by any turbo-vision app, with its plank glue in a separate
 Success means:
 
 - One implementation per widget across all three repos.
-- Core no longer depends on `tracing`, `chrono`, `base64`, `simplelog` or the
-  SSH stack, and no longer embeds the PNG font.
+- Core no longer depends on `tracing`, `base64`, `simplelog` or the SSH
+  stack. (Amended 2026-10-02: screen dumping stays in core as a debug
+  facility, so `chrono` and the PNG font stay; see "Screen capture" below.)
 - Every feature that leaves core still works from `tv-extensions`, with its
   tests and examples.
 - `tv-extensions` and `plank-tv` depend on a core `main` commit or release,
@@ -87,14 +88,13 @@ Already on `wasm-host-driven`, and arriving with the fast-forward: the
 Removed from core:
 
 - `src/views/{kitty_image,ansi_background,log_window,terminal_widget}.rs`
-- `src/core/{ansi,ansi_dump,screenshot}.rs`, the embedded
-  `src/core/font8x16.bin` and `fonts/Spleen-LICENSE` (all of them move to
-  `capture`)
+- `src/core/ansi.rs` (moves to `graphics`). `ansi_dump.rs`, `screenshot.rs`,
+  the font and its licence stay (see "Screen capture" below).
 - `src/terminal/{remote_input,ssh_backend}.rs` and `src/ssh/`
-- `Terminal::{enable_remote_input, save_screenshot_png, dump_screen,
-  dump_region, write_kitty_graphics, supports_kitty_graphics,
+- `Terminal::{enable_remote_input, write_kitty_graphics, supports_kitty_graphics,
   delete_kitty_image, clear_kitty_images}` and
-  `Application::{enable_remote_input, take_screenshot, dump_screen_ansi}`.
+  `Application::enable_remote_input`. (`save_screenshot_png`, `dump_screen`,
+  `dump_region`, `take_screenshot` and `dump_screen_ansi` stay.)
   The `TV_REMOTE_KEYS` env handling moves with `remote_input`.
 - The `ssh` feature and its dependencies, plus `tracing`, `chrono`,
   `base64` and `simplelog`. `log` stays, because about a dozen core views
@@ -114,7 +114,6 @@ lean:
 | `popup_menu` | default | `popup_menu`, check-mark helpers | extras |
 | `log` | `log` | `LogWindow`, `LogSubscriber`, `TerminalWidget`, `Span` | core; brings `tracing` |
 | `graphics` | `graphics` | `KittyImage`, `AnsiBackground`, ANSI parser | core; brings `base64`; built on `Terminal::write_raw` |
-| `capture` | `capture` | PNG renderer and font, ANSI dump, `install(&mut Application)` that registers the capture hook | core; brings `chrono` |
 | `remote_input` | `remote-input` (needs `native`) | TCP key injection, `enable(&mut Application, port)` built on `event_injector` | core |
 | `ssh` | `ssh` (needs `native`) | SSH server, `SshBackend`, auth policy | core; brings tokio and russh |
 | `csv` | `csv` | `csv`, `doc::CsvDoc`, `editor::Session`, dialogs, commands, `Disk`, `MemDisk`, new `FsDisk` | plank-csvedit |
@@ -147,6 +146,25 @@ Depends on `tv-extensions` (feature `csv`), `plank-guest-support` and
 Update `docs/WASM-PLUGINS.md`, `tests/wasm_csvedit.rs`, `tests/grid_bridge.rs`
 and anything else that names `plank-csvedit` or its paths.
 
+## Screen capture (amended 2026-10-02, user decision)
+
+Screen dumping is a debug facility and stays in core:
+
+- **ANSI dump** (F12, `Terminal::dump_screen`, `dump_region`,
+  `Application::dump_screen_ansi`, `core::ansi_dump`) is always built.
+- **PNG screenshot** (Ctrl+F12, `CM_SCREENSHOT`, `Terminal::save_screenshot_png`,
+  `Application::take_screenshot`, `core::screenshot`, the embedded 8x16 font and
+  `fonts/Spleen-LICENSE`) stays in core behind a new `screenshot` cargo feature,
+  on by default and off for the wasm build. Without it, Ctrl+F12 falls back to
+  the capture hook or does nothing.
+- **Wider character set:** the PNG renderer draws every glyph the framework
+  itself puts on screen (at least `◆ √ ► ◄ ▏ ▎ ▍ ▋ ▊ ▉` and the arrows, check
+  marks and box/block characters used in `src/`), and the CP437 graphics set,
+  instead of `?`.
+- The capture hook stays: an application can still replace the built-in
+  capture. tv-extensions has no `capture` module (the copy made in plan 2 is
+  reverted).
+
 ## Order of work
 
 Every step leaves all repos building and their tests passing.
@@ -178,9 +196,10 @@ Every step leaves all repos building and their tests passing.
 
 These examples move to `tv-extensions/examples/`: `kitty_image`,
 `kitty_background`, `kitty_biorhythm`, `log_window`, `terminal_widget`,
-`ssh_server`, `screenshot`, `desktop_logo` (it uses a moved module), plus
+`ssh_server`, `desktop_logo` (it uses a moved module), plus
 the three `extras/examples/*` with the deleted duplicates swapped for core
-widgets. No other core example or demo uses a moved module.
+widgets. No other core example or demo uses a moved module. (`screenshot`
+stays in core with the capture facility.)
 
 The docs site keeps its pages for core widgets. Pages for moved features
 link to the tv-extensions docs (`tv-extensions/docs/`).
@@ -191,8 +210,10 @@ link to the tv-extensions docs (`tv-extensions/docs/`).
   separators, both providers, Slider and each hook. `cargo test`,
   `cargo test --no-default-features` and `scripts/check-wasm.sh`.
 - tv-extensions: moved tests per feature, with `cargo test --all-features`,
-  `cargo test` (defaults) and the wasm check with `--features csv`. The
-  capture tests render a PNG and compare against the glyphs drawn.
+  `cargo test` (defaults) and the wasm check with `--features csv`.
+- Core screenshot: with the `screenshot` feature the PNG tests render every
+  glyph the framework draws without falling back to `?`; without it the crate
+  builds and F12 still dumps ANSI.
 - plank-tv: native `cargo test --lib`, plus the wasm build via `package.sh`.
 - plank: `tests/wasm_csvedit.rs` and `tests/grid_bridge.rs` against the
   rebuilt module.
@@ -210,7 +231,7 @@ link to the tv-extensions docs (`tv-extensions/docs/`).
   fix its palette chain. The `ProgressBar`/`ListBox` issue is out of scope,
   but a test must not lock the bad colours in.
 - **Screenshot font gaps.** The PNG renderer draws `?` for `◆ √ ► ◄ ▏–▉`.
-  It moves to `capture` unchanged. Fixing the gaps is a separate follow-up.
+  Now in scope for core (see "Screen capture").
 - **wasm build.** `tracing`, `chrono` and tokio must stay behind their
   features, so a default tv-extensions build still compiles for
   `wasm32-wasip1`.
