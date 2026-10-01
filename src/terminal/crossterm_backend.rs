@@ -347,9 +347,8 @@ impl Default for CrosstermBackend {
 mod tests {
     use super::MOUSE_OFF;
 
-    /// Every mouse mode the local and SSH backends can enable must have a
-    /// matching reset here, or the shell inherits a terminal that keeps
-    /// reporting (issue #109).
+    /// Every mouse mode this backend can enable must have a matching reset
+    /// here, or the shell inherits a terminal that keeps reporting (issue #109).
     #[test]
     fn mouse_off_resets_every_mode_we_enable() {
         for mode in ["1000", "1002", "1003", "1006", "1015"] {

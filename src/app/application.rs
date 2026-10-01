@@ -400,7 +400,7 @@ impl Application {
     /// 20 ms. `None` means nothing arrived.
     ///
     /// A backend error is treated as a quit request: it means the backend
-    /// connection is gone (e.g. the SSH client disconnected), and swallowing
+    /// connection is gone (e.g. a remote client disconnected), and swallowing
     /// it would leave the event loop spinning forever on a dead session. So
     /// the error is logged, `running` is cleared and `None` is returned.
     ///

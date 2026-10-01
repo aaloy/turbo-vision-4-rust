@@ -4,8 +4,8 @@
 //!
 //! This module provides the [`InputParser`] type which converts raw terminal
 //! input bytes (ANSI escape sequences) into turbo-vision [`Event`] structures.
-//! This is primarily used by the SSH backend to parse input from remote
-//! terminal clients.
+//! This is primarily used by remote backends, such as the `tv-extensions`
+//! crate's SSH backend, to parse input from remote terminal clients.
 //!
 //! # Supported Input
 //!
@@ -50,7 +50,8 @@ pub struct InputParser {
 
 /// Longest escape sequence the parser will buffer while waiting for more
 /// bytes. A malformed sequence with no final byte would otherwise grow the
-/// buffer without bound on hostile input (e.g. from a remote SSH client).
+/// buffer without bound on hostile input (e.g. from a remote client, such as
+/// the `tv-extensions` crate's SSH backend serves).
 const MAX_PENDING_SEQUENCE: usize = 64;
 
 impl InputParser {

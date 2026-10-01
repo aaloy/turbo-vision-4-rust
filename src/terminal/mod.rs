@@ -17,7 +17,7 @@
 //! allowing turbo-vision to work with different terminal transports:
 //!
 //! - [`CrosstermBackend`] - Local terminal via crossterm (default)
-//! - `SshBackend` - Remote terminal via SSH (requires `ssh` feature)
+//! - A remote backend, such as the `tv-extensions` crate's SSH backend
 //!
 //! # Examples
 //!
@@ -58,16 +58,12 @@ mod crossterm_backend;
 pub mod remote_input;
 
 mod input_parser;
-#[cfg(feature = "ssh")]
-mod ssh_backend;
 
 pub use backend::{Backend, Capabilities};
 #[cfg(feature = "native")]
 pub use crossterm_backend::{CrosstermBackend, restore_terminal};
 
 pub use input_parser::InputParser;
-#[cfg(feature = "ssh")]
-pub use ssh_backend::{SshBackend, SshSessionBuilder, SshSessionHandle};
 
 use crate::core::ansi_dump;
 use crate::core::draw::Cell;
@@ -1308,7 +1304,7 @@ mod tests {
     }
 
     #[test]
-    fn input_parser_is_available_without_ssh() {
+    fn input_parser_stays_public_for_downstream_backends() {
         let mut parser = InputParser::new();
         let events = parser.parse(b"a");
         assert_eq!(events.len(), 1);

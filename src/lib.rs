@@ -224,9 +224,7 @@ pub mod helpers;
 pub mod terminal;
 pub mod views;
 
-// SSH server support (only available with ssh feature)
-#[cfg(feature = "ssh")]
-pub mod ssh;
+// Serving an application over SSH lives in the `tv-extensions` crate (`ssh` feature).
 
 // Test utilities (available to the crate's own tests and, for downstream
 // crates, behind the `test-util` feature)

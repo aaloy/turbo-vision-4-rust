@@ -4,7 +4,8 @@
 //!
 //! This module defines the [`Backend`] trait that abstracts low-level terminal
 //! operations, allowing turbo-vision to work with different terminal transports
-//! such as crossterm (local terminal) or SSH channels (remote terminal).
+//! such as crossterm (local terminal) or a remote channel, such as the
+//! `tv-extensions` crate's SSH backend.
 //!
 //! # Architecture
 //!
@@ -21,10 +22,11 @@
 //! └────────┬────────────────────────────┬──────────┘
 //!          │                            │
 //!          ▼                            ▼
-//! ┌─────────────────┐          ┌─────────────────┐
-//! │ CrosstermBackend│          │   SshBackend    │
-//! │ (local terminal)│          │ (SSH channel)   │
-//! └─────────────────┘          └─────────────────┘
+//! ┌─────────────────┐          ┌───────────────────────┐
+//! │ CrosstermBackend│          │    A remote backend    │
+//! │ (local terminal)│          │ (e.g. tv-extensions'  │
+//! │                 │          │      SSH backend)      │
+//! └─────────────────┘          └───────────────────────┘
 //! ```
 
 use std::io;
