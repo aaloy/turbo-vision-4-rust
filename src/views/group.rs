@@ -539,6 +539,14 @@ pub trait GroupLike: View {
                 if child_state.intersects(State::DRAGGING | State::RESIZING) {
                     let focused = g.focused;
                     self.dispatch_to_child(focused, event);
+
+                    // IMPORTANT: If the child converted the event to Broadcast (e.g., a
+                    // slider's on_change), we need to handle that broadcast now (matches
+                    // Borland's putEvent behavior), same as the positional path below.
+                    if event.what == EventType::Broadcast {
+                        // Recursively call handle_event to process the broadcast
+                        self.handle_event(event);
+                    }
                     return;
                 }
             }

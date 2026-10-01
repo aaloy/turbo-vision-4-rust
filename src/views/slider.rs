@@ -374,6 +374,92 @@ mod tests {
         assert!(!s.state().contains(State::DRAGGING));
     }
 
+    /// A `MouseMove` broadcast sent while dragging (not just the initial
+    /// `MouseDown`) must reach sibling views. The group forwards
+    /// `MouseMove`/`MouseUp` straight to the dragging child while
+    /// `State::DRAGGING` is set (bypassing the usual hit-test), and that
+    /// shortcut has to re-handle a resulting `Broadcast` the same way the
+    /// normal positional path does, or a mid-drag `on_change` is silently
+    /// dropped.
+    #[test]
+    fn drag_broadcasts_during_the_move_reach_siblings_not_only_on_mouse_down() {
+        use crate::views::group::{Group, GroupLike};
+        use std::cell::RefCell;
+        use std::rc::Rc;
+
+        /// Records every broadcast command it is handed.
+        struct Spy {
+            core: ViewCore,
+            seen: Rc<RefCell<Vec<CommandId>>>,
+        }
+        impl View for Spy {
+            fn core(&self) -> &ViewCore {
+                &self.core
+            }
+            fn core_mut(&mut self) -> &mut ViewCore {
+                &mut self.core
+            }
+            fn draw(&mut self, _terminal: &mut Terminal) {}
+            fn handle_event(&mut self, event: &mut Event) {
+                if event.what == EventType::Broadcast {
+                    self.seen.borrow_mut().push(event.command);
+                }
+            }
+            fn get_palette(&self) -> Option<crate::core::palette::Palette> {
+                None
+            }
+            fn as_any(&self) -> &dyn std::any::Any {
+                self
+            }
+            fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+                self
+            }
+        }
+
+        let mut group = Group::new(Rect::new(0, 0, 30, 5));
+        let mut slider = Slider::new(Rect::new(2, 1, 13, 2), 0, 10);
+        slider.set_on_change(900);
+        group.add(slider);
+
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        group.add(Spy {
+            core: ViewCore {
+                bounds: Rect::new(0, 3, 1, 4),
+                ..ViewCore::default()
+            },
+            seen: Rc::clone(&seen),
+        });
+
+        group.set_focus_to(0);
+
+        // MouseDown at x=7 (slider-local x=5, value 5).
+        let mut down = Event::nothing();
+        down.what = EventType::MouseDown;
+        down.mouse.pos = Point::new(7, 1);
+        down.mouse.buttons = MB_LEFT_BUTTON;
+        group.handle_event(&mut down);
+        assert_eq!(
+            *seen.borrow(),
+            vec![900],
+            "MouseDown already reaches the spy"
+        );
+        seen.borrow_mut().clear();
+
+        // MouseMove, left button held, off the track entirely (y=4): still
+        // forwarded to the slider because it is State::DRAGGING. Far to the
+        // right, so the value changes (5 -> 10) and on_change fires again.
+        let mut mv = Event::nothing();
+        mv.what = EventType::MouseMove;
+        mv.mouse.pos = Point::new(40, 4);
+        mv.mouse.buttons = MB_LEFT_BUTTON;
+        group.handle_event(&mut mv);
+        assert_eq!(
+            *seen.borrow(),
+            vec![900],
+            "the MouseMove broadcast during the drag must reach the spy too, not only MouseDown's"
+        );
+    }
+
     #[test]
     fn a_drag_keeps_working_inside_a_group() {
         use crate::views::group::{Group, GroupLike};
