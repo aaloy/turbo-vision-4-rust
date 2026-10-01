@@ -609,7 +609,7 @@ pub mod palettes {
     //     64-74  = Syntax highlighting (Blue bg)
     //     75-85  = Syntax highlighting (Cyan bg)
     //     86-96  = Syntax highlighting (Gray bg)
-    //     97-104 = Black Window (LogWindow)
+    //     97-104 = Black Window (for dark-themed windows, e.g. tv-extensions' LogWindow)
     #[rustfmt::skip]
     pub const CP_APP_COLOR: &[u8] = &[
         0x71, 0x70, 0x78, 0x74, 0x20, 0x28, 0x24, 0x17, // 1-8: Desktop colors
@@ -632,7 +632,7 @@ pub mod palettes {
         0x37, 0x3E, 0x3C, 0x3F, 0x3D, 0x3F, 0x37, 0x3A, 0x3F, 0x3B, 0x3F,
         // 86-96: Syntax highlighting - Gray (LightGray) background
         0x70, 0x7E, 0x7C, 0x78, 0x7D, 0x70, 0x70, 0x72, 0x78, 0x71, 0x74,
-        // 97-104: Black Window (for LogWindow and similar dark-themed windows)
+        // 97-104: Black Window (for dark-themed windows, e.g. tv-extensions' LogWindow)
         // Same layout as Blue/Cyan/Gray window entries 1-8:
         // 1: Frame passive, 2: Frame active, 3: Frame icon, 4: ScrollBar page
         // 5: ScrollBar arrows, 6: Normal text, 7: Selected text, 8: Reserved

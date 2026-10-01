@@ -4,8 +4,7 @@
 //! held by its parent struct. Borland does this with a raw `TEditor*` into
 //! the owner's child list; Rust needs `Rc<RefCell<T>>`. This is the single
 //! forwarding wrapper that replaces the per-type `SharedScrollBar`,
-//! `SharedEditor`, `SharedIndicator`, `SharedHelpViewer` and
-//! `SharedTerminalWidget` newtypes.
+//! `SharedEditor`, `SharedIndicator` and `SharedHelpViewer` newtypes.
 
 use super::view::{View, ViewCore, ViewId};
 use crate::core::command::CommandId;
