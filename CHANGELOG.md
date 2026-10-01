@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Application::take_screenshot`) and its embedded font.
 - The PNG screenshot draws CP437's symbols, box drawing (single, double and
   mixed) and the whole block range U+2580-U+259F, the Latin-1 letters and
-  signs, and the marks the framework draws (`√ ◆ ✓ ► ◄ ▏…▉`, the message-box
+  signs, and the marks the framework draws (`√ ◆ ✓ • → ▏…▉`, the message-box
   icons) instead of `?`. `cargo run --example glyph_sample` renders them to
   `target/glyph-sample.png`.
 
@@ -31,6 +31,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Ctrl+F12 and `CM_SCREENSHOT` run the capture hook if one is installed and
   otherwise do nothing. The ANSI dump (F12, `dump_screen`, `dump_region`) is
   always built. The wasm build (`--no-default-features`) leaves it out.
+  A crate that depends on turbo-vision with `default-features = false` must
+  add `features = ["screenshot"]` to keep Ctrl+F12 PNG captures; without it
+  Ctrl+F12 only runs a capture hook, and logs at debug level that PNG
+  screenshots are not built in.
 - `Table::selected_cell` returns `Option<String>`, and
   `ListBox::get_selected_item` / `marked_text` return owned strings, because
   rows and items can now come from a provider. Add `.as_deref()` where a

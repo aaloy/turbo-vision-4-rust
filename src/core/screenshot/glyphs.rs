@@ -448,6 +448,8 @@ fn mark_rows(mark: Mark) -> &'static [u8] {
 /// First row of a capital in the embedded font, and of a lowercase x-height.
 const CAP_TOP: usize = 2;
 const X_TOP: usize = 5;
+/// Last row of a letter without a descender.
+const BASELINE: usize = 11;
 
 /// Build a composed Latin-1 letter: the font's letter plus its mark.
 fn composed(ch: char) -> Option<GlyphMask> {
@@ -462,12 +464,14 @@ fn composed(ch: char) -> Option<GlyphMask> {
         }
         Mark::Bar => mask[6] |= 0b1111_0000,
         Mark::Stroke => {
-            // A slash from the bottom-left to the top-right of the letter.
-            let (top, bottom) = if base.is_ascii_uppercase() {
-                (CAP_TOP - 1, 12)
+            // A slash from the bottom-left to the top-right of the letter,
+            // inside its own rows.
+            let top = if base.is_ascii_uppercase() {
+                CAP_TOP
             } else {
-                (X_TOP - 1, 12)
+                X_TOP
             };
+            let bottom = BASELINE;
             for (y, row) in mask.iter_mut().enumerate().take(bottom + 1).skip(top) {
                 let x = (bottom - y) * (FONT_W - 1) / (bottom - top);
                 *row |= 0x80 >> x;
@@ -539,6 +543,23 @@ mod tests {
             if base.is_ascii_uppercase() {
                 let mut mask = font_glyph(base as u32);
                 assert!(lower_capital(&mut mask), "{ch}: no row of {base} to drop");
+            }
+        }
+    }
+
+    #[test]
+    fn strokes_stay_inside_their_letter() {
+        // The slash of Ø and ø adds no ink above or below the O's own rows.
+        for &(ch, base, mark) in COMPOSED {
+            if mark == Mark::Stroke {
+                let letter = font_glyph(base as u32);
+                let inked =
+                    |m: &GlyphMask| -> Vec<usize> { (0..FONT_H).filter(|&y| m[y] != 0).collect() };
+                let rows = inked(&letter);
+                let (first, last) = (rows[0], rows[rows.len() - 1]);
+                for y in inked(&composed(ch).unwrap()) {
+                    assert!((first..=last).contains(&y), "{ch}: ink on row {y}");
+                }
             }
         }
     }
