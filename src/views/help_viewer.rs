@@ -83,7 +83,7 @@ impl HelpViewer {
         let max_line_width = self
             .styled_lines
             .iter()
-            .map(|segments| segments.iter().map(|s| s.len()).sum::<usize>())
+            .map(|segments| segments.iter().map(TextSegment::width).sum::<usize>())
             .max()
             .unwrap_or(0) as i16;
 
@@ -307,6 +307,20 @@ impl HelpViewer {
     }
 }
 
+/// The part of `text` that starts at or after display column `cols`, and the
+/// column it starts at. A wide character straddling `cols` is skipped whole.
+fn skip_columns(text: &str, cols: usize) -> (&str, usize) {
+    use unicode_width::UnicodeWidthChar;
+    let mut col = 0;
+    for (i, ch) in text.char_indices() {
+        if col >= cols {
+            return (&text[i..], col);
+        }
+        col += ch.width().unwrap_or(0);
+    }
+    ("", col)
+}
+
 /// Resolve the base color of a segment into a styled attribute.
 /// Bold/Italic segments carry real style flags; others are color-only.
 fn styled_attr(
@@ -352,7 +366,7 @@ impl View for HelpViewer {
         let max_line_width = self
             .styled_lines
             .iter()
-            .map(|segments| segments.iter().map(|s| s.len()).sum::<usize>())
+            .map(|segments| segments.iter().map(TextSegment::width).sum::<usize>())
             .max()
             .unwrap_or(0) as i16;
 
@@ -404,10 +418,13 @@ impl View for HelpViewer {
                 let segments = &self.styled_lines[line_idx];
                 let mut abs_col = 0usize; // Absolute column in the line
 
+                // Columns are display cells (`TextSegment::width`), the same
+                // measure the cross-refs use, so links are drawn where they
+                // are hit-tested.
                 for segment in segments {
                     let text = segment.text();
                     let seg_start = abs_col;
-                    let seg_end = abs_col + text.len();
+                    let seg_end = abs_col + segment.width();
 
                     // Check if this segment is visible (at least partially)
                     if seg_end > h_offset && seg_start < h_offset + display_width {
@@ -432,28 +449,10 @@ impl View for HelpViewer {
                             )
                         };
 
-                        // Calculate visible portion of the segment
-                        let visible_start = if seg_start >= h_offset {
-                            seg_start - h_offset
-                        } else {
-                            0
-                        };
-                        let text_start = if seg_start >= h_offset {
-                            0
-                        } else {
-                            h_offset - seg_start
-                        };
-                        let text_end = (seg_end - h_offset).min(display_width);
-                        let visible_len = if text_end > visible_start {
-                            text_end - visible_start
-                        } else {
-                            0
-                        };
-
-                        if visible_len > 0 && text_start < text.len() {
-                            let text_slice_end = (text_start + visible_len).min(text.len());
-                            buf.move_str(visible_start, &text[text_start..text_slice_end], color);
-                        }
+                        // Skip the columns scrolled off to the left, then
+                        // draw the rest; the buffer clips the right edge.
+                        let (shown, col) = skip_columns(text, h_offset.saturating_sub(seg_start));
+                        buf.move_str(seg_start + col - h_offset, shown, color);
                     }
 
                     abs_col = seg_end;
@@ -711,6 +710,120 @@ mod tests {
         viewer.clear();
         assert!(viewer.current_topic().is_none());
         assert!(viewer.styled_lines.is_empty());
+    }
+
+    use crate::views::help_file::HelpFile;
+
+    const LINKED: &str = "# Intro {#intro}\n\nRead [Other](#other) first.\nCaf\u{e9} \u{2014} see [Edit](#edit)\n\n# Edit {#edit}\n\nEditing.\n\n# Other {#other}\n\nOther.\n";
+
+    /// A viewer showing the "intro" topic of `LINKED`, drawn into a terminal.
+    fn drawn_intro() -> (HelpViewer, Terminal) {
+        let help = HelpFile::from_content(LINKED);
+        let mut viewer = HelpViewer::new(Rect::new(0, 0, 60, 20));
+        viewer.set_topic(help.get_topic("intro").unwrap());
+        let mut terminal = crate::test_util::test_terminal(60, 20);
+        viewer.draw(&mut terminal);
+        (viewer, terminal)
+    }
+
+    /// The cells a cross-ref covers, read back from the screen.
+    fn cells_under(terminal: &Terminal, r: &CrossRef) -> String {
+        (r.offset..r.offset + r.length as i16)
+            .map(|x| terminal.read_cell(x, r.line - 1).unwrap().ch)
+            .collect()
+    }
+
+    /// The text of the link segment a cross-ref was made for.
+    fn link_text(viewer: &HelpViewer, r: &CrossRef) -> String {
+        viewer.styled_lines[(r.line - 1) as usize]
+            .iter()
+            .find_map(|seg| match seg {
+                TextSegment::Link { text, target } if *target == r.target => Some(text.clone()),
+                _ => None,
+            })
+            .unwrap()
+    }
+
+    /// The "See also" cross-refs: the ones after the "See also:" line.
+    fn see_also_refs(viewer: &HelpViewer) -> Vec<(usize, CrossRef)> {
+        let header = viewer
+            .styled_lines
+            .iter()
+            .position(|l| l.first().map(|s| s.text()) == Some("See also:"))
+            .unwrap() as i16
+            + 1;
+        viewer
+            .cross_refs
+            .iter()
+            .cloned()
+            .enumerate()
+            .filter(|(_, r)| r.line > header)
+            .map(|(i, r)| (i + 1, r))
+            .collect()
+    }
+
+    #[test]
+    fn see_also_links_are_drawn_where_their_cross_ref_points() {
+        let (viewer, terminal) = drawn_intro();
+        let refs = see_also_refs(&viewer);
+        assert_eq!(refs.len(), 2, "{:?}", viewer.cross_refs);
+        for (_, r) in &refs {
+            assert_eq!(cells_under(&terminal, r), link_text(&viewer, r), "{r:?}");
+        }
+    }
+
+    #[test]
+    fn inline_links_after_non_ascii_text_are_drawn_where_their_cross_ref_points() {
+        let (viewer, terminal) = drawn_intro();
+        let r = viewer
+            .cross_refs
+            .iter()
+            .find(|r| r.target == "edit")
+            .expect("the inline Edit link comes first");
+        assert_eq!(cells_under(&terminal, r), "Edit", "{r:?}");
+        // and the link follows the text before it with no gap: one cell per
+        // character, not per UTF-8 byte.
+        let row: String = (0..60)
+            .map(|x| terminal.read_cell(x, r.line - 1).unwrap().ch)
+            .collect();
+        assert_eq!(row.trim_end(), "Caf\u{e9} \u{2014} see Edit");
+        assert_eq!(r.offset, 11);
+    }
+
+    #[test]
+    fn clicking_the_drawn_link_text_selects_its_cross_ref() {
+        let (mut viewer, terminal) = drawn_intro();
+        let (index, r) = see_also_refs(&viewer).pop().unwrap();
+        assert_eq!(r.target, "edit");
+        // Find the drawn link text on its row and click its last cell.
+        let row = r.line - 1;
+        let text = link_text(&viewer, &r);
+        let line: String = (0..60)
+            .map(|x| terminal.read_cell(x, row).unwrap().ch)
+            .collect();
+        let start = line.chars().collect::<Vec<_>>();
+        let first = (0..start.len())
+            .find(|&i| start[i..].iter().collect::<String>().starts_with(&text))
+            .expect("link text drawn") as i16;
+        let last = first + text.chars().count() as i16 - 1;
+        assert_eq!(viewer.get_cross_ref_at_public(last, row), index);
+
+        let mut down = Event::mouse(
+            EventType::MouseDown,
+            Point::new(last, row),
+            MB_LEFT_BUTTON,
+            false,
+        );
+        viewer.handle_event(&mut down);
+        assert_eq!(viewer.get_selected_target(), Some("edit"));
+        assert_eq!(viewer.get_scroll_state().1, index);
+    }
+
+    #[test]
+    fn horizontal_scroll_skips_whole_characters_not_bytes() {
+        assert_eq!(skip_columns("\u{2192} edit", 0), ("\u{2192} edit", 0));
+        assert_eq!(skip_columns("\u{2192} edit", 1), (" edit", 1));
+        assert_eq!(skip_columns("Caf\u{e9}!", 4), ("!", 4));
     }
 
     #[test]

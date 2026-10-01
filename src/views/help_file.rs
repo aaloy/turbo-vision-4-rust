@@ -41,15 +41,39 @@ impl TextSegment {
         }
     }
 
-    /// Get the display length of this segment
+    /// Display width of this segment in terminal cells, measured the way
+    /// `DrawBuffer::move_str` draws it: wide characters take two cells,
+    /// zero-width ones none. Not the byte length, so a `→` or an `é` counts
+    /// once.
+    pub fn width(&self) -> usize {
+        display_width(self.text())
+    }
+
+    /// Get the display length of this segment, in cells; same as
+    /// [`width`](Self::width).
     pub fn len(&self) -> usize {
-        self.text().len()
+        self.width()
     }
 
     /// Check if this segment is empty
     pub fn is_empty(&self) -> bool {
         self.text().is_empty()
     }
+}
+
+/// Width of `s` in terminal cells, one per character except wide (two) and
+/// zero-width (none) ones; matches what `DrawBuffer::move_str` occupies.
+pub(crate) fn display_width(s: &str) -> usize {
+    use unicode_width::UnicodeWidthChar;
+    s.chars().map(|c| c.width().unwrap_or(0)).sum()
+}
+
+/// Prefix drawn before each "See also" entry.
+const SEE_ALSO_PREFIX: &str = "  \u{2192} "; // "  → "
+
+/// Clamp a width to a cross-ref's `u8` length.
+fn ref_len(width: usize) -> u8 {
+    width.min(u8::MAX as usize) as u8
 }
 
 /// Cross-reference link within help content
@@ -89,6 +113,10 @@ pub struct HelpTopic {
     pub content: Vec<String>,
     /// Cross-references to other topics
     pub links: Vec<String>,
+    /// Titles of the linked topics, by topic id, so "See also" can show
+    /// "Edit Menu" rather than "edit". Filled by [`HelpFile`] once every topic
+    /// is parsed; a link with no entry shows its id.
+    pub link_titles: HashMap<String, String>,
 }
 
 impl HelpTopic {
@@ -99,6 +127,7 @@ impl HelpTopic {
             title,
             content: Vec::new(),
             links: Vec::new(),
+            link_titles: HashMap::new(),
         }
     }
 
@@ -114,6 +143,12 @@ impl HelpTopic {
         }
     }
 
+    /// What a "See also" entry for `id` shows: the linked topic's title, or
+    /// the id when that topic is unknown.
+    pub fn link_label<'a>(&'a self, id: &'a str) -> &'a str {
+        self.link_titles.get(id).map_or(id, String::as_str)
+    }
+
     /// Get formatted content with line numbers for display
     pub fn get_formatted_content(&self) -> Vec<String> {
         let mut lines = vec![format!("═══ {} ═══", self.title), String::new()];
@@ -123,7 +158,7 @@ impl HelpTopic {
             lines.push(String::new());
             lines.push("See also:".to_string());
             for link in &self.links {
-                lines.push(format!("  → {}", link));
+                lines.push(format!("{SEE_ALSO_PREFIX}{}", self.link_label(link)));
             }
         }
 
@@ -153,12 +188,17 @@ impl HelpTopic {
         if !self.links.is_empty() {
             lines.push(String::new());
             lines.push("See also:".to_string());
+            let offset = display_width(SEE_ALSO_PREFIX) as i16;
             for link in &self.links {
                 let line_num = (lines.len() + 1) as i16;
-                let link_text = format!("  → {}", link);
-                // The link text starts at position 4 (after "  → ")
-                refs.push(CrossRef::new(line_num, 4, link.len() as u8, link.clone()));
-                lines.push(link_text);
+                let label = self.link_label(link);
+                refs.push(CrossRef::new(
+                    line_num,
+                    offset,
+                    ref_len(display_width(label)),
+                    link.clone(),
+                ));
+                lines.push(format!("{SEE_ALSO_PREFIX}{label}"));
             }
         }
 
@@ -186,11 +226,11 @@ impl HelpTopic {
                     let target = &after_target_start[..target_end];
 
                     // Record the cross-reference at current position
-                    let offset = result.len() as i16;
+                    let offset = display_width(&result) as i16;
                     refs.push(CrossRef::new(
                         line_num,
                         offset,
-                        link_text.len() as u8,
+                        ref_len(display_width(link_text)),
                         target.to_string(),
                     ));
 
@@ -348,11 +388,11 @@ impl HelpTopic {
                     refs.push(CrossRef::new(
                         line_num,
                         offset,
-                        text.len() as u8,
+                        ref_len(display_width(text)),
                         target.clone(),
                     ));
                 }
-                offset += seg.len() as i16;
+                offset += seg.width() as i16;
             }
 
             all_segments.push(segments);
@@ -362,13 +402,21 @@ impl HelpTopic {
         if !self.links.is_empty() {
             all_segments.push(vec![TextSegment::Normal(String::new())]);
             all_segments.push(vec![TextSegment::Normal("See also:".to_string())]);
+            // The link starts where the prefix ends, in cells.
+            let offset = display_width(SEE_ALSO_PREFIX) as i16;
             for link in &self.links {
                 let line_num = (all_segments.len() + 1) as i16;
-                refs.push(CrossRef::new(line_num, 4, link.len() as u8, link.clone()));
+                let label = self.link_label(link).to_string();
+                refs.push(CrossRef::new(
+                    line_num,
+                    offset,
+                    ref_len(display_width(&label)),
+                    link.clone(),
+                ));
                 all_segments.push(vec![
-                    TextSegment::Normal("  → ".to_string()),
+                    TextSegment::Normal(SEE_ALSO_PREFIX.to_string()),
                     TextSegment::Link {
-                        text: link.clone(),
+                        text: label,
                         target: link.clone(),
                     },
                 ]);
@@ -457,6 +505,25 @@ impl HelpFile {
                 self.default_topic = Some(topic.id.clone());
             }
             self.topics.insert(topic.id.clone(), topic);
+        }
+
+        self.resolve_link_titles();
+    }
+
+    /// Record, in every topic, the titles of the topics it links to. Runs
+    /// after parsing, since a link may point at a topic further down.
+    fn resolve_link_titles(&mut self) {
+        let titles: HashMap<String, String> = self
+            .topics
+            .values()
+            .map(|t| (t.id.clone(), t.title.clone()))
+            .collect();
+        for topic in self.topics.values_mut() {
+            topic.link_titles = topic
+                .links
+                .iter()
+                .filter_map(|id| titles.get(id).map(|title| (id.clone(), title.clone())))
+                .collect();
         }
     }
 
@@ -745,6 +812,37 @@ mod tests {
             segments[0],
             TextSegment::Normal("Just plain text".to_string())
         );
+    }
+
+    #[test]
+    fn see_also_shows_the_target_title_and_falls_back_to_the_id() {
+        let help = HelpFile::from_content(
+            "# Intro {#intro}\n\nSee [Edit](#edit).\nAnd [Gone](#missing).\n\n# Edit Menu {#edit}\n\nText.\n",
+        );
+        let intro = help.get_topic("intro").unwrap();
+        assert_eq!(intro.links, vec!["edit".to_string(), "missing".to_string()]);
+        let (lines, refs) = intro.get_styled_content();
+        let n = lines.len();
+        assert_eq!(
+            lines[n - 2][1],
+            TextSegment::Link {
+                text: "Edit Menu".to_string(),
+                target: "edit".to_string(),
+            },
+            "the linked topic's title"
+        );
+        assert_eq!(
+            lines[n - 1][1],
+            TextSegment::Link {
+                text: "missing".to_string(),
+                target: "missing".to_string(),
+            },
+            "an unknown topic shows its id"
+        );
+        let last = refs.last().unwrap();
+        assert_eq!((last.target.as_str(), last.length), ("missing", 7));
+        let edit = &refs[refs.len() - 2];
+        assert_eq!((edit.target.as_str(), edit.length), ("edit", 9));
     }
 
     #[test]

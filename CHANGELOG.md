@@ -45,6 +45,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   loops. They apply only when no view and no status-line binding took the
   key, so a `TabbedPane`'s F6 still switches pages. Adds `KB_CTRL_F5` and
   `KB_SHIFT_F6`.
+- **"See also" links in help could not be clicked** (#110). Help text was
+  measured in UTF-8 bytes, so the `→` before each entry pushed the link two
+  columns past its cross-reference, and inline links after non-ASCII text
+  were drawn after a gap. `HelpViewer` and `HelpTopic` now measure in
+  display cells (`TextSegment::width`; `len` returns the same). "See also"
+  entries show the linked topic's title, falling back to its id when the
+  topic does not exist; `HelpTopic` gains a `link_titles` map, which
+  `HelpFile` fills after parsing.
 
 ## [3.0.1] - 2026-09-17
 
