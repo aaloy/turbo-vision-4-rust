@@ -52,7 +52,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them when it is selected (`CM_ZOOM` only if it can zoom) and disables them
   when it loses selection or is removed; a modal loop restores the command
   set it found. The window keys honour the command set. The desktop no
-  longer cycles or zooms windows while its top window is modal. A command
+  longer cycles windows while its top window is modal (a modal window still
+  zooms itself). F6, Shift+F6, Alt+number and `Desktop::bring_to_front` now
+  make the new top window the desktop's focused child, so `CM_CLOSE` and
+  other commands go to it and exactly one window is active. A command
   the status line produces from a key or click now goes through the menu
   bar and the desktop before the application, so a status-line `Alt+F3`
   item closes the window.

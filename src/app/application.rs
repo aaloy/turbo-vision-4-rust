@@ -2468,25 +2468,162 @@ mod window_key_tests {
     const WINDOW_COMMANDS: [CommandId; 5] = [CM_CLOSE, CM_ZOOM, CM_RESIZE, CM_NEXT, CM_PREV];
 
     #[test]
-    fn a_modal_window_on_the_desktop_is_not_cycled_or_zoomed_away() {
+    fn a_modal_window_on_the_desktop_is_not_cycled_away_but_zooms() {
         let mut app = app();
-        app.desktop
+        let back = app
+            .desktop
             .add(Window::new(Rect::new(1, 1, 30, 10), "Back"));
         let mut modal = Window::new(Rect::new(5, 3, 35, 12), "Modal");
         modal.set_state(modal.state() | State::MODAL);
         let id = app.desktop.add(modal);
         let before = app.desktop.child_by_id(id).unwrap().bounds();
-        for (code, mods) in [
-            (KB_F6, KeyModifiers::empty()),
-            (KB_F6, KeyModifiers::SHIFT),
-            (KB_F5, KeyModifiers::empty()),
-        ] {
-            press(&mut app, code, mods);
-            assert_eq!(app.desktop.top_view_id(), Some(id), "{code:#x} {mods:?}");
+        let back_before = app.desktop.child_by_id(back).unwrap().bounds();
+        for mods in [KeyModifiers::empty(), KeyModifiers::SHIFT] {
+            press(&mut app, KB_F6, mods);
+            assert_eq!(app.desktop.top_view_id(), Some(id), "F6 {mods:?}");
             let modal = app.desktop.child_by_id(id).unwrap();
             assert!(modal.state().contains(State::ACTIVE), "still selected");
-            assert_eq!(modal.bounds(), before, "not zoomed");
+            assert_eq!(modal.bounds(), before);
         }
+        press(&mut app, KB_F5, KeyModifiers::empty());
+        assert_eq!(app.desktop.top_view_id(), Some(id));
+        let desktop = app.desktop.bounds();
+        assert_eq!(
+            app.desktop.child_by_id(id).unwrap().bounds(),
+            Rect::new(0, 0, desktop.width(), desktop.height()),
+            "F5 zooms the modal window itself"
+        );
+        assert_eq!(
+            app.desktop.child_by_id(back).unwrap().bounds(),
+            back_before,
+            "nothing behind it changes"
+        );
+    }
+
+    #[test]
+    fn a_modal_window_zooms_from_its_zoom_icon() {
+        use crate::core::event::MB_LEFT_BUTTON;
+        let mut app = app();
+        let mut modal = Window::new(Rect::new(5, 3, 35, 12), "Modal");
+        modal.set_state(modal.state() | State::MODAL);
+        let id = app.desktop.add(modal);
+        // The zoom icon sits at columns width-5..width-3 of the top frame
+        // row; the desktop starts below the menu bar.
+        let origin = app.desktop.bounds().a;
+        let at = crate::core::geometry::Point::new(origin.x + 5 + 30 - 4, origin.y + 3);
+        let mut down = Event::mouse(EventType::MouseDown, at, MB_LEFT_BUTTON, false);
+        app.handle_event(&mut down);
+        let mut up = Event::mouse(EventType::MouseUp, at, MB_LEFT_BUTTON, false);
+        app.handle_event(&mut up);
+        let desktop = app.desktop.bounds();
+        assert_eq!(
+            app.desktop.child_by_id(id).unwrap().bounds(),
+            Rect::new(0, 0, desktop.width(), desktop.height())
+        );
+    }
+
+    /// Those of `ids` whose window has `State::ACTIVE`.
+    fn active_windows(app: &Application, ids: &[ViewId]) -> Vec<ViewId> {
+        ids.iter()
+            .copied()
+            .filter(|&id| {
+                app.desktop
+                    .child_by_id(id)
+                    .unwrap()
+                    .state()
+                    .contains(State::ACTIVE)
+            })
+            .collect()
+    }
+
+    /// After a switch, Alt+F3 closes the window that is on top, and exactly
+    /// that window is the active one.
+    fn alt_f3_closes_the_top(app: &mut Application, ids: &[ViewId]) {
+        let top = app.desktop.top_view_id().unwrap();
+        assert_eq!(
+            active_windows(app, ids),
+            vec![top],
+            "exactly the top is active"
+        );
+        press(app, KB_ALT_F3, KeyModifiers::empty());
+        for &id in ids {
+            assert_eq!(is_closed(app, id), id == top, "{id:?} (top {top:?})");
+        }
+    }
+
+    #[test]
+    fn after_f6_alt_f3_closes_the_new_top_window() {
+        let mut app = app();
+        let ids = three_windows(&mut app);
+        press(&mut app, KB_F6, KeyModifiers::empty());
+        assert_eq!(app.desktop.top_view_id(), Some(ids[1]));
+        alt_f3_closes_the_top(&mut app, &ids);
+    }
+
+    #[test]
+    fn after_shift_f6_alt_f3_closes_the_new_top_window() {
+        let mut app = app();
+        let ids = three_windows(&mut app);
+        press(&mut app, KB_F6, KeyModifiers::SHIFT);
+        assert_eq!(app.desktop.top_view_id(), Some(ids[0]));
+        alt_f3_closes_the_top(&mut app, &ids);
+    }
+
+    #[test]
+    fn after_alt_number_alt_f3_closes_the_chosen_window() {
+        use crate::core::event::KB_ALT_1;
+        let mut app = app();
+        let mut ids = Vec::new();
+        for (n, x) in [(1u8, 1), (2, 5), (3, 9)] {
+            let mut w = Window::new(Rect::new(x, x, x + 30, x + 9), "N");
+            w.set_number(n);
+            ids.push(app.desktop.add(w));
+        }
+        press(&mut app, KB_ALT_1, KeyModifiers::empty());
+        assert_eq!(app.desktop.top_view_id(), Some(ids[0]));
+        alt_f3_closes_the_top(&mut app, &ids);
+    }
+
+    #[test]
+    fn bring_to_front_selects_the_window() {
+        let mut app = app();
+        let ids = three_windows(&mut app);
+        app.desktop.bring_to_front(ids[0]);
+        alt_f3_closes_the_top(&mut app, &ids);
+    }
+
+    #[test]
+    fn clicking_a_window_still_selects_it() {
+        use crate::core::event::MB_LEFT_BUTTON;
+        let mut app = app();
+        let ids = three_windows(&mut app);
+        // Window A's top-left interior cell, clear of B and C.
+        let origin = app.desktop.bounds().a;
+        let at = crate::core::geometry::Point::new(origin.x + 2, origin.y + 2);
+        let mut down = Event::mouse(EventType::MouseDown, at, MB_LEFT_BUTTON, false);
+        app.handle_event(&mut down);
+        let mut up = Event::mouse(EventType::MouseUp, at, MB_LEFT_BUTTON, false);
+        app.handle_event(&mut up);
+        assert_eq!(app.desktop.top_view_id(), Some(ids[0]));
+        alt_f3_closes_the_top(&mut app, &ids);
+    }
+
+    #[test]
+    fn window_commands_follow_a_switch() {
+        let mut app = app();
+        let mut fixed = Window::new(Rect::new(1, 1, 30, 10), "Fixed");
+        fixed.set_zoomable(false);
+        app.desktop.add(fixed);
+        app.desktop
+            .add(Window::new(Rect::new(5, 3, 35, 12), "Zoomable"));
+        assert!(command_set::command_enabled(CM_ZOOM));
+        press(&mut app, KB_F6, KeyModifiers::empty());
+        assert!(
+            !command_set::command_enabled(CM_ZOOM),
+            "the non-zoomable window is selected now"
+        );
+        press(&mut app, KB_F6, KeyModifiers::empty());
+        assert!(command_set::command_enabled(CM_ZOOM));
     }
 
     #[test]

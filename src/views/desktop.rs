@@ -540,17 +540,23 @@ impl Desktop {
             return true; // Already on top
         }
 
-        // Unfocus current top window
-        self.children.child_at_mut(last_idx).set_focus(false);
-
-        // Bring the target window to front
+        // Bring the target window to front and select it
         self.children.bring_to_front(index);
-
-        // Focus the new top window
-        let new_top = self.children.len() - 1;
-        self.children.child_at_mut(new_top).set_focus(true);
+        self.select_top_window();
 
         true
+    }
+
+    /// Make the top window the selected one: every window is deselected
+    /// (which also drops the window commands), then the top one becomes the
+    /// group's focused child and is selected (which enables its commands).
+    /// Keeps `Group::focused`, where commands such as `CM_CLOSE` go, in step
+    /// with the one window that is `State::ACTIVE`.
+    fn select_top_window(&mut self) {
+        let top = self.children.len() - 1;
+        if top >= 1 {
+            self.children.set_focus_to(top);
+        }
     }
 
     /// Whether the topmost window is modal. Modal windows capture all events
@@ -625,18 +631,15 @@ impl View for Desktop {
         use crate::core::event::EventType;
 
         // A modal top window owns the session: the desktop does not cycle
-        // windows out from under it or zoom it; those commands go to the
-        // modal view, which ignores them, as in Borland, where the modal
-        // view's execView loop sees them instead of the desktop.
+        // windows out from under it (CM_NEXT/CM_PREV go to the modal view,
+        // which ignores them). CM_ZOOM still zooms the top window, which is
+        // then the modal one zooming itself.
         let has_modal = self.top_is_modal();
 
         // cmZoom toggles the top window between zoomed and saved bounds
         // (Borland: TWindow::handleEvent cmZoom; here the desktop owns the
         // maximum extent)
-        if !has_modal
-            && event.what == EventType::Command
-            && event.command == crate::core::command::CM_ZOOM
-        {
+        if event.what == EventType::Command && event.command == crate::core::command::CM_ZOOM {
             self.zoom_top_window();
             event.clear();
             return;
@@ -703,19 +706,9 @@ impl View for Desktop {
                     // Cycle to next window (send top window to back)
                     // Matches Borland: cmNext command calls selectNext(False)
                     if self.children.len() > 2 {
-                        // Clear focus from current top window
                         let old_top_idx = self.children.len() - 1;
-                        let old_state = self.children.child_at(old_top_idx).state();
-                        if old_state.contains(State::FOCUSED) {
-                            self.children.child_at_mut(old_top_idx).set_focus(false);
-                        }
-
-                        // Move top window to back
                         self.children.send_to_back(old_top_idx);
-
-                        // Focus the new top window
-                        let new_top_idx = self.children.len() - 1;
-                        self.children.child_at_mut(new_top_idx).set_focus(true);
+                        self.select_top_window();
                     }
                     event.clear();
                     return;
@@ -724,19 +717,8 @@ impl View for Desktop {
                     // Cycle to previous window (bring bottom window to front)
                     // Matches Borland: cmPrev calls current->putInFrontOf(background)
                     if self.children.len() > 2 {
-                        // Clear focus from current top window
-                        let old_top_idx = self.children.len() - 1;
-                        let old_state = self.children.child_at(old_top_idx).state();
-                        if old_state.contains(State::FOCUSED) {
-                            self.children.child_at_mut(old_top_idx).set_focus(false);
-                        }
-
-                        // Bring bottom window (after background) to front
                         self.children.bring_to_front(1);
-
-                        // Focus the new top window
-                        let new_top_idx = self.children.len() - 1;
-                        self.children.child_at_mut(new_top_idx).set_focus(true);
+                        self.select_top_window();
                     }
                     event.clear();
                     return;
@@ -758,10 +740,7 @@ impl View for Desktop {
         // comes back out of the window as cmZoom. It was a mouse event on the
         // way in, so the check above never saw it; handle it here or the
         // command leaks to the application and the click does nothing.
-        if !has_modal
-            && event.what == EventType::Command
-            && event.command == crate::core::command::CM_ZOOM
-        {
+        if event.what == EventType::Command && event.command == crate::core::command::CM_ZOOM {
             self.zoom_top_window();
             event.clear();
         }
