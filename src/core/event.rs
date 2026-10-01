@@ -86,6 +86,11 @@ pub const KB_ALT_9: KeyCode = 0x8000;
 
 pub const KB_ALT_F1: KeyCode = 0x6800; // Alt+F1 for help history back
 pub const KB_ALT_F3: KeyCode = 0x6A00;
+// Borland/BIOS codes for the modified F-keys of the default window bindings.
+// The terminal reports these as KB_F5 + CONTROL and KB_F6 + SHIFT; both
+// spellings are accepted wherever the window keys are recognised.
+pub const KB_CTRL_F5: KeyCode = 0x6200;
+pub const KB_SHIFT_F6: KeyCode = 0x5900;
 
 // ESC + letter (for macOS Alt emulation)
 pub const KB_ESC_F: KeyCode = 0x2101; // ESC+F

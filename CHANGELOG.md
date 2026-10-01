@@ -39,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   control's owner-relative bounds; the open request now carries the field's
   position up through its owners, as `History` does, and the list opens under
   the field.
+- **Alt+F3 did not close the window** (#111). The application now carries
+  Borland's default window keys: Alt+F3 `CM_CLOSE`, F5 `CM_ZOOM`, Ctrl+F5
+  `CM_RESIZE`, F6 `CM_NEXT`, Shift+F6 `CM_PREV`, in `run` and in modal
+  loops. They apply only when no view and no status-line binding took the
+  key, so a `TabbedPane`'s F6 still switches pages. Adds `KB_CTRL_F5` and
+  `KB_SHIFT_F6`.
 
 ## [3.0.1] - 2026-09-17
 

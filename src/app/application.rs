@@ -610,6 +610,16 @@ impl Application {
                         Self::dispatch_child(view, &mut event);
                     }
 
+                    // A window key nobody in the view wanted (Alt+F3 closes,
+                    // which a modal window turns into CM_CANCEL). Borland's
+                    // status line sees keys during execView too.
+                    if event.what == EventType::Keyboard {
+                        if let Some(command) = default_window_command(&event) {
+                            event = Event::command(command);
+                            Self::dispatch_child(view, &mut event);
+                        }
+                    }
+
                     // A History button converted its click into CM_SHOW_HISTORY;
                     // the popup needs the terminal, so it opens here.
                     if event.what == EventType::Command
@@ -919,6 +929,19 @@ impl Application {
             if event.what == EventType::Nothing {
                 return;
             }
+        }
+
+        // Borland's default window keys, the bindings TProgram's status line
+        // carries. They come after every view has had the key, so a focused
+        // view that uses one (TabbedPane's F6) keeps it; the command then goes
+        // round again the way the status line's putEvent would send it, and
+        // reaches the caller's handler if no window takes it.
+        if event.what == EventType::Keyboard {
+            if let Some(command) = default_window_command(event) {
+                *event = Event::command(command);
+                self.handle_event(event);
+            }
+            return;
         }
 
         // Application-level command handling
@@ -1344,6 +1367,44 @@ impl Application {
 
         self.terminal.flush()?;
         Ok(())
+    }
+}
+
+/// The command one of Borland's default window keys stands for, or `None`
+/// when `event` is not one of them.
+///
+/// | Key | Command |
+/// |---|---|
+/// | Alt+F3 | `CM_CLOSE` |
+/// | F5 | `CM_ZOOM` |
+/// | Ctrl+F5 | `CM_RESIZE` |
+/// | F6 | `CM_NEXT` |
+/// | Shift+F6 | `CM_PREV` |
+///
+/// Matches the keys `TProgram::initStatusLine` binds (stdStatusKeys). The
+/// terminal reports Ctrl+F5 and Shift+F6 as the plain key plus a modifier;
+/// the BIOS codes `KB_CTRL_F5` and `KB_SHIFT_F6` are accepted too.
+fn default_window_command(event: &Event) -> Option<CommandId> {
+    use crate::core::command::{CM_CLOSE, CM_NEXT, CM_PREV, CM_RESIZE, CM_ZOOM};
+    use crate::core::event::{KB_ALT_F3, KB_CTRL_F5, KB_F5, KB_F6, KB_SHIFT_F6};
+    use crate::core::keys::KeyModifiers;
+
+    // Only these three matter; anything else the backend reports is ignored.
+    let m = event.key_modifiers;
+    let (ctrl, shift, alt) = (
+        m.contains(KeyModifiers::CONTROL),
+        m.contains(KeyModifiers::SHIFT),
+        m.contains(KeyModifiers::ALT),
+    );
+    match event.key_code {
+        KB_ALT_F3 => Some(CM_CLOSE),
+        KB_CTRL_F5 => Some(CM_RESIZE),
+        KB_SHIFT_F6 => Some(CM_PREV),
+        KB_F5 if !ctrl && !shift && !alt => Some(CM_ZOOM),
+        KB_F5 if ctrl && !shift && !alt => Some(CM_RESIZE),
+        KB_F6 if !ctrl && !shift && !alt => Some(CM_NEXT),
+        KB_F6 if shift && !ctrl && !alt => Some(CM_PREV),
+        _ => None,
     }
 }
 
@@ -2139,5 +2200,224 @@ mod dropdown_tests {
         let mut down = Event::mouse(EventType::MouseDown, at, MB_LEFT_BUTTON, false);
         app.handle_event(&mut down);
         assert_eq!(state.borrow().field, field);
+    }
+}
+
+#[cfg(test)]
+mod window_key_tests {
+    //! Borland's default window keys (TProgram's status line): Alt+F3 close,
+    //! F5 zoom, Ctrl+F5 move/resize, F6 / Shift+F6 next / previous window.
+    //! They are fallbacks: a focused view that wants the key keeps it.
+    use super::*;
+    use crate::core::event::{KB_ALT_F3, KB_F5, KB_F6, KB_RIGHT};
+    use crate::core::keys::KeyModifiers;
+    use crate::views::group::{Group, GroupLike};
+    use crate::views::window::Window;
+
+    fn app() -> Application {
+        let mut app = Application::with_terminal(crate::test_util::test_terminal(80, 25));
+        app.set_menu_bar(MenuBar::new(Rect::new(0, 0, 80, 1)));
+        app
+    }
+
+    fn key(code: u16, modifiers: KeyModifiers) -> Event {
+        let mut e = Event::keyboard(code);
+        e.key_modifiers = modifiers;
+        e
+    }
+
+    fn press(app: &mut Application, code: u16, modifiers: KeyModifiers) {
+        let mut e = key(code, modifiers);
+        app.handle_event(&mut e);
+    }
+
+    /// Three windows, `c` added last and so on top and focused.
+    fn three_windows(app: &mut Application) -> [ViewId; 3] {
+        [
+            app.desktop.add(Window::new(Rect::new(1, 1, 30, 10), "A")),
+            app.desktop.add(Window::new(Rect::new(5, 3, 35, 12), "B")),
+            app.desktop.add(Window::new(Rect::new(9, 5, 39, 14), "C")),
+        ]
+    }
+
+    fn is_closed(app: &Application, id: ViewId) -> bool {
+        app.desktop
+            .child_by_id(id)
+            .unwrap()
+            .state()
+            .contains(State::CLOSED)
+    }
+
+    #[test]
+    fn alt_f3_closes_the_focused_window_and_not_the_other() {
+        let mut app = app();
+        let back = app
+            .desktop
+            .add(Window::new(Rect::new(1, 1, 30, 10), "Back"));
+        let front = app
+            .desktop
+            .add(Window::new(Rect::new(5, 3, 35, 12), "Front"));
+        press(&mut app, KB_ALT_F3, KeyModifiers::empty());
+        assert!(is_closed(&app, front), "the focused window closes");
+        assert!(!is_closed(&app, back), "the other window stays open");
+    }
+
+    #[test]
+    fn alt_f3_cancels_a_modal_dialog() {
+        use crate::views::button::Button;
+        use crate::views::dialog::Dialog;
+        let mut app = app();
+        let mut dialog = Dialog::new(Rect::new(5, 5, 40, 12), "t");
+        dialog.add(Button::new(
+            Rect::new(2, 2, 12, 4),
+            "OK",
+            crate::core::command::CM_OK,
+            true,
+        ));
+        dialog.set_state(dialog.state() | State::MODAL);
+        app.terminal
+            .event_injector()
+            .send(Event::keyboard(KB_ALT_F3))
+            .unwrap();
+        // Give up after a few idle ticks so a missing binding fails instead
+        // of spinning forever.
+        let mut ticks = 0;
+        let result = app.execute_modal(&mut dialog, |_, _| {
+            ticks += 1;
+            if ticks > 5 {
+                ModalTick::End(9999)
+            } else {
+                ModalTick::Continue
+            }
+        });
+        assert_eq!(result, CM_CANCEL);
+    }
+
+    #[test]
+    fn f6_and_shift_f6_cycle_the_focused_window() {
+        let mut app = app();
+        let [_a, b, c] = three_windows(&mut app);
+        assert_eq!(app.desktop.top_view_id(), Some(c));
+        press(&mut app, KB_F6, KeyModifiers::empty());
+        assert_eq!(app.desktop.top_view_id(), Some(b), "F6: next window");
+        press(&mut app, KB_F6, KeyModifiers::SHIFT);
+        assert_eq!(app.desktop.top_view_id(), Some(c), "Shift+F6: previous");
+    }
+
+    #[test]
+    fn f6_in_a_tabbed_pane_switches_its_page_and_not_the_window() {
+        use crate::views::tabbed_pane::TabbedPane;
+        let mut app = app();
+        app.desktop
+            .add(Window::new(Rect::new(1, 1, 30, 10), "Back"));
+        let mut window = Window::new(Rect::new(2, 2, 60, 20), "Tabs");
+        let mut pane = TabbedPane::new(Rect::new(1, 1, 50, 15));
+        pane.add_page("One", Group::new(pane.page_area()));
+        pane.add_page("Two", Group::new(pane.page_area()));
+        let pane = window.add_typed(pane);
+        let front = app.desktop.add(window);
+        let window_handle = crate::views::handle::Handle::<Window>::from_id(front);
+
+        let active = |app: &Application| {
+            app.desktop
+                .get(window_handle)
+                .unwrap()
+                .get(pane)
+                .unwrap()
+                .active()
+        };
+        press(&mut app, KB_F6, KeyModifiers::empty());
+        assert_eq!(active(&app), 1, "F6 switched the page");
+        assert_eq!(app.desktop.top_view_id(), Some(front), "no window cycle");
+        press(&mut app, KB_F6, KeyModifiers::SHIFT);
+        assert_eq!(active(&app), 0, "Shift+F6 switched back");
+        assert_eq!(app.desktop.top_view_id(), Some(front), "no window cycle");
+    }
+
+    #[test]
+    fn f5_zooms_and_ctrl_f5_moves_the_focused_window() {
+        let mut app = app();
+        let [_, _, c] = three_windows(&mut app);
+        let bounds = |app: &Application| app.desktop.child_by_id(c).unwrap().bounds();
+        let before = bounds(&app);
+        press(&mut app, KB_F5, KeyModifiers::empty());
+        let desktop = app.desktop.bounds();
+        assert_eq!(
+            bounds(&app),
+            Rect::new(0, 0, desktop.width(), desktop.height()),
+            "F5 zoomed the window to the desktop"
+        );
+        press(&mut app, KB_F5, KeyModifiers::empty());
+        assert_eq!(bounds(&app), before, "F5 again restored it");
+
+        // Ctrl+F5 enters keyboard move mode: Right moves the window.
+        press(&mut app, KB_F5, KeyModifiers::CONTROL);
+        press(&mut app, KB_RIGHT, KeyModifiers::empty());
+        assert_eq!(bounds(&app).a.x, before.a.x + 1, "moved one column");
+    }
+
+    /// A focused view that takes F5 for itself.
+    struct WantsF5 {
+        core: crate::views::view::ViewCore,
+        state: crate::core::state::StateFlags,
+        seen: std::rc::Rc<std::cell::Cell<u32>>,
+    }
+
+    impl View for WantsF5 {
+        fn core(&self) -> &crate::views::view::ViewCore {
+            &self.core
+        }
+        fn core_mut(&mut self) -> &mut crate::views::view::ViewCore {
+            &mut self.core
+        }
+        fn can_focus(&self) -> bool {
+            true
+        }
+        fn state(&self) -> crate::core::state::StateFlags {
+            self.state
+        }
+        fn set_state(&mut self, state: crate::core::state::StateFlags) {
+            self.state = state;
+        }
+        fn draw(&mut self, _terminal: &mut Terminal) {}
+        fn handle_event(&mut self, event: &mut Event) {
+            if event.what == EventType::Keyboard && event.key_code == KB_F5 {
+                self.seen.set(self.seen.get() + 1);
+                event.clear();
+            }
+        }
+        fn get_palette(&self) -> Option<crate::core::palette::Palette> {
+            None
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn a_view_that_consumes_f5_keeps_it() {
+        let mut app = app();
+        let seen = std::rc::Rc::new(std::cell::Cell::new(0));
+        let mut window = Window::new(Rect::new(5, 3, 35, 12), "W");
+        window.add(WantsF5 {
+            core: crate::views::view::ViewCore {
+                bounds: Rect::new(1, 1, 10, 2),
+                ..Default::default()
+            },
+            state: State::empty(),
+            seen: std::rc::Rc::clone(&seen),
+        });
+        let id = app.desktop.add(window);
+        let before = app.desktop.child_by_id(id).unwrap().bounds();
+        press(&mut app, KB_F5, KeyModifiers::empty());
+        assert_eq!(seen.get(), 1, "the view got F5");
+        assert_eq!(
+            app.desktop.child_by_id(id).unwrap().bounds(),
+            before,
+            "and the window did not zoom"
+        );
     }
 }
