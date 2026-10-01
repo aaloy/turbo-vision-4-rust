@@ -28,13 +28,50 @@ const MARK_ON: &str = "\u{221A} ";
 /// lined up.
 const MARK_OFF: &str = "  ";
 
+/// A source of items a [`ListBox`] reads only as it draws them.
+///
+/// `item` is only asked for indices below `len()`. A provider whose length
+/// changes must be followed by [`ListBox::refresh_items`].
+pub trait ListProvider {
+    /// How many items there are.
+    fn len(&self) -> usize;
+    /// The text of one item.
+    fn item(&self, index: usize) -> String;
+    /// Whether there are no items.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+/// Where a list box's items come from.
+enum Items {
+    Owned(Vec<String>),
+    Provided(Box<dyn ListProvider>),
+}
+
+impl Items {
+    fn len(&self) -> usize {
+        match self {
+            Items::Owned(items) => items.len(),
+            Items::Provided(p) => p.len(),
+        }
+    }
+
+    fn get(&self, index: usize) -> Option<String> {
+        match self {
+            Items::Owned(items) => items.get(index).cloned(),
+            Items::Provided(p) => (index < p.len()).then(|| p.item(index)),
+        }
+    }
+}
+
 /// ListBox - A scrollable list of selectable items
 ///
 /// Now implements ListViewer trait for standard navigation behavior.
 /// Matches Borland: TListBox (extends TListViewer)
 pub struct ListBox {
     core: ViewCore,
-    items: Vec<String>,
+    items: Items,
     list_state: ListViewerState, // Embedded state from ListViewer
     on_select_command: CommandId,
     /// Whether items can be marked independently of the focus.
@@ -55,7 +92,7 @@ impl ListBox {
                 palette_chain: None,
                 ..ViewCore::default()
             },
-            items: Vec::new(),
+            items: Items::Owned(Vec::new()),
             list_state: ListViewerState::new(),
             on_select_command,
             multi_select: false,
@@ -68,24 +105,48 @@ impl ListBox {
     ///
     /// Marks are dropped, because their indices refer to the old list.
     pub fn set_items(&mut self, items: Vec<String>) {
-        self.items = items;
+        self.items = Items::Owned(items);
         self.list_state.set_range(self.items.len());
         self.marked.clear();
         self.anchor = 0;
     }
 
-    /// Add an item to the list
+    /// Append one item. On a provider-backed list this starts a new
+    /// in-memory list holding just this item.
     pub fn add_item(&mut self, item: String) {
-        self.items.push(item);
+        match &mut self.items {
+            Items::Owned(items) => items.push(item),
+            Items::Provided(_) => {
+                self.items = Items::Owned(vec![item]);
+                self.marked.clear();
+            }
+        }
         self.list_state.set_range(self.items.len());
     }
 
     /// Clear all items
     pub fn clear(&mut self) {
-        self.items.clear();
+        self.items = Items::Owned(Vec::new());
         self.list_state.set_range(0);
         self.marked.clear();
         self.anchor = 0;
+    }
+
+    /// Read items from `provider` instead of an in-memory list. Marks are
+    /// dropped, because their indices refer to the old items; the focus is
+    /// clamped to the new length.
+    pub fn set_provider(&mut self, provider: Box<dyn ListProvider>) {
+        self.items = Items::Provided(provider);
+        self.marked.clear();
+        self.refresh_items();
+    }
+
+    /// Re-read the item count after a provider's source changed length.
+    /// Marks past the new end are dropped.
+    pub fn refresh_items(&mut self) {
+        let len = self.items.len();
+        self.marked.retain(|&i| i < len);
+        self.list_state.set_range(len);
     }
 
     /// Allow items to be marked independently of the focus.
@@ -114,10 +175,10 @@ impl ListBox {
     }
 
     /// The marked items' text, in list order.
-    pub fn marked_text(&self) -> Vec<&str> {
+    pub fn marked_text(&self) -> Vec<String> {
         self.marked
             .iter()
-            .filter_map(|&i| self.items.get(i).map(|s| &**s))
+            .filter_map(|&i| self.items.get(i))
             .collect()
     }
 
@@ -176,10 +237,8 @@ impl ListBox {
     }
 
     /// Get the currently selected item text
-    pub fn get_selected_item(&self) -> Option<&str> {
-        self.list_state
-            .focused
-            .and_then(|idx| self.items.get(idx).map(|s| s.as_str()))
+    pub fn get_selected_item(&self) -> Option<String> {
+        self.items.get(self.list_state.focused?)
     }
 
     /// Set the selected item by index
@@ -191,8 +250,11 @@ impl ListBox {
     }
 
     /// Get the number of items
+    ///
+    /// Cached from the item source at the last `set_items`, `set_provider`
+    /// or `refresh_items`.
     pub fn item_count(&self) -> usize {
-        self.items.len()
+        self.list_state.range
     }
 
     // Convenience methods for compatibility with existing code
@@ -288,7 +350,13 @@ impl View for ListBox {
 
                 if text_at < width {
                     let room = width - text_at;
-                    let text: String = self.items[item_idx].chars().take(room).collect();
+                    let text: String = self
+                        .items
+                        .get(item_idx)
+                        .unwrap_or_default()
+                        .chars()
+                        .take(room)
+                        .collect();
                     buf.move_str(text_at, &text, color);
                 }
             } else {
@@ -425,7 +493,7 @@ impl ListViewer for ListBox {
     }
 
     fn get_text(&self, item: usize, _max_len: usize) -> String {
-        self.items.get(item).cloned().unwrap_or_default()
+        self.items.get(item).unwrap_or_default()
     }
 
     /// With multi-select on, "selected" means marked; otherwise it keeps the
@@ -501,7 +569,7 @@ mod tests {
 
         assert_eq!(listbox.item_count(), 3);
         assert_eq!(listbox.get_selection(), Some(0));
-        assert_eq!(listbox.get_selected_item(), Some("Item 1"));
+        assert_eq!(listbox.get_selected_item().as_deref(), Some("Item 1"));
     }
 
     #[test]
@@ -556,7 +624,7 @@ mod tests {
 
         listbox.set_selection(2);
         assert_eq!(listbox.get_selection(), Some(2));
-        assert_eq!(listbox.get_selected_item(), Some("C"));
+        assert_eq!(listbox.get_selected_item().as_deref(), Some("C"));
 
         listbox.set_selection(10); // Out of bounds, should be ignored
         assert_eq!(listbox.get_selection(), Some(2)); // Should not change
@@ -718,5 +786,66 @@ mod tests {
         lb.select_next();
         assert_eq!(lb.get_selection(), Some(3));
         assert_eq!(lb.marked_items(), vec![2], "the mark stayed put");
+    }
+
+    // --- Lazy item source -------------------------------------------------
+
+    struct Numbers(usize);
+
+    impl ListProvider for Numbers {
+        fn len(&self) -> usize {
+            self.0
+        }
+        fn item(&self, index: usize) -> String {
+            format!("Item {index}")
+        }
+    }
+
+    #[test]
+    fn a_provider_supplies_items() {
+        let mut lb = ListBox::new(Rect::new(0, 0, 20, 5), 0);
+        lb.set_provider(Box::new(Numbers(1_000_000)));
+        assert_eq!(lb.item_count(), 1_000_000);
+        lb.set_selection(999_999);
+        assert_eq!(lb.get_selected_item().as_deref(), Some("Item 999999"));
+
+        let mut term = crate::test_util::test_terminal(20, 5);
+        lb.draw(&mut term);
+        let shown = (0..5).any(|y| {
+            let line: String = (0..20).map(|x| term.read_cell(x, y).unwrap().ch).collect();
+            line.trim_end() == "Item 999999"
+        });
+        assert!(shown);
+    }
+
+    #[test]
+    fn a_shorter_provider_clamps_the_selection_and_drops_marks() {
+        let mut lb = ListBox::new(Rect::new(0, 0, 20, 5), 0);
+        lb.set_provider(Box::new(Numbers(50)));
+        lb.set_selection(49);
+        lb.set_marked(10, true);
+        lb.set_provider(Box::new(Numbers(3)));
+        assert_eq!(lb.get_selection(), Some(2));
+        assert_eq!(lb.marked_count(), 0);
+        let mut term = crate::test_util::test_terminal(20, 5);
+        lb.draw(&mut term);
+    }
+
+    #[test]
+    fn marked_text_reads_through_a_provider() {
+        let mut lb = ListBox::new(Rect::new(0, 0, 20, 5), 0);
+        lb.set_provider(Box::new(Numbers(10)));
+        lb.set_marked(2, true);
+        lb.set_marked(7, true);
+        assert_eq!(lb.marked_text(), vec!["Item 2", "Item 7"]);
+    }
+
+    #[test]
+    fn add_item_on_a_provider_starts_a_new_list() {
+        let mut lb = ListBox::new(Rect::new(0, 0, 20, 5), 0);
+        lb.set_provider(Box::new(Numbers(10)));
+        lb.add_item("solo".into());
+        assert_eq!(lb.item_count(), 1);
+        assert_eq!(lb.get_selected_item().as_deref(), Some("solo"));
     }
 }
