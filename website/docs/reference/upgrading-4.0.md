@@ -1,12 +1,13 @@
 # Upgrading to 4.0.0
 
 4.0.0 removes SSH, remote input, Kitty/ANSI graphics, the log window and
-terminal widget, and the `turbo-vision-extras` crate from core. Nothing in
-core's own `View`/`Application`/`Terminal` API changed shape — every item
-either moved verbatim into the new [`tv-extensions`](https://github.com/aovestdipaperino/tv-extensions)
-crate or was folded into a core control that already existed. This guide is
-the ordered list of what to change. The [changelog](changelog.md) records the
-same ground as release notes.
+terminal widget, and the `turbo-vision-extras` crate from core. Apart from the
+removed methods listed below, nothing in core's own `View`, `Application` or
+`Terminal` API changed shape — every item either moved verbatim into the new
+[`tv-extensions`](https://github.com/aovestdipaperino/tv-extensions) crate or
+was folded into a core control that already existed. This guide is the ordered
+list of what to change. The [changelog](changelog.md) records the same ground
+as release notes.
 
 ## Do you need this?
 
@@ -30,7 +31,6 @@ near the end.
 | `Terminal::{write_kitty_graphics, supports_kitty_graphics, delete_kitty_image, clear_kitty_images}` | `tv_extensions::graphics::kitty::{supports_kitty_graphics, delete_kitty_image, clear_kitty_images}` (free functions; `write_kitty_graphics` is inlined at the call site with `Terminal::write_raw`) | `graphics` |
 | `turbo_vision::views::log_window::{LogWindow, LogWindowBuilder, LogSubscriber}` | `tv_extensions::log::{LogWindow, LogWindowBuilder, LogSubscriber}` | `log` |
 | `turbo_vision::views::terminal_widget::{TerminalWidget, TerminalWidgetBuilder, Span, OutputLine}` | `tv_extensions::log::{TerminalWidget, TerminalWidgetBuilder, Span, OutputLine}` | `log` |
-| `views::shared::SharedTerminalWidget` | `tv_extensions::log` has no equivalent newtype; hold a `Handle<TerminalWidget>` the way other children are held (see the 3.0 upgrade guide, step 7) | `log` |
 | the `ssh` cargo feature on `turbo-vision` itself | gone; `ssh`/`graphics`/`log`/`remote-input`/`csv` are now features on `tv-extensions` | n/a |
 | the `turbo-vision-extras` crate | `tv-extensions`, plus a few items absorbed into core — see [Extras users](#extras-users) below | varies |
 
@@ -122,8 +122,8 @@ into `tv-extensions`, in the 3.1.0/4.0.0 cycle:
 | `Notebook` | core `TabbedPane` (`turbo_vision::views::tabbed_pane::TabbedPane`) |
 | `Gauge` | core `ProgressBar` (`turbo_vision::views::progress_bar::ProgressBar`) |
 | `Slider` | core `Slider` (`turbo_vision::views::slider::Slider`), moved in during 3.1.0 |
-| `GridView` | core `Table` + `table::RowProvider` (`Table::set_separators` gives the column separators `Grid` used to draw) |
-| `VirtualListBox` | core `ListBox` + `listbox::ListProvider` |
+| `GridView` | core `Table` + `table::RowProvider` (`Table::set_separators` gives the column separators `Grid` used to draw); extras' `GridColumn` maps to core `table::Column`, and extras' `VecRowProvider` to a simple `RowProvider` impl; extras' `RowProvider` trait has the same methods as core's `table::RowProvider` (`rows()`, `cell(row, col)`) |
+| `VirtualListBox` | core `ListBox` + `listbox::ListProvider`; extras' `ListProvider` trait has the same methods as core's `listbox::ListProvider` (`len()`, `item(i)`) |
 | `ScrollPane` | `tv_extensions::ScrollPane` (no feature flag) |
 | `popup_menu` | `tv_extensions::popup_menu` (no feature flag) |
 
