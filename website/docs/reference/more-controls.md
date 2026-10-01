@@ -63,6 +63,28 @@ Ordered by benefit-to-effort. Each one composes existing views wherever it can.
       pointer resting on one raises the hint beside it. Add it last, since it
       draws over its neighbours. The hover delay runs off the new `CM_IDLE_TICK`
       broadcast.
+- [x] **Slider** — done, `src/views/slider.rs`. Moved in from
+      turbo-vision-extras; the dragging counterpart of `Spinner`. A horizontal
+      track with a thumb over an `i64` range.
+
+  | Key | Action |
+  |-----|--------|
+  | Left, Right | One step down or up |
+  | Home, End | Minimum or maximum |
+
+  Clicking or dragging the track moves the thumb under the pointer; a drag
+  keeps tracking the pointer even once it leaves the track. `set_on_change`
+  broadcasts a command on every user-driven change.
+
+  ```rust
+  use turbo_vision::views::Slider;
+  use turbo_vision::core::geometry::Rect;
+
+  let mut slider = Slider::new(Rect::new(2, 2, 30, 1), 0, 100);
+  slider.set_step(5);
+  slider.set_on_change(1);
+  assert_eq!(slider.value(), 0);
+  ```
 
 ## Completing existing controls
 
@@ -88,6 +110,22 @@ Ordered by benefit-to-effort. Each one composes existing views wherever it can.
       zoomed. It tracks press and release like the close box, so a press that
       slides off cancels. Dialogs show none, since Borland pairs wfZoom with
       wfGrow and a dialog has neither.
+- [x] **Table column separators** — done. `Table::set_separators` /
+      `TableBuilder::separators` draw `table::SEPARATOR` (`│`) in the
+      one-cell gap between each pair of visible columns, in each line's own
+      colour. Off by default; columns stay where they are, so a click lands
+      on the same cell either way.
+- [x] **Lazy rows and items** — done. `table::RowProvider` (`rows()`,
+      `cell(row, col)`) and `listbox::ListProvider` (`len()`, `item(index)`,
+      a default `is_empty`) let a `Table` or `ListBox` read its content only
+      as it draws it, instead of holding every row or item as an owned
+      string. Give one to `Table::set_provider` / `ListBox::set_provider`;
+      call `refresh_rows` / `refresh_items` after the source's length
+      changes — drawing and cell access always read the provider's current
+      length, but navigation and the `row_count` / `item_count` accessors use
+      the count from the last refresh. Because content can now come from a
+      provider, `Table::selected_cell`, `ListBox::get_selected_item` and
+      `ListBox::marked_text` return owned `String`s instead of borrowing.
 
 ## Demo
 

@@ -359,6 +359,17 @@ Generated: 2025-11-06
 - `dump_region(&mut self, x: u16, y: u16, width: u16, height: u16, path: &str) -> Result<()>` - Dump region to ANSI file
 - `flash(&mut self) -> Result<()>` - Flash screen (visual feedback)
 
+**Extension Hooks:**
+- `event_injector(&mut self) -> std::sync::mpsc::Sender<Event>` - A sender that queues events for `poll_event` as if typed; safe to use from another thread. Injected Ctrl+F12/F12 key events are served as captures and not returned by `poll_event`
+- `set_capture_hook(&mut self, hook: CaptureHook)` - Handle Ctrl+F12 and F12 with `hook` instead of the built-in capture; replaces any earlier hook
+- `clear_capture_hook(&mut self) -> Option<CaptureHook>` - Remove the capture hook, returning it
+- `run_capture_hook(&mut self, kind: CaptureKind) -> bool` - Run the capture hook for `kind`; returns `false` when none is installed
+- `write_raw(&mut self, data: &[u8]) -> io::Result<()>` - Send bytes straight to the terminal, bypassing the cell buffer, and flush (for protocols drawn outside the cells, such as Kitty graphics)
+- `CaptureKind` enum: `Png` (Ctrl+F12, an image of the screen), `Ansi` (F12, a text dump with ANSI colours)
+- `CaptureHook` type alias: `Box<dyn FnMut(CaptureKind, &Terminal) + Send>`
+
+Note: `terminal::InputParser` is exported unconditionally; it no longer requires the `ssh` feature.
+
 ---
 
 ## VIEWS MODULE
@@ -632,9 +643,13 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 - `add_item(&mut self, item: String)` - Add item
 - `clear(&mut self)` - Clear all items
 - `get_selection(&self) -> Option<usize>` - Get selected index
-- `get_selected_item(&self) -> Option<&str>` - Get selected item text
+- `get_selected_item(&self) -> Option<String>` - Get selected item text (owned; items can come from a `ListProvider`)
 - `set_selection(&mut self, index: usize)` - Set selection
-- `item_count(&self) -> usize` - Get item count
+- `item_count(&self) -> usize` - Get item count (as of the last refresh)
+- `set_provider(&mut self, provider: Box<dyn ListProvider>)` - Read items from a provider instead of an in-memory list
+- `refresh_items(&mut self)` - Re-read the item count after a provider's source changed length
+- `is_multi_select(&self) -> bool` / `set_multi_select(&mut self, multi: bool)` - Turn marking on or off
+- `marked_items(&self) -> Vec<usize>` / `marked_text(&self) -> Vec<String>` - Marked indices, or their text (owned)
 - `select_prev(&mut self)` - Select previous
 - `select_next(&mut self)` - Select next
 - `select_first(&mut self)` - Select first
@@ -642,6 +657,12 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 - `page_up(&mut self)` - Page up
 - `page_down(&mut self)` - Page down
 - Implements View & ListViewer traits
+
+#### ListProvider Trait (`src/views/listbox.rs`)
+**Public Methods:**
+- `len(&self) -> usize` - Number of items
+- `item(&self, index: usize) -> String` - Text of one item; only asked for indices below `len()`
+- `is_empty(&self) -> bool` - Whether there are no items (default: `len() == 0`)
 
 ---
 
@@ -652,6 +673,44 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 - Similar to ListBox but maintains sorted order
 - `new(bounds: Rect, on_select_command: CommandId) -> Self`
 - Implements View & ListViewer traits
+
+---
+
+### Table (`src/views/table.rs`)
+
+Not part of the Borland widget set. A scrollable grid with a header row and
+sized columns; focus is a cell, not a row.
+
+#### Table Struct
+**Public Methods:**
+- `new(bounds: Rect, on_select: CommandId) -> Self` - Create an empty table
+- `set_columns(&mut self, columns: Vec<Column>)` / `columns(&self) -> &[Column]` - Replace or read the columns
+- `set_rows(&mut self, rows: Vec<Vec<String>>)` - Replace the rows with an in-memory list
+- `add_row(&mut self, row: Vec<String>)` - Append one row
+- `clear_rows(&mut self)` - Drop every row, keeping the columns
+- `set_provider(&mut self, provider: Box<dyn RowProvider>)` - Read rows from a provider instead of an in-memory list
+- `refresh_rows(&mut self)` - Re-read the row count after a provider's source changed length
+- `row_count(&self) -> usize` - Number of rows (as of the last refresh)
+- `selected_row(&self) -> Option<usize>` / `selected_col(&self) -> usize` - Focused row and column
+- `selected_cell(&self) -> Option<String>` - Text of the focused cell (owned; rows can come from a `RowProvider`)
+- `set_selected_row(&mut self, row: usize)` / `set_selected_col(&mut self, col: usize)` - Move focus, clamped to range
+- `set_show_header(&mut self, show: bool)` - Show or hide the header row (on by default)
+- `set_separators(&mut self, on: bool)` / `separators(&self) -> bool` - Draw `SEPARATOR` between visible columns (off by default)
+- `set_on_select(&mut self, command: CommandId)` - Command emitted by Enter or a double-click
+- Implements View trait
+
+#### RowProvider Trait (`src/views/table.rs`)
+**Public Methods:**
+- `rows(&self) -> usize` - Number of rows
+- `cell(&self, row: usize, col: usize) -> String` - Text of one cell; only asked for rows below `rows()` and columns the table has
+
+#### TableBuilder Struct
+**Public Methods:**
+- `new() -> Self`, fluent `bounds`, `columns`, `rows`, `show_header`, `separators`, `on_select`
+- `build(self) -> Table`
+
+#### Constants
+- `SEPARATOR: char` - The `│` drawn between visible columns when separators are on
 
 ---
 
@@ -716,6 +775,28 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 - `new(bounds: Rect, max_length: usize) -> Self` - Create input line
 - Input field with text editing capabilities
 - Implements View trait
+
+---
+
+### Slider (`src/views/slider.rs`)
+
+Not part of the Borland widget set; moved in from turbo-vision-extras. A
+horizontal track with a thumb that picks one integer over `min..=max` — the
+dragging counterpart of `Spinner`.
+
+#### Slider Struct
+**Public Methods:**
+- `new(bounds: Rect, min: i64, max: i64) -> Self` - Create a slider over `min..=max`, starting at `min` (reversed bounds are swapped)
+- `value(&self) -> i64` - The current value
+- `set_value(&mut self, value: i64) -> bool` - Set the value, clamped to the range; returns whether it changed
+- `range(&self) -> (i64, i64)` - The bounds, smallest first
+- `set_step(&mut self, step: i64)` - How far Left and Right move (at least 1)
+- `set_on_change(&mut self, command: CommandId)` - Broadcast a command whenever the user changes the value (0 turns it off)
+- Implements View trait
+
+#### Constants
+- `TRACK: char` - The track character
+- `THUMB: char` - The thumb character
 
 ---
 

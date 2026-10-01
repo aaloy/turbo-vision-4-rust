@@ -5,6 +5,47 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `Table::set_separators` / `TableBuilder::separators`: a `│` between visible
+  columns, in each line's own colour. Off by default.
+- `table::RowProvider` and `Table::set_provider` / `refresh_rows`: rows read
+  only as they are drawn.
+- `listbox::ListProvider` and `ListBox::set_provider` / `refresh_items`.
+- `views::Slider`, moved in from turbo-vision-extras.
+- Extension hooks on `Terminal`: `event_injector`, `set_capture_hook` /
+  `clear_capture_hook` / `run_capture_hook` with `CaptureKind`, and
+  `write_raw`. `terminal::InputParser` no longer needs the `ssh` feature.
+
+### Changed
+- `Table::selected_cell` returns `Option<String>`, and
+  `ListBox::get_selected_item` / `marked_text` return owned strings, because
+  rows and items can now come from a provider. Add `.as_deref()` where a
+  `&str` is needed.
+- `Table::row_count` and `ListBox::item_count` return the count as of the
+  last `set_rows`/`add_row`/`set_provider`/`refresh_rows` (resp.
+  `set_items`/`add_item`/`set_provider`/`refresh_items`); call
+  `refresh_rows`/`refresh_items` to pick up a provider whose length changed.
+  Drawing and cell access (`selected_cell`, `get_selected_item`, …) read the
+  provider's live length; navigation (`set_selected_row`, `set_selection`,
+  …) and the counts themselves use the count from the last refresh.
+- Ctrl+F12, F12 and `CM_SCREENSHOT` run the capture hook when one is set,
+  instead of the built-in capture.
+
+## [3.0.1] - 2026-09-17
+
+### Fixed
+- **Editors, memos and text viewers drew and hit-tested in the wrong place
+  when not at their owner's origin.** `EditorWindow`, `Memo` and
+  `TextViewer` built their content area from the owner-relative `bounds()`
+  instead of `extent()`, so under the 3.0 coordinate model text was shifted
+  right and down by the view's origin a second time, and mouse clicks
+  landed the same distance off. A view at `(0, 0)` of its owner was
+  unaffected, which is why `EditWindow` hid it; any layout that puts a
+  column beside the editor (a breakpoint gutter, a profile column) made it
+  visible. The content area is now the view's own extent.
+
 ## [3.0.0] - 2026-09-05
 
 A major release: the `View` trait changes for every downstream crate, so the
