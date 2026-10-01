@@ -52,6 +52,9 @@ use crate::terminal::Terminal;
 /// Blank cells between two columns.
 const COLUMN_GAP: usize = 1;
 
+/// Drawn in each gap between two visible columns when separators are on.
+pub const SEPARATOR: char = '│';
+
 /// How a cell's text sits inside its column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Align {
@@ -104,6 +107,8 @@ pub struct Table {
     first_col: usize,
     /// Whether the header row is drawn.
     show_header: bool,
+    /// Whether a `SEPARATOR` is drawn between columns.
+    separators: bool,
     /// Command emitted by Enter or a double-click.
     on_select: CommandId,
     view_state: StateFlags,
@@ -124,6 +129,7 @@ impl Table {
             focused_col: 0,
             first_col: 0,
             show_header: true,
+            separators: false,
             on_select,
             view_state: State::empty(),
         }
@@ -207,6 +213,18 @@ impl Table {
     pub fn set_show_header(&mut self, show: bool) {
         self.show_header = show;
         self.scroll_row_into_view();
+    }
+
+    /// Draw a [`SEPARATOR`] in the one-cell gap between each pair of visible
+    /// columns. Off by default. Columns stay where they are, so clicks land
+    /// on the same cells either way.
+    pub fn set_separators(&mut self, on: bool) {
+        self.separators = on;
+    }
+
+    /// Whether separators are drawn.
+    pub fn separators(&self) -> bool {
+        self.separators
     }
 
     /// Command emitted by Enter or a double-click.
@@ -393,6 +411,23 @@ impl Table {
         }
     }
 
+    /// Put a separator into each gap between two visible columns of one
+    /// drawn line, in the colour the line already has there. The gap after
+    /// the last visible column is not between two columns and stays blank.
+    fn write_separators(&self, buf: &mut DrawBuffer, width: usize) {
+        if !self.separators {
+            return;
+        }
+        let offsets = self.column_offsets();
+        for &(x, w) in offsets.iter().take(offsets.len().saturating_sub(1)) {
+            let gap = x + usize::from(w);
+            if gap < width {
+                let attr = buf.data[gap].attr;
+                buf.put_char(gap, SEPARATOR, attr);
+            }
+        }
+    }
+
     /// Which palette the table resolves through: `CP_LISTBOX` when its
     /// dialog-relative indices fit the owner palette (a dialog), the
     /// window's scroller entries otherwise (a window, whose palette is too
@@ -500,6 +535,7 @@ impl View for Table {
                 |i| self.columns[i].title.clone(),
                 |_| header,
             );
+            self.write_separators(&mut buf, width);
             write_line_to_terminal(terminal, 0, y, &buf);
             y += 1;
         }
@@ -529,6 +565,7 @@ impl View for Table {
                     },
                 );
             }
+            self.write_separators(&mut buf, width);
             write_line_to_terminal(terminal, 0, y + screen_row as i16, &buf);
         }
     }
@@ -612,6 +649,7 @@ pub struct TableBuilder {
     columns: Vec<Column>,
     rows: Vec<Vec<String>>,
     show_header: bool,
+    separators: bool,
     on_select: CommandId,
 }
 
@@ -622,6 +660,7 @@ impl TableBuilder {
             columns: Vec::new(),
             rows: Vec::new(),
             show_header: true,
+            separators: false,
             on_select: 0,
         }
     }
@@ -651,6 +690,12 @@ impl TableBuilder {
     }
 
     #[must_use]
+    pub fn separators(mut self, on: bool) -> Self {
+        self.separators = on;
+        self
+    }
+
+    #[must_use]
     pub fn on_select(mut self, command: CommandId) -> Self {
         self.on_select = command;
         self
@@ -660,6 +705,7 @@ impl TableBuilder {
         let bounds = self.bounds.expect("Table bounds must be set");
         let mut table = Table::new(bounds, self.on_select);
         table.set_show_header(self.show_header);
+        table.set_separators(self.separators);
         table.set_columns(self.columns);
         table.set_rows(self.rows);
         table
@@ -953,5 +999,72 @@ mod tests {
             assert_eq!(t.cell_at(first), Some((0, index)));
             assert_eq!(t.cell_at(last), Some((0, index)));
         }
+    }
+
+    fn draw(t: &mut Table, w: u16, h: u16) -> crate::terminal::Terminal {
+        let mut term = crate::test_util::test_terminal(w, h);
+        t.draw(&mut term);
+        term
+    }
+
+    fn ch(term: &crate::terminal::Terminal, x: i16, y: i16) -> char {
+        term.read_cell(x, y).unwrap().ch
+    }
+
+    #[test]
+    fn separators_are_off_by_default() {
+        let mut t = table(3);
+        assert!(!t.separators());
+        let term = draw(&mut t, 30, 6);
+        assert_eq!(ch(&term, 10, 1), ' ');
+    }
+
+    #[test]
+    fn separators_fill_the_gaps_between_visible_columns() {
+        // Columns: Name 0..10, gap 10, Size 11..17, gap 17, Kind 18..26.
+        let mut t = table(3);
+        t.set_separators(true);
+        let term = draw(&mut t, 30, 6);
+        for y in 0..6 {
+            assert_eq!(ch(&term, 10, y), SEPARATOR, "first gap, line {y}");
+            assert_eq!(ch(&term, 17, y), SEPARATOR, "second gap, line {y}");
+            assert_ne!(ch(&term, 26, y), SEPARATOR, "after the last column, line {y}");
+        }
+        // Text is untouched.
+        assert_eq!(ch(&term, 0, 1), 'f');
+    }
+
+    #[test]
+    fn a_separator_takes_the_colour_of_its_line() {
+        let mut t = table(3);
+        t.set_separators(true);
+        let term = draw(&mut t, 30, 6);
+        let attr = |x, y| term.read_cell(x, y).unwrap().attr;
+        assert_eq!(attr(10, 0), attr(0, 0), "header");
+        assert_eq!(attr(10, 1), attr(11, 1), "selected row bar");
+        assert_eq!(attr(10, 2), attr(11, 2), "normal row");
+    }
+
+    #[test]
+    fn separators_follow_horizontal_scrolling() {
+        // 20 wide: focusing Kind scrolls Name off, leaving Size at 0..6 and
+        // Kind at 7..15. The only gap between visible columns is x = 6.
+        let mut t = table(3);
+        t.set_bounds(Rect::new(0, 0, 20, 6));
+        t.set_separators(true);
+        t.set_selected_col(2);
+        let term = draw(&mut t, 20, 6);
+        assert_eq!(ch(&term, 6, 1), SEPARATOR);
+        assert_ne!(ch(&term, 15, 1), SEPARATOR);
+        assert_ne!(ch(&term, 19, 1), SEPARATOR);
+    }
+
+    #[test]
+    fn the_builder_sets_separators() {
+        let t = TableBuilder::new()
+            .bounds(Rect::new(0, 0, 10, 3))
+            .separators(true)
+            .build();
+        assert!(t.separators());
     }
 }
