@@ -115,6 +115,7 @@ pub mod radiobutton;
 pub mod scrollbar;
 pub mod scroller;
 pub mod shared;
+pub mod slider;
 pub mod sorted_listbox;
 pub mod spinner;
 pub mod split_pane;
@@ -149,6 +150,8 @@ pub use menu_box::MenuBox;
 pub use menu_viewer::{MenuViewer, MenuViewerState};
 #[doc(inline)]
 pub use progress_bar::{ProgressBar, ProgressMode, ProgressStyle};
+#[doc(inline)]
+pub use slider::Slider;
 #[doc(inline)]
 pub use spinner::Spinner;
 #[doc(inline)]
