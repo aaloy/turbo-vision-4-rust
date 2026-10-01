@@ -80,7 +80,7 @@ Ordered by benefit-to-effort. Each one composes existing views wherever it can.
   use turbo_vision::views::Slider;
   use turbo_vision::core::geometry::Rect;
 
-  let mut slider = Slider::new(Rect::new(2, 2, 30, 1), 0, 100);
+  let mut slider = Slider::new(Rect::new(2, 2, 30, 3), 0, 100);
   slider.set_step(5);
   slider.set_on_change(1);
   assert_eq!(slider.value(), 0);
