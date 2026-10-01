@@ -20,7 +20,7 @@ network connection. `test-util` exposes the mock terminal so your own tests can 
 cells back.
 
 ```toml
-turbo-vision = { version = "3.0", features = ["ssh"] }
+turbo-vision = { version = "3.1", features = ["ssh"] }
 ```
 
 ## The smallest application

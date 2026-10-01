@@ -4,12 +4,11 @@ The full history is in the [changelog](reference/changelog.md). This page tracks
 in prose, newest first. If you are moving a project onto 3.0.0, work through
 [the upgrade guide](reference/upgrading.md) instead: it is the same ground as an ordered checklist.
 
-## Unreleased
+## 3.1.0 &mdash; October 2026
 
-Not in a release yet &mdash; coming in the next release. The crate on crates.io is still 3.0.1.
-
-A new `Slider` view: a draggable handle over a track, horizontal or vertical, for a value in a
-range.
+A new `Slider` view: a horizontal track with a thumb that picks one integer in a range, moved
+with Left/Right/Home/End or by clicking and dragging (the drag keeps tracking when the pointer
+leaves the track).
 
 `Table` can draw a `│` separator between columns (`set_separators`, off by default), and both
 `Table` and `ListBox` can now read their rows or items from a lazy source instead of holding
@@ -22,6 +21,18 @@ The terminal layer gained extension hooks: `event_injector` for synthetic events
 `CM_SCREENSHOT` now call instead of the built-in capture when one is set, and `write_raw` for bytes
 the terminal layer does not otherwise emit. `terminal::InputParser` no longer needs the `ssh`
 feature.
+
+Screen capture stays in core as a debug facility. F12 (ANSI dump) is always built; Ctrl+F12 PNG
+screenshots now sit behind a `screenshot` cargo feature, on by default. A crate that depends with
+`default-features = false` adds `features = ["screenshot"]` to keep them. The PNG renderer also
+draws far more characters instead of `?`: the framework's own marks (check marks, arrows,
+message-box icons, partial progress blocks), the whole CP437 set, and Latin-1 accented letters.
+
+Fixes: the ComboBox drop-down opens under its field again (#112); "See also" links in help land
+under their text and show topic titles (#110); and Borland's default window keys work (#111):
+Alt+F3 closes the selected window, F5 zooms, Ctrl+F5 resizes, F6 / Shift+F6 cycle windows. The
+selected window now enables its own window commands, so menu and status-line items for Close,
+Zoom and Next follow it.
 
 **Upgrade note:** because a row or item can now come from a provider, `Table::selected_cell` and
 `ListBox::get_selected_item` return owned strings (`Option<String>`) and `ListBox::marked_text`

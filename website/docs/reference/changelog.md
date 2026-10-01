@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.1.0] - 2026-10-01
+
+A minor release with one deliberate exception to semver: three accessors
+now return owned strings (see Changed). Code that compared them with `&str`
+needs `.as_deref()`.
 
 ### Added
 - `Table::set_separators` / `TableBuilder::separators`: a `│` between visible
@@ -17,8 +21,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extension hooks on `Terminal`: `event_injector`, `set_capture_hook` /
   `clear_capture_hook` / `run_capture_hook` with `CaptureKind`, and
   `write_raw`. `terminal::InputParser` no longer needs the `ssh` feature.
+- `screenshot` cargo feature, on by default: the PNG screen capture
+  (`core::screenshot`, `Terminal::save_screenshot_png`,
+  `Application::take_screenshot`) and its embedded font.
+- The PNG screenshot draws CP437's symbols, box drawing (single, double and
+  mixed) and the whole block range U+2580-U+259F, the Latin-1 letters and
+  signs, and the marks the framework draws (`√ ◆ ✓ • → ▏…▉`, the message-box
+  icons) instead of `?`. `cargo run --example glyph_sample` renders them to
+  `target/glyph-sample.png`.
 
 ### Changed
+- The PNG screenshot can be turned off: without the `screenshot` feature,
+  Ctrl+F12 and `CM_SCREENSHOT` run the capture hook if one is installed and
+  otherwise do nothing. The ANSI dump (F12, `dump_screen`, `dump_region`) is
+  always built. The wasm build (`--no-default-features`) leaves it out.
+  A crate that depends on turbo-vision with `default-features = false` must
+  add `features = ["screenshot"]` to keep Ctrl+F12 PNG captures; without it
+  Ctrl+F12 only runs a capture hook, and logs at debug level that PNG
+  screenshots are not built in.
 - `Table::selected_cell` returns `Option<String>`, and
   `ListBox::get_selected_item` / `marked_text` return owned strings, because
   rows and items can now come from a provider. Add `.as_deref()` where a
@@ -32,6 +52,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   …) and the counts themselves use the count from the last refresh.
 - Ctrl+F12, F12 and `CM_SCREENSHOT` run the capture hook when one is set,
   instead of the built-in capture.
+
+### Fixed
+- **A `ComboBox` inside a dialog or window opened its list near the
+  terminal's top-left corner** (#112). The popup was placed with the
+  control's owner-relative bounds; the open request now carries the field's
+  position up through its owners, as `History` does, and the list opens under
+  the field.
+- **Alt+F3 did not close the window** (#111). The application now carries
+  Borland's default window keys: Alt+F3 `CM_CLOSE`, F5 `CM_ZOOM`, Ctrl+F5
+  `CM_RESIZE`, F6 `CM_NEXT`, Shift+F6 `CM_PREV`, in `run` and in modal
+  loops. They apply only when no view and no status-line binding took the
+  key, so a `TabbedPane`'s F6 still switches pages. Adds `KB_CTRL_F5` and
+  `KB_SHIFT_F6`.
+- **Window commands are now enabled for the selected window** (#111). They
+  started disabled and nothing turned them on, so menu and status-line items
+  for `CM_CLOSE`, `CM_ZOOM`, `CM_RESIZE`, `CM_NEXT` and `CM_PREV` never
+  fired. As in Borland's `TWindow::setState(sfSelected)`, a window enables
+  them when it is selected (`CM_ZOOM` only if it can zoom) and disables them
+  when it loses selection or is removed; a modal loop restores the command
+  set it found. The window keys honour the command set. Window switching
+  (F6, Shift+F6, Alt+number) is ignored while the desktop's top window is
+  modal (a modal window still zooms itself). F6, Shift+F6, Alt+number and `Desktop::bring_to_front` now
+  make the new top window the desktop's focused child, so `CM_CLOSE` and
+  other commands go to it and exactly one window is active. A command
+  the status line produces from a key or click now goes through the menu
+  bar and the desktop before the application, so a status-line `Alt+F3`
+  item closes the window.
+- **"See also" links in help could not be clicked** (#110). Help text was
+  measured in UTF-8 bytes, so the `→` before each entry pushed the link two
+  columns past its cross-reference, and inline links after non-ASCII text
+  were drawn after a gap. `HelpViewer` and `HelpTopic` now measure in
+  display cells (`TextSegment::width`; `len` returns the same). "See also"
+  entries show the linked topic's title, falling back to its id when the
+  topic does not exist; `HelpTopic` gains a `link_titles` map, which
+  `HelpFile` fills after parsing.
 
 ## [3.0.1] - 2026-09-17
 
