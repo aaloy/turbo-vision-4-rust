@@ -200,8 +200,8 @@ impl Terminal {
 
     /// Initializes a new terminal instance with a custom backend.
     ///
-    /// This allows using alternative backends such as SSH for remote
-    /// terminal access.
+    /// This allows using alternative backends for remote terminal access,
+    /// such as the `tv-extensions` crate's SSH backend.
     ///
     /// # Arguments
     ///
@@ -325,7 +325,8 @@ impl Terminal {
     /// This is useful for detecting manual resizes. Prefer
     /// [`backend_size`](Self::backend_size) when a Terminal instance is
     /// available: this static version always asks crossterm, which is wrong
-    /// for non-local backends (e.g. SSH sessions).
+    /// for non-local backends (e.g. a remote session served by the
+    /// `tv-extensions` crate's SSH backend).
     #[cfg(feature = "native")]
     pub fn query_size() -> io::Result<(i16, i16)> {
         let (width, height) = crossterm::terminal::size()?;
@@ -335,7 +336,8 @@ impl Terminal {
     /// Query the size reported by this terminal's backend.
     ///
     /// Unlike [`query_size`](Self::query_size), this respects the active
-    /// backend, so SSH sessions report their client's window size.
+    /// backend, so a remote session (e.g. over the `tv-extensions` crate's
+    /// SSH backend) reports its client's window size.
     pub fn backend_size(&self) -> io::Result<(i16, i16)> {
         let (width, height) = self.backend.size()?;
         Ok((width as i16, height as i16))
