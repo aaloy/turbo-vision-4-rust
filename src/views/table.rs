@@ -1182,6 +1182,26 @@ mod tests {
         assert!(shown, "the focused last row is on screen");
     }
 
+    /// A provider with zero rows must behave safely: no focused row or cell,
+    /// a zero count, and neither drawing nor key handling panics.
+    #[test]
+    fn empty_provider_is_safe() {
+        let (mut t, _) = squares(0);
+        assert_eq!(t.row_count(), 0);
+        assert_eq!(t.selected_row(), None);
+        assert_eq!(t.selected_cell(), None);
+
+        // Drawing must not panic.
+        let _ = draw(&mut t, 30, 6);
+
+        // Key presses must not panic either.
+        press(&mut t, KB_DOWN);
+        press(&mut t, KB_UP);
+        press(&mut t, KB_END);
+        press(&mut t, KB_HOME);
+        assert_eq!(t.selected_row(), None);
+    }
+
     #[test]
     fn a_shorter_provider_clamps_the_focus() {
         let (mut t, _) = squares(100);

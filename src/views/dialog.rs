@@ -577,6 +577,45 @@ mod tests {
         );
     }
 
+    /// A `Table`'s separators must take the colour of their own row even
+    /// under a `Dialog`'s (gray) palette, not some palette-independent
+    /// default: the separator cell's attribute should equal its neighbour's
+    /// on the header, a normal row, and the selected row.
+    #[test]
+    fn the_separator_follows_a_dialog_palette() {
+        use crate::views::table::{Column, Table};
+
+        let mut dialog = Dialog::new(Rect::new(0, 0, 40, 15), "t");
+        let mut table = Table::new(Rect::new(0, 0, 36, 11), 0);
+        table.set_columns(vec![
+            Column::new("Name", 10),
+            Column::right("Size", 6),
+            Column::new("Kind", 8),
+        ]);
+        table.set_rows(
+            (0..3)
+                .map(|i| vec![format!("file{i}"), format!("{}", i * 10), "text".into()])
+                .collect(),
+        );
+        table.set_separators(true);
+        table.set_state(State::FOCUSED);
+        dialog.add(table);
+        dialog.set_focus(true);
+
+        let mut terminal = crate::test_util::test_terminal(40, 15);
+        dialog.draw(&mut terminal);
+
+        // The dialog's single-cell frame puts the table's local (0, 0) at
+        // screen (1, 1): header at local y=0 (screen y=1), the
+        // focused/selected row 0 at local y=1 (screen y=2), the normal row 1
+        // at local y=2 (screen y=3). Columns: Name 0..10, gap at local
+        // x=10 (screen x=11); Size starts at local x=11 (screen x=12).
+        let attr = |x, y| terminal.read_cell(x, y).unwrap().attr;
+        assert_eq!(attr(11, 1), attr(1, 1), "header");
+        assert_eq!(attr(11, 2), attr(12, 2), "selected row");
+        assert_eq!(attr(11, 3), attr(12, 3), "normal row");
+    }
+
     #[test]
     fn auto_dismiss_is_off_by_default_and_settable() {
         let mut dialog = Dialog::new(Rect::new(0, 0, 20, 10), "T");

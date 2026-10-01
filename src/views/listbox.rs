@@ -821,6 +821,56 @@ mod tests {
         assert!(shown);
     }
 
+    /// A provider with zero items must behave safely: no focused item or
+    /// text, a zero count, and neither drawing nor key handling panics.
+    #[test]
+    fn empty_provider_is_safe() {
+        let mut lb = ListBox::new(Rect::new(0, 0, 20, 5), 0);
+        lb.set_provider(Box::new(Numbers(0)));
+        assert_eq!(lb.item_count(), 0);
+        assert_eq!(lb.get_selection(), None);
+        assert_eq!(lb.get_selected_item(), None);
+
+        let mut term = crate::test_util::test_terminal(20, 5);
+        lb.draw(&mut term); // must not panic
+
+        let mut e = Event::keyboard(crate::core::event::KB_DOWN);
+        lb.handle_event(&mut e); // must not panic
+        assert_eq!(lb.get_selection(), None);
+    }
+
+    /// A provider with a million items must only be asked for the handful of
+    /// rows actually drawn, never the whole list.
+    #[test]
+    fn a_provider_is_read_lazily_not_the_whole_million() {
+        let calls = std::rc::Rc::new(std::cell::Cell::new(0usize));
+
+        struct Counting(std::rc::Rc<std::cell::Cell<usize>>);
+        impl ListProvider for Counting {
+            fn len(&self) -> usize {
+                1_000_000
+            }
+            fn item(&self, index: usize) -> String {
+                self.0.set(self.0.get() + 1);
+                format!("Item {index}")
+            }
+        }
+
+        let mut lb = ListBox::new(Rect::new(0, 0, 20, 5), 0);
+        lb.set_provider(Box::new(Counting(std::rc::Rc::clone(&calls))));
+        assert_eq!(lb.item_count(), 1_000_000);
+
+        let mut term = crate::test_util::test_terminal(20, 5);
+        lb.draw(&mut term);
+
+        // 5 visible rows: never the whole million-item source.
+        assert!(
+            calls.get() <= 5,
+            "asked for {} items drawing 5 visible rows",
+            calls.get()
+        );
+    }
+
     #[test]
     fn a_shorter_provider_clamps_the_selection_and_drops_marks() {
         let mut lb = ListBox::new(Rect::new(0, 0, 20, 5), 0);
