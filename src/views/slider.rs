@@ -38,6 +38,8 @@ pub struct Slider {
     step: i64,
     /// Broadcast on every user change; 0 sends nothing.
     on_change: CommandId,
+    /// True while the user is dragging the thumb.
+    dragging: bool,
 }
 
 impl Slider {
@@ -57,6 +59,7 @@ impl Slider {
             value: min,
             step: 1,
             on_change: 0,
+            dragging: false,
         }
     }
 
@@ -167,12 +170,26 @@ impl View for Slider {
     fn handle_event(&mut self, event: &mut Event) {
         let width = usize::try_from(self.core.bounds.width_clamped()).unwrap_or(0);
         match event.what {
-            EventType::MouseDown | EventType::MouseMove
+            EventType::MouseDown
                 if event.mouse.buttons & MB_LEFT_BUTTON != 0
                     && self.extent().contains(event.mouse.pos) =>
             {
+                self.dragging = true;
                 let changed = self.set_value(self.value_at(event.mouse.pos.x, width));
                 self.report(event, changed);
+            }
+            EventType::MouseMove => {
+                // If dragging, continue to update even if the pointer leaves the track.
+                if self.dragging {
+                    if event.mouse.buttons & MB_LEFT_BUTTON != 0 {
+                        let changed = self.set_value(self.value_at(event.mouse.pos.x, width));
+                        self.report(event, changed);
+                    } else {
+                        // Button released; end the drag.
+                        self.dragging = false;
+                        event.clear();
+                    }
+                }
             }
             EventType::Keyboard if self.is_focused() => {
                 let target = match event.key_code {
@@ -225,6 +242,24 @@ mod tests {
         e.what = EventType::MouseDown;
         e.mouse.pos = Point::new(x, 0);
         e.mouse.buttons = MB_LEFT_BUTTON;
+        s.handle_event(&mut e);
+        e
+    }
+
+    fn mouse_down(s: &mut Slider, x: i16, y: i16) -> Event {
+        let mut e = Event::nothing();
+        e.what = EventType::MouseDown;
+        e.mouse.pos = Point::new(x, y);
+        e.mouse.buttons = MB_LEFT_BUTTON;
+        s.handle_event(&mut e);
+        e
+    }
+
+    fn mouse_move(s: &mut Slider, x: i16, y: i16, buttons: u8) -> Event {
+        let mut e = Event::nothing();
+        e.what = EventType::MouseMove;
+        e.mouse.pos = Point::new(x, y);
+        e.mouse.buttons = buttons;
         s.handle_event(&mut e);
         e
     }
@@ -290,5 +325,30 @@ mod tests {
             let thumbs = (0..width).filter(|&x| term.read_cell(x, 0).unwrap().ch == THUMB).count();
             assert_eq!(thumbs, 1, "one thumb inside the view for {min}..={max} in {width}");
         }
+    }
+
+    #[test]
+    fn dragging_past_either_end_clamps() {
+        // 11 cells over 0..=10: one value per cell.
+        let mut s = focused(0, 10, 11);
+
+        // Start a drag at x=5 (value 5).
+        mouse_down(&mut s, 5, 0);
+        assert_eq!(s.value(), 5);
+
+        // Drag far to the right, past the track's edge, clamping to max.
+        mouse_move(&mut s, 40, 3, MB_LEFT_BUTTON);
+        assert_eq!(s.value(), 10, "drag to x=40 (far right) clamps to max");
+
+        // Drag far to the left, past the track's edge, clamping to min.
+        mouse_move(&mut s, -20, 0, MB_LEFT_BUTTON);
+        assert_eq!(s.value(), 0, "drag to x=-20 (far left) clamps to min");
+
+        // Release the button; end the drag.
+        mouse_move(&mut s, 5, 0, 0);
+
+        // A subsequent move at the same position without the button changes nothing.
+        mouse_move(&mut s, 5, 0, 0);
+        assert_eq!(s.value(), 0, "after release, moves without button do nothing");
     }
 }
