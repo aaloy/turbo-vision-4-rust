@@ -10,14 +10,9 @@
 //   cargo run --example screenshot
 //
 // Testing without a physical key press: some terminals (e.g. macOS Terminal.app)
-// do not forward Ctrl+F12. Enable the TCP remote-input listener and inject the
-// chord instead:
-//
-//   TV_REMOTE_KEYS=8888 cargo run --example screenshot
-//   # then, from another shell:
-//   printf 'F12\n'             | nc 127.0.0.1 8888   # ASCII dump
-//   printf 'CTRL+F12\n'        | nc 127.0.0.1 8888   # PNG screenshot
-//   printf 'CTRL+F12 ALT+X\n'  | nc 127.0.0.1 8888   # screenshot, then quit
+// do not forward Ctrl+F12. The `tv-extensions` crate's `remote_input::enable`
+// (feature `remote-input`) can inject the chord instead over a TCP listener;
+// see that crate for the wire format and setup.
 
 use turbo_vision::app::Application;
 use turbo_vision::core::command::{CM_QUIT, CM_SCREENSHOT};

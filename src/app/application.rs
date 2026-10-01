@@ -145,27 +145,15 @@ impl Application {
     /// ```
     #[cfg(feature = "native")]
     pub fn new() -> Result<Self> {
-        let mut app = Self::with_terminal(Terminal::init()?);
-
-        // Opt-in remote key injection for testing/automation. Off unless the
-        // TV_REMOTE_KEYS environment variable holds a port number.
-        if let Ok(port_str) = std::env::var("TV_REMOTE_KEYS") {
-            if let Ok(port) = port_str.trim().parse::<u16>() {
-                if let Err(e) = app.enable_remote_input(port) {
-                    log::warn!("TV_REMOTE_KEYS: failed to listen on port {port}: {e}");
-                }
-            }
-        }
-
-        Ok(app)
+        Ok(Self::with_terminal(Terminal::init()?))
     }
 
     /// Creates an application on an already-built terminal, e.g. one over a
     /// host-driven backend that an embedder steps with [`step`](Self::step).
     ///
     /// This is everything [`new`](Self::new) does except creating the
-    /// terminal and the `TV_REMOTE_KEYS` listener. Whether the application
-    /// is host-driven is read from the backend here, once, through
+    /// terminal. Whether the application is host-driven is read from the
+    /// backend here, once, through
     /// [`Backend::is_host_driven`](crate::terminal::Backend::is_host_driven).
     pub fn with_terminal(terminal: Terminal) -> Self {
         let driver = if terminal.backend_is_host_driven() {
@@ -1035,25 +1023,6 @@ impl Application {
                 _ => {}
             }
         }
-    }
-
-    /// Enable the remote keyboard-input listener on the given TCP port.
-    ///
-    /// This is **off by default**. It is a thin wrapper around
-    /// [`Terminal::enable_remote_input`](crate::terminal::Terminal::enable_remote_input):
-    /// once enabled, key chords sent to `127.0.0.1:port` (e.g. `"CTRL+F12"`) are
-    /// injected into the event loop as real key presses. Useful for automated
-    /// testing of global shortcuts such as the Ctrl+F12 screenshot.
-    ///
-    /// It can also be enabled without code changes by setting the
-    /// `TV_REMOTE_KEYS` environment variable to the desired port.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the port cannot be bound.
-    pub fn enable_remote_input(&mut self, port: u16) -> Result<()> {
-        self.terminal.enable_remote_input(port)?;
-        Ok(())
     }
 
     /// Serve Ctrl+F12 / `CM_SCREENSHOT`: the capture hook if one is

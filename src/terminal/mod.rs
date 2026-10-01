@@ -55,7 +55,6 @@
 mod backend;
 #[cfg(feature = "native")]
 mod crossterm_backend;
-pub mod remote_input;
 
 mod input_parser;
 
@@ -641,7 +640,8 @@ impl Terminal {
     /// returns a clone of the same channel, and injected events are served
     /// after a [`put_event`](Self::put_event) one and before the backend's.
     ///
-    /// This is the hook automation and remote-input listeners build on.
+    /// This is the hook automation and remote-input listeners (e.g. the
+    /// `tv-extensions` crate's `remote_input` module) build on.
     /// Injected Ctrl+F12 and F12 *key* events are served as captures (see
     /// [`set_capture_hook`](Self::set_capture_hook)) and are not returned by
     /// `poll_event`; any other event, including a command whose `key_code`
@@ -677,23 +677,6 @@ impl Terminal {
         hook(kind, self);
         self.capture_hook = Some(hook);
         true
-    }
-
-    /// Enable the remote keyboard-input listener on the given TCP port.
-    ///
-    /// This is **off by default**. Once enabled, the terminal listens on
-    /// `127.0.0.1:port` and injects key chords received over the socket into the
-    /// event stream returned by [`poll_event`](Self::poll_event), as if they had
-    /// been typed. See [`remote_input`] for the wire format. Intended for
-    /// testing and automation (for example, triggering Ctrl+F12 screenshots on
-    /// terminals that do not forward that chord).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the port cannot be bound.
-    pub fn enable_remote_input(&mut self, port: u16) -> io::Result<()> {
-        let tx = self.event_injector();
-        remote_input::spawn(port, tx)
     }
 
     /// Poll for an event with timeout.
