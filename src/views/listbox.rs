@@ -119,6 +119,7 @@ impl ListBox {
             Items::Provided(_) => {
                 self.items = Items::Owned(vec![item]);
                 self.marked.clear();
+                self.anchor = 0;
             }
         }
         self.list_state.set_range(self.items.len());
@@ -241,9 +242,11 @@ impl ListBox {
         self.items.get(self.list_state.focused?)
     }
 
-    /// Set the selected item by index
+    /// Set the selected item by index, clamped to
+    /// [`item_count`](Self::item_count) (the count as of the last refresh,
+    /// not the source's possibly-changed live length).
     pub fn set_selection(&mut self, index: usize) {
-        if index < self.items.len() {
+        if index < self.item_count() {
             let visible_rows = self.core.bounds.height_clamped() as usize;
             self.list_state.focus_item(index, visible_rows);
         }
@@ -251,8 +254,8 @@ impl ListBox {
 
     /// Get the number of items
     ///
-    /// Cached from the item source at the last `set_items`, `set_provider`
-    /// or `refresh_items`.
+    /// Cached from the item source at the last `set_items`, `add_item`,
+    /// `clear`, `set_provider` or `refresh_items`.
     pub fn item_count(&self) -> usize {
         self.list_state.range
     }
@@ -847,5 +850,78 @@ mod tests {
         lb.add_item("solo".into());
         assert_eq!(lb.item_count(), 1);
         assert_eq!(lb.get_selected_item().as_deref(), Some("solo"));
+    }
+
+    /// `add_item` on a provider-backed list drops marks (covered above) but
+    /// must also reset `anchor`, like `set_items`/`clear` do: a Shift+click
+    /// run started against the old provider's indices must not leak into the
+    /// new owned list.
+    #[test]
+    fn add_item_on_a_provider_resets_the_anchor() {
+        let mut lb = ListBox::new(Rect::new(0, 0, 20, 5), 0);
+        lb.set_multi_select(true);
+        lb.set_provider(Box::new(Numbers(10)));
+        // A plain click (row 3, within the 5-row view) anchors a run at
+        // index 3, past where the new owned list will reach.
+        let mut plain_click = Event::nothing();
+        plain_click.what = EventType::MouseDown;
+        plain_click.mouse.buttons = MB_LEFT_BUTTON;
+        plain_click.mouse.pos = crate::core::geometry::Point::new(1, 3);
+        lb.handle_event(&mut plain_click);
+
+        // Starts a new one-item owned list (and should reset the anchor).
+        lb.add_item("first".into());
+        // Pushes onto the now-owned list without touching the anchor.
+        lb.add_item("second".into());
+        assert_eq!(lb.item_count(), 2);
+
+        // Shift+click on item 1 marks the run from the anchor to 1. If the
+        // anchor had leaked (3, clamped against the 2-item list's last valid
+        // index, 1), the run would start at 1 and mark only {1}; reset to 0
+        // it marks the whole 0..=1 run.
+        shift_click(&mut lb, 1);
+        assert_eq!(
+            lb.marked_items(),
+            vec![0, 1],
+            "the anchor was reset to 0 by the first add_item"
+        );
+    }
+
+    /// `set_selection` must gate against the *cached* `item_count`, not a
+    /// provider's possibly-changed live length: navigation uses the count
+    /// from the last refresh (`item_count`'s doc), so an index that was
+    /// valid as of that refresh should still be reachable even after the
+    /// provider's live length has since shrunk without a `refresh_items`
+    /// call — exactly as drawing and cell access would still read the live
+    /// (now shorter) length.
+    #[test]
+    fn set_selection_gates_on_the_cached_count_not_a_shrunk_provider() {
+        struct Flexible(std::rc::Rc<std::cell::Cell<usize>>);
+        impl ListProvider for Flexible {
+            fn len(&self) -> usize {
+                self.0.get()
+            }
+            fn item(&self, index: usize) -> String {
+                index.to_string()
+            }
+        }
+        let len = std::rc::Rc::new(std::cell::Cell::new(10));
+        let mut lb = ListBox::new(Rect::new(0, 0, 20, 5), 0);
+        lb.set_provider(Box::new(Flexible(std::rc::Rc::clone(&len))));
+        assert_eq!(lb.item_count(), 10);
+
+        // The provider shrinks without a refresh_items call; item_count is
+        // still cached at 10.
+        len.set(2);
+        assert_eq!(lb.item_count(), 10, "still cached at the old length");
+
+        lb.set_selection(5);
+        assert_eq!(
+            lb.get_selection(),
+            Some(5),
+            "5 was valid as of the last refresh (cached count 10), so \
+             set_selection must still reach it even though the provider's \
+             live length (2) has since shrunk"
+        );
     }
 }

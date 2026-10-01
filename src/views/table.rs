@@ -249,12 +249,13 @@ impl Table {
         self.rows.get(self.list_state.focused?, self.focused_col)
     }
 
-    /// Focus a row, clamped to the rows that exist.
+    /// Focus a row, clamped to [`row_count`](Self::row_count) (the count as
+    /// of the last refresh, not the source's possibly-changed live length).
     pub fn set_selected_row(&mut self, row: usize) {
-        if self.rows.len() == 0 {
+        if self.row_count() == 0 {
             return;
         }
-        let row = row.min(self.rows.len() - 1);
+        let row = row.min(self.row_count() - 1);
         let visible = self.visible_rows();
         self.list_state.focus_item(row, visible);
     }
@@ -386,12 +387,13 @@ impl Table {
         spans
     }
 
-    /// Move the focused row by `delta`, clamping at both ends.
+    /// Move the focused row by `delta`, clamping at both ends. Clamps to
+    /// [`row_count`](Self::row_count), the count as of the last refresh.
     fn move_row(&mut self, delta: i32) {
-        if self.rows.len() == 0 {
+        if self.row_count() == 0 {
             return;
         }
-        let last = self.rows.len() as i32 - 1;
+        let last = self.row_count() as i32 - 1;
         let current = self.list_state.focused.unwrap_or(0) as i32;
         let next = (current + delta).clamp(0, last) as usize;
         let visible = self.visible_rows();
@@ -1210,6 +1212,45 @@ mod tests {
         assert_eq!(t.row_count(), 2, "cached until refreshed");
         t.refresh_rows();
         assert_eq!(t.row_count(), 5);
+    }
+
+    /// `set_selected_row`/`move_row` clamp to the *cached* `row_count`, not
+    /// the provider's possibly-grown live length, so a provider that grows
+    /// behind the table's back without a `refresh_rows` call still clamps as
+    /// `row_count`'s doc promises.
+    #[test]
+    fn set_selected_row_clamps_to_the_cached_count_not_a_grown_provider() {
+        struct Growing(Rc<Counter<usize>>);
+        impl RowProvider for Growing {
+            fn rows(&self) -> usize {
+                self.0.get()
+            }
+            fn cell(&self, row: usize, _col: usize) -> String {
+                row.to_string()
+            }
+        }
+        let len = Rc::new(Counter::new(2));
+        let mut t = Table::new(Rect::new(0, 0, 30, 6), 0);
+        t.set_columns(vec![Column::new("N", 10)]);
+        t.set_provider(Box::new(Growing(Rc::clone(&len))));
+
+        // The provider grows without a refresh_rows call.
+        len.set(100);
+        assert_eq!(t.row_count(), 2, "still cached at the old length");
+
+        t.set_selected_row(50);
+        assert_eq!(
+            t.selected_row(),
+            Some(1),
+            "clamped to the cached row_count (2), not the live length (100)"
+        );
+
+        t.move_row(1000);
+        assert_eq!(
+            t.selected_row(),
+            Some(1),
+            "move_row also clamps to the cached count"
+        );
     }
 
     #[test]

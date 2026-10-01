@@ -24,10 +24,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rows and items can now come from a provider. Add `.as_deref()` where a
   `&str` is needed.
 - `Table::row_count` and `ListBox::item_count` return the count as of the
-  last `set_rows`/`add_row`/`set_provider` (resp.
-  `set_items`/`add_item`/`set_provider`); call `refresh_rows`/
-  `refresh_items` to pick up a provider whose length changed. Drawing and
-  selection always read the provider's live length.
+  last `set_rows`/`add_row`/`set_provider`/`refresh_rows` (resp.
+  `set_items`/`add_item`/`set_provider`/`refresh_items`); call
+  `refresh_rows`/`refresh_items` to pick up a provider whose length changed.
+  Drawing and cell access (`selected_cell`, `get_selected_item`, …) read the
+  provider's live length; navigation (`set_selected_row`, `set_selection`,
+  …) and the counts themselves use the count from the last refresh.
 - Ctrl+F12, F12 and `CM_SCREENSHOT` run the capture hook when one is set,
   instead of the built-in capture.
 
