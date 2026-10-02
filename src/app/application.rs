@@ -737,7 +737,10 @@ impl Application {
     /// for each event [`poll_event_or_quit`](Self::poll_event_or_quit)
     /// returns while [`running`](Self::running), one `step(handler, None)`,
     /// and a final [`draw`](Self::draw), after which the frame is in
-    /// [`Terminal::buffer`]. Nothing here waits for input, and on a
+    /// [`Terminal::buffer`]. The cursor that draw asked for is
+    /// [`Terminal::cursor`]; the backend only sees it on the next
+    /// [`Terminal::flush`], so a host either reads `terminal.cursor()` or
+    /// flushes after the final draw. Nothing here waits for input, and on a
     /// host-driven application nothing reachable from it does either: modal
     /// views and popups refuse with `CM_CANCEL`.
     pub fn step<H: AppHandler>(&mut self, handler: &mut H, event: Option<Event>) {
@@ -3148,6 +3151,14 @@ mod cursor_tests {
             "the popup drew something: {during:?}"
         );
         let last_flush = during.iter().rposition(|o| *o == Op::Flush).unwrap();
+        assert_eq!(
+            during[..last_flush]
+                .iter()
+                .rev()
+                .find(|o| matches!(o, Op::Show(..) | Op::Hide)),
+            Some(&Op::Hide),
+            "the cursor is hidden under the popup: {during:?}"
+        );
         assert!(
             !during[..last_flush]
                 .iter()

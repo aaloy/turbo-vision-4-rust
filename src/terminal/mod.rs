@@ -162,6 +162,12 @@ pub struct Terminal {
     /// The cursor state the backend was last sent (`None`: hidden, as every
     /// backend starts). `flush` compares it with `cursor` so a cursor that
     /// only moved still moves, and an unchanged one costs nothing.
+    ///
+    /// The cursor is therefore re-sent only when the request changes or
+    /// after a frame that wrote cells. Bytes that move or show the real
+    /// cursor behind `Terminal`'s back leave it wrong until then; send such
+    /// bytes through [`write_raw`](Terminal::write_raw), which puts the
+    /// cursor back.
     shown_cursor: Option<(u16, u16)>,
 }
 
@@ -639,8 +645,12 @@ impl Terminal {
     ///
     /// Only the request is recorded: the next [`flush`](Self::flush) sends
     /// it, after the frame's cells, so views can set and reset the cursor
-    /// while they draw without it flickering. Never fails; the `Result` is
-    /// kept for compatibility.
+    /// while they draw without it flickering. A loop that drives the
+    /// terminal itself must set the cursor before it flushes. The cursor is
+    /// re-sent only when the request changes or after a frame that wrote
+    /// cells, so bytes that move the real cursor belong in
+    /// [`write_raw`](Self::write_raw). Never fails; the `Result` is kept for
+    /// compatibility.
     pub fn show_cursor(&mut self, x: i16, y: i16) -> io::Result<()> {
         let o = self.origin();
         let (sx, sy) = (x + o.x, y + o.y);
@@ -653,7 +663,8 @@ impl Terminal {
 
     /// Ask for the cursor to be hidden. Like
     /// [`show_cursor`](Self::show_cursor), this takes effect on the next
-    /// [`flush`](Self::flush).
+    /// [`flush`](Self::flush), and is re-sent only when the request changes
+    /// or after a frame that wrote cells.
     pub fn hide_cursor(&mut self) -> io::Result<()> {
         self.cursor = None;
         Ok(())

@@ -31,6 +31,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the flush. Code that drives the backend itself must flush (as every
   turbo-vision loop does) for a cursor change to reach it; a host that
   reads the cursor without flushing can use `Terminal::cursor`.
+  - A loop that drives the terminal itself must call `show_cursor` or
+    `hide_cursor` *before* `flush`. Set after the flush, the cursor lags a
+    frame behind the cells.
+  - A host-driven embedder that reads the cursor from its backend must
+    flush after the final `draw` of each frame (or read
+    `Terminal::cursor`). Otherwise it sees the cursor of the last flush,
+    not of the frame in `Terminal::buffer`.
+  - The cursor is re-sent only when it changes or after a frame that wrote
+    cells, so bytes that move the real cursor should go through
+    `Terminal::write_raw`.
 
 ## [4.0.1] - 2026-10-02
 
