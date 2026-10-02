@@ -19,6 +19,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   show the cursor again at the control underneath while the popup had the
   keyboard. This covers cascading menu-bar submenus and anything else built
   on `MenuBox::execute`.
+- `Terminal::write_raw` puts a shown cursor back after the raw bytes
+  (Kitty graphics, for one), which used to leave the cursor wherever their
+  escape sequences moved it.
 
 ## [4.0.1] - 2026-10-02
 

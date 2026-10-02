@@ -3218,4 +3218,26 @@ mod cursor_tests {
             Some("earlier".to_string())
         );
     }
+
+    #[test]
+    fn write_raw_puts_a_shown_cursor_back() {
+        let (mut app, log, at) = logged_app();
+        log.lock().unwrap().clear();
+        // Kitty graphics bytes that move the real cursor.
+        app.terminal.write_raw(b"\x1b_Ga=T\x1b\\").unwrap();
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec![Op::Write, Op::Show(at.0, at.1), Op::Flush]
+        );
+    }
+
+    #[test]
+    fn write_raw_leaves_a_hidden_cursor_hidden() {
+        let (mut app, log, _) = logged_app();
+        app.terminal.hide_cursor().unwrap();
+        app.terminal.flush().unwrap();
+        log.lock().unwrap().clear();
+        app.terminal.write_raw(b"\x1b_Ga=d\x1b\\").unwrap();
+        assert_eq!(*log.lock().unwrap(), vec![Op::Write, Op::Flush]);
+    }
 }

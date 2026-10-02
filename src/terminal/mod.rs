@@ -933,11 +933,17 @@ impl Terminal {
     /// flush. For protocols drawn outside the cells, such as the Kitty
     /// graphics protocol (see the `tv-extensions` crate).
     ///
+    /// Such bytes usually move the terminal's cursor, so a shown cursor is
+    /// put back where it was afterwards.
+    ///
     /// # Errors
     ///
     /// Returns an error if the backend cannot write or flush.
     pub fn write_raw(&mut self, data: &[u8]) -> io::Result<()> {
         self.backend.write_raw(data)?;
+        if let Some((x, y)) = self.cursor {
+            self.backend.show_cursor(x, y)?;
+        }
         self.backend.flush()
     }
 }
