@@ -224,15 +224,17 @@ impl HelpViewer {
             return 0;
         }
 
-        // Calculate the line number (1-based, accounting for scroll)
+        // Calculate the line number (1-based) and the column in the line,
+        // both accounting for scroll; `draw` skips `delta.x` columns.
         let line_num = (self.delta.y + rel_y + 1) as i16;
+        let col = self.delta.x + rel_x;
 
         // Search cross-refs for one that matches this position
         for (i, cross_ref) in self.cross_refs.iter().enumerate() {
             if cross_ref.line == line_num {
                 let start = cross_ref.offset;
                 let end = start + cross_ref.length as i16;
-                if rel_x >= start && rel_x < end {
+                if col >= start && col < end {
                     return i + 1; // Return 1-based index
                 }
             }
@@ -817,6 +819,72 @@ mod tests {
         viewer.handle_event(&mut down);
         assert_eq!(viewer.get_selected_target(), Some("edit"));
         assert_eq!(viewer.get_scroll_state().1, index);
+    }
+
+    #[test]
+    fn a_click_hits_a_link_after_horizontal_scroll() {
+        // The link line ends at column 32; a longer line makes the text
+        // scrollable by 30 columns in a 30-wide viewer.
+        let content = format!(
+            "# Wide {{#wide}}\n\n{} [Far](#other) end.\n{}\n\n# Other {{#other}}\n\nOther.\n",
+            "x".repeat(20),
+            "y".repeat(60)
+        );
+        let help = HelpFile::from_content(&content);
+        let mut viewer = HelpViewer::new(Rect::new(0, 0, 30, 10));
+        viewer.set_topic(help.get_topic("wide").unwrap());
+        let (index, r) = viewer
+            .cross_refs
+            .iter()
+            .cloned()
+            .enumerate()
+            .find(|(_, r)| r.target == "other" && r.offset > 0)
+            .map(|(i, r)| (i + 1, r))
+            .expect("the inline Far link");
+        assert_eq!(r.offset, 21);
+        // Start with nothing selected, so a hit is visible as a change.
+        viewer.selected = 0;
+
+        for _ in 0..15 {
+            viewer.handle_event(&mut Event::keyboard(KB_RIGHT));
+        }
+        assert_eq!(viewer.get_scroll_state().0.x, 15);
+
+        let mut terminal = crate::test_util::test_terminal(30, 10);
+        viewer.draw(&mut terminal);
+        let row = r.line - 1;
+        let line: Vec<char> = (0..30)
+            .map(|x| terminal.read_cell(x, row).unwrap().ch)
+            .collect();
+        let first = (0..line.len())
+            .find(|&i| line[i..].iter().collect::<String>().starts_with("Far"))
+            .expect("link text drawn") as i16;
+        assert_eq!(first, 6);
+
+        // A click on blank space where the unscrolled link would be selects nothing.
+        assert_eq!(line[r.offset as usize], ' ');
+        let mut blank = Event::mouse(
+            EventType::MouseDown,
+            Point::new(r.offset, row),
+            MB_LEFT_BUTTON,
+            false,
+        );
+        viewer.handle_event(&mut blank);
+        assert_eq!(viewer.get_scroll_state().1, 0);
+
+        // A click on the drawn link text selects it.
+        for x in first..first + 3 {
+            assert_eq!(viewer.get_cross_ref_at_public(x, row), index, "x={x}");
+        }
+        let mut down = Event::mouse(
+            EventType::MouseDown,
+            Point::new(first + 1, row),
+            MB_LEFT_BUTTON,
+            false,
+        );
+        viewer.handle_event(&mut down);
+        assert_eq!(viewer.get_scroll_state().1, index);
+        assert_eq!(viewer.get_selected_target(), Some("other"));
     }
 
     #[test]
