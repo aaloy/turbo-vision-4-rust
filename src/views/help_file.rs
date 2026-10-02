@@ -487,8 +487,8 @@ impl HelpFile {
                 }
                 current_topic = Some(topic);
             } else if let Some(ref mut topic) = current_topic {
-                // Check for cross-reference: [Link](#topic-id)
-                if let Some(link_id) = self.parse_link(line) {
+                // Record every cross-reference on the line: [Link](#topic-id)
+                for link_id in Self::parse_links(line) {
                     topic.add_link(link_id);
                 }
 
@@ -546,15 +546,15 @@ impl HelpFile {
         None
     }
 
-    /// Parse cross-reference link: [Text](#topic-id)
-    fn parse_link(&self, line: &str) -> Option<String> {
-        if let Some(start) = line.find("](#") {
-            if let Some(end) = line[start..].find(')') {
-                let id = line[start + 3..start + end].to_string();
-                return Some(id);
-            }
-        }
-        None
+    /// The targets of the cross-reference links `[Text](#topic-id)` on a
+    /// line, in order. Found the way the inline links are drawn, so the
+    /// "See also" list names exactly the links the text shows; repeats are
+    /// left for `add_link` to drop.
+    fn parse_links(line: &str) -> impl Iterator<Item = String> {
+        HelpTopic::process_line_links(line, 0)
+            .1
+            .into_iter()
+            .map(|r| r.target)
     }
 
     /// Get a topic by ID
@@ -625,6 +625,18 @@ mod tests {
         writeln!(file, "- Paste: Paste text").unwrap();
         file.flush().unwrap();
         file
+    }
+
+    #[test]
+    fn every_link_on_a_line_is_recorded() {
+        let help = HelpFile::from_content(
+            "# Two {#two}\n\nSee [A](#a) and [B](#b).\n\n\
+             # Brackets {#brackets}\n\nNotes ([C](#c)) and [D](#d)], then [C](#c) again.\n",
+        );
+        assert_eq!(help.get_topic("two").unwrap().links, ["a", "b"]);
+        // A `)` or `]` right after a link ends it; it is not part of the id,
+        // and a repeated link is recorded once.
+        assert_eq!(help.get_topic("brackets").unwrap().links, ["c", "d"]);
     }
 
     #[test]

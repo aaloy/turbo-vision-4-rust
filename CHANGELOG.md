@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   crossterm backend, so a modified key from a remote host is the same event
   as from a local terminal (Ctrl+F5 is `KB_F5` + `CONTROL`, Ctrl+F12 is
   `KB_CTRL_F12`). Modified F1-F4 (`ESC [ 1 ; m P..S`) were key code 0.
+- `HelpFile` records every link on a line in the topic's `links` (and its
+  "See also" list), not just the first. Links are found the same way the
+  inline links are drawn.
 
 ## [4.0.0] - 2026-10-01
 
