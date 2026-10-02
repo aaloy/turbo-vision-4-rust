@@ -14,6 +14,8 @@
 //! The leading columns can be frozen with [`Table::set_frozen_cols`]: they stay
 //! at the left edge while the others scroll past them, like a spreadsheet's
 //! frozen panes, and a [`FROZEN_SEPARATOR`] marks where the frozen part ends.
+//! Likewise [`Table::set_frozen_rows`] keeps the leading rows under the header
+//! while the others scroll up and down; the last frozen row is underlined.
 //!
 //! Rows come from `set_rows`, or lazily from a [`RowProvider`] given to
 //! [`Table::set_provider`], which asks only for the rows on screen.
@@ -52,7 +54,9 @@ use crate::core::event::{
     KB_UP, MB_LEFT_BUTTON,
 };
 use crate::core::geometry::{Point, Rect};
-use crate::core::palette::{LISTBOX_DIVIDER, LISTBOX_FOCUSED, LISTBOX_NORMAL, LISTBOX_SELECTED};
+use crate::core::palette::{
+    LISTBOX_DIVIDER, LISTBOX_FOCUSED, LISTBOX_NORMAL, LISTBOX_SELECTED, Style,
+};
 use crate::core::state::{State, StateFlags};
 use crate::terminal::Terminal;
 
@@ -158,6 +162,8 @@ pub struct Table {
     first_col: usize,
     /// Leading columns that stay put while the rest scroll sideways.
     frozen_cols: usize,
+    /// Leading rows that stay under the header while the rest scroll.
+    frozen_rows: usize,
     /// Whether the header row is drawn.
     show_header: bool,
     /// Whether a `SEPARATOR` is drawn between columns.
@@ -182,6 +188,7 @@ impl Table {
             focused_col: 0,
             first_col: 0,
             frozen_cols: 0,
+            frozen_rows: 0,
             show_header: true,
             separators: false,
             on_select,
@@ -268,8 +275,7 @@ impl Table {
             return;
         }
         let row = row.min(self.row_count() - 1);
-        let visible = self.visible_rows();
-        self.list_state.focus_item(row, visible);
+        self.focus_row(row);
     }
 
     /// Focus a column, clamped to the columns that exist.
@@ -314,15 +320,68 @@ impl Table {
         self.frozen_cols
     }
 
+    /// Freeze the first `count` rows: they stay under the header while the
+    /// others scroll up and down, and the last of them is underlined. Zero,
+    /// the default, freezes none. They are ordinary rows otherwise: they can
+    /// be focused and selected, and count in [`row_count`](Self::row_count).
+    /// A count past the last row freezes them all.
+    pub fn set_frozen_rows(&mut self, count: usize) {
+        self.frozen_rows = count;
+        self.scroll_row_into_view();
+    }
+
+    /// How many leading rows are frozen, as set (it may exceed the rows
+    /// there are).
+    pub fn frozen_rows(&self) -> usize {
+        self.frozen_rows
+    }
+
     /// Command emitted by Enter or a double-click.
     pub fn set_on_select(&mut self, command: CommandId) {
         self.on_select = command;
     }
 
-    /// Rows of grid visible at once, header excluded.
+    /// Scrolling rows visible at once: the header and the frozen rows
+    /// excluded.
     fn visible_rows(&self) -> usize {
+        self.body_height().saturating_sub(self.frozen_row_lines())
+    }
+
+    /// Lines below the header.
+    fn body_height(&self) -> usize {
         let height = self.core.bounds.height_clamped().max(0) as usize;
         height.saturating_sub(self.header_rows())
+    }
+
+    /// Frozen rows that exist: the setting, capped at the row count.
+    fn frozen_row_count(&self) -> usize {
+        self.frozen_rows.min(self.row_count())
+    }
+
+    /// Lines the frozen rows take, clipped to the space under the header.
+    fn frozen_row_lines(&self) -> usize {
+        self.frozen_row_count().min(self.body_height())
+    }
+
+    /// First scrolling row on screen. Scrolling never starts inside the
+    /// frozen rows, which are drawn above it anyway.
+    fn top_row(&self) -> usize {
+        self.list_state.top_item.max(self.frozen_row_count())
+    }
+
+    /// Focus a row and scroll the scrolling rows so it shows. A frozen row
+    /// is always on screen, so focusing one scrolls nothing.
+    fn focus_row(&mut self, row: usize) {
+        if row >= self.row_count() {
+            return;
+        }
+        self.list_state.top_item = self.top_row();
+        if row < self.frozen_row_count() {
+            self.list_state.focused = Some(row);
+            return;
+        }
+        let visible = self.visible_rows();
+        self.list_state.focus_item(row, visible);
     }
 
     /// 1 when the header is drawn, 0 otherwise.
@@ -359,8 +418,7 @@ impl Table {
     /// Scroll vertically so the focused row is on screen.
     fn scroll_row_into_view(&mut self) {
         if let Some(row) = self.list_state.focused {
-            let visible = self.visible_rows();
-            self.list_state.focus_item(row, visible);
+            self.focus_row(row);
         }
     }
 
@@ -449,8 +507,7 @@ impl Table {
         let last = self.row_count() as i32 - 1;
         let current = self.list_state.focused.unwrap_or(0) as i32;
         let next = (current + delta).clamp(0, last) as usize;
-        let visible = self.visible_rows();
-        self.list_state.focus_item(next, visible);
+        self.focus_row(next);
     }
 
     /// Move the focused column by `delta`, clamping at both ends.
@@ -471,8 +528,13 @@ impl Table {
         }
         let local_y = (pos.y) as usize;
         // The header is not a cell.
-        let row_index = local_y.checked_sub(self.header_rows())?;
-        let row = self.list_state.top_item + row_index;
+        let line = local_y.checked_sub(self.header_rows())?;
+        let frozen_lines = self.frozen_row_lines();
+        let row = if line < frozen_lines {
+            line
+        } else {
+            self.top_row() + (line - frozen_lines)
+        };
         if row >= self.rows.len() {
             return None;
         }
@@ -651,9 +713,9 @@ impl View for Table {
 
         let frozen = self.frozen();
         let frozen_span = self.frozen_span().min(width);
-        for screen_row in 0..self.visible_rows() {
+        // One data row as a drawn line.
+        let line = |row_index: usize| {
             let mut buf = DrawBuffer::new(width);
-            let row_index = self.list_state.top_item + screen_row;
             let row_selected = Some(row_index) == self.list_state.focused;
             let row_attr = if row_selected { selected } else { normal };
             // Fill the whole line, gaps included, so the selected row reads
@@ -683,15 +745,34 @@ impl View for Table {
                 );
             }
             self.write_separators(&mut buf, width);
-            write_line_to_terminal(terminal, 0, y + screen_row as i16, &buf);
+            buf
+        };
+
+        // The frozen rows, under the header. The last one is underlined to
+        // mark the edge, as long as scrolling rows follow it.
+        let frozen_lines = self.frozen_row_lines();
+        let marks_edge = frozen_lines > 0 && self.frozen_row_count() < self.row_count();
+        for row_index in 0..frozen_lines {
+            let mut buf = line(row_index);
+            if marks_edge && row_index + 1 == frozen_lines {
+                for cell in &mut buf.data {
+                    cell.attr.style |= Style::UNDERLINE;
+                }
+            }
+            write_line_to_terminal(terminal, 0, y, &buf);
+            y += 1;
+        }
+
+        let top = self.top_row();
+        for screen_row in 0..self.visible_rows() {
+            write_line_to_terminal(terminal, 0, y + screen_row as i16, &line(top + screen_row));
         }
     }
 
     fn handle_event(&mut self, event: &mut Event) {
         if event.what == EventType::MouseDown && event.mouse.buttons & MB_LEFT_BUTTON != 0 {
             if let Some((row, col)) = self.cell_at(event.mouse.pos) {
-                let visible = self.visible_rows();
-                self.list_state.focus_item(row, visible);
+                self.focus_row(row);
                 self.focused_col = col;
                 self.scroll_col_into_view();
                 if event.mouse.double_click && self.on_select != 0 {
@@ -768,6 +849,7 @@ pub struct TableBuilder {
     show_header: bool,
     separators: bool,
     frozen_cols: usize,
+    frozen_rows: usize,
     on_select: CommandId,
 }
 
@@ -780,6 +862,7 @@ impl TableBuilder {
             show_header: true,
             separators: false,
             frozen_cols: 0,
+            frozen_rows: 0,
             on_select: 0,
         }
     }
@@ -821,6 +904,13 @@ impl TableBuilder {
         self
     }
 
+    /// See [`Table::set_frozen_rows`].
+    #[must_use]
+    pub fn frozen_rows(mut self, count: usize) -> Self {
+        self.frozen_rows = count;
+        self
+    }
+
     #[must_use]
     pub fn on_select(mut self, command: CommandId) -> Self {
         self.on_select = command;
@@ -835,6 +925,7 @@ impl TableBuilder {
         table.set_columns(self.columns);
         table.set_frozen_cols(self.frozen_cols);
         table.set_rows(self.rows);
+        table.set_frozen_rows(self.frozen_rows);
         table
     }
 
@@ -1517,5 +1608,182 @@ mod tests {
             .frozen_cols(1)
             .build();
         assert_eq!(t.frozen_cols(), 1);
+    }
+
+    // ---- frozen rows ----
+
+    /// The text on screen line `y`, from x 0 to 6.
+    fn line_start(term: &crate::terminal::Terminal, y: i16) -> String {
+        (0..6)
+            .map(|x| ch(term, x, y))
+            .collect::<String>()
+            .trim_end()
+            .to_string()
+    }
+
+    fn underlined(term: &crate::terminal::Terminal, x: i16, y: i16) -> bool {
+        term.read_cell(x, y)
+            .unwrap()
+            .attr
+            .style
+            .contains(Style::UNDERLINE)
+    }
+
+    #[test]
+    fn a_frozen_row_stays_under_the_header_while_the_rest_scroll() {
+        let mut t = table(40);
+        t.set_frozen_rows(1);
+        assert_eq!(
+            t.visible_rows(),
+            4,
+            "header and one frozen row take two of six"
+        );
+        press(&mut t, KB_END);
+        let term = draw(&mut t, 30, 6);
+        assert_eq!(line_start(&term, 0), "Name");
+        assert_eq!(line_start(&term, 1), "file0");
+        assert_eq!(line_start(&term, 2), "file36");
+        assert_eq!(line_start(&term, 5), "file39");
+    }
+
+    #[test]
+    fn the_last_frozen_row_is_underlined() {
+        let mut t = table(40);
+        t.set_frozen_rows(2);
+        let term = draw(&mut t, 30, 6);
+        for x in [0, 15, 29] {
+            assert!(!underlined(&term, x, 1), "first frozen row, x {x}");
+            assert!(underlined(&term, x, 2), "last frozen row, x {x}");
+            assert!(!underlined(&term, x, 3), "first scrolling row, x {x}");
+        }
+    }
+
+    #[test]
+    fn no_underline_when_nothing_or_everything_is_frozen() {
+        let mut t = table(3);
+        let term = draw(&mut t, 30, 6);
+        assert!(!(0..6).any(|y| underlined(&term, 0, y)));
+        t.set_frozen_rows(3);
+        let term = draw(&mut t, 30, 6);
+        assert!(
+            !(0..6).any(|y| underlined(&term, 0, y)),
+            "nothing scrolls under it"
+        );
+    }
+
+    #[test]
+    fn focusing_a_frozen_row_scrolls_nothing() {
+        let mut t = table(40);
+        t.set_frozen_rows(1);
+        press(&mut t, KB_END);
+        let top = t.top_row();
+        press(&mut t, KB_HOME);
+        assert_eq!(t.selected_row(), Some(0));
+        assert_eq!(t.top_row(), top, "the scrolled rows stay where they were");
+    }
+
+    #[test]
+    fn up_walks_from_the_scrolling_rows_into_the_frozen_one() {
+        let mut t = table(40);
+        t.set_frozen_rows(1);
+        press(&mut t, KB_DOWN); // row 1, the first scrolling row
+        assert_eq!(t.top_row(), 1);
+        press(&mut t, KB_UP);
+        assert_eq!(t.selected_row(), Some(0));
+        assert_eq!(
+            t.top_row(),
+            1,
+            "scrolling never starts inside the frozen rows"
+        );
+    }
+
+    #[test]
+    fn paging_moves_a_screenful_of_scrolling_rows() {
+        let mut t = table(40);
+        t.set_frozen_rows(1);
+        press(&mut t, KB_PGDN);
+        assert_eq!(t.selected_row(), Some(4), "four scrolling rows per screen");
+    }
+
+    #[test]
+    fn clicks_land_on_frozen_and_scrolled_rows_alike() {
+        let mut t = table(40);
+        t.set_frozen_rows(1);
+        press(&mut t, KB_END);
+        assert_eq!(t.cell_at(Point::new(0, 0)), None, "the header");
+        assert_eq!(t.cell_at(Point::new(0, 1)), Some((0, 0)));
+        assert_eq!(t.cell_at(Point::new(0, 2)), Some((36, 0)));
+        let mut e = Event::mouse(
+            EventType::MouseDown,
+            Point::new(0, 1),
+            MB_LEFT_BUTTON,
+            false,
+        );
+        t.handle_event(&mut e);
+        assert_eq!(t.selected_row(), Some(0));
+        assert_eq!(t.top_row(), 36);
+    }
+
+    #[test]
+    fn frozen_rows_taller_than_the_table_are_clipped() {
+        let mut t = table(40);
+        t.set_frozen_rows(10);
+        assert_eq!(t.visible_rows(), 0);
+        press(&mut t, KB_END);
+        assert_eq!(t.selected_row(), Some(39));
+        let term = draw(&mut t, 30, 6);
+        assert_eq!(line_start(&term, 5), "file4");
+    }
+
+    #[test]
+    fn freezing_more_rows_than_exist_freezes_them_all() {
+        let mut t = table(3);
+        t.set_frozen_rows(10);
+        press(&mut t, KB_END);
+        assert_eq!(t.selected_row(), Some(2));
+        let term = draw(&mut t, 30, 6);
+        assert_eq!(line_start(&term, 3), "file2");
+        assert_eq!(line_start(&term, 4), "", "no rows past the end");
+    }
+
+    #[test]
+    fn frozen_rows_come_from_a_provider_too() {
+        let (mut t, _) = squares(1000);
+        t.set_frozen_rows(1);
+        t.set_selected_row(500);
+        let term = draw(&mut t, 30, 6);
+        assert_eq!(line_start(&term, 1), "0");
+        assert_eq!(
+            line_start(&term, 5),
+            "500",
+            "the focused row, last on screen"
+        );
+    }
+
+    #[test]
+    fn frozen_rows_and_columns_together_keep_the_corner() {
+        let mut t = table(40);
+        t.set_bounds(Rect::new(0, 0, 20, 6));
+        t.set_frozen_cols(1);
+        t.set_frozen_rows(1);
+        press(&mut t, KB_END);
+        press_ctrl(&mut t, KB_RIGHT);
+        let term = draw(&mut t, 20, 6);
+        assert_eq!(line_start(&term, 1), "file0", "the corner cell stays");
+        assert_eq!(ch(&term, 10, 1), FROZEN_SEPARATOR);
+        assert!(underlined(&term, 10, 1), "the two freeze lines cross");
+        assert_eq!(t.selected_cell().as_deref(), Some("text"));
+        assert_eq!(t.cell_at(Point::new(11, 1)), Some((0, 2)));
+    }
+
+    #[test]
+    fn the_builder_freezes_rows() {
+        let t = TableBuilder::new()
+            .bounds(Rect::new(0, 0, 20, 6))
+            .columns(vec![Column::new("A", 4)])
+            .rows(vec![vec!["x".into()], vec!["y".into()]])
+            .frozen_rows(1)
+            .build();
+        assert_eq!(t.frozen_rows(), 1);
     }
 }
