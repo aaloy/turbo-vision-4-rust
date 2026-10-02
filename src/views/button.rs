@@ -13,6 +13,30 @@ use crate::core::palette::{
 use crate::core::state::Options;
 use crate::core::state::{SHADOW_BOTTOM, SHADOW_SOLID, SHADOW_TOP, State};
 use crate::terminal::Terminal;
+use std::cell::Cell;
+use std::time::{Duration, Instant};
+
+/// How long a button pressed from the keyboard is shown pushed in before its
+/// command is sent. Matches magiblot's `TButton` (`animationDurationMs`).
+pub const DEFAULT_PRESS_ANIMATION: Duration = Duration::from_millis(100);
+
+thread_local! {
+    static PRESS_ANIMATION: Cell<Duration> = const { Cell::new(DEFAULT_PRESS_ANIMATION) };
+}
+
+/// Set how long a button pressed with Enter, Space or its hotkey stays pushed
+/// in before it sends its command. `Duration::ZERO` turns the animation off:
+/// the command is then sent at once, from the key event itself.
+///
+/// Applies to every button on the calling thread.
+pub fn set_press_animation(duration: Duration) {
+    PRESS_ANIMATION.with(|d| d.set(duration));
+}
+
+/// How long a key-pressed button stays pushed in (see [`set_press_animation`]).
+pub fn press_animation() -> Duration {
+    PRESS_ANIMATION.with(Cell::get)
+}
 
 pub struct Button {
     core: ViewCore,
@@ -27,6 +51,14 @@ pub struct Button {
     am_default: bool,
     /// Whether a MouseDown was armed inside this button (fires on MouseUp).
     pressed: bool,
+    /// Whether the button is drawn pushed in: armed and the pointer is still
+    /// over it. Dragging off pops it back out (Borland: `drawState(down)`
+    /// while tracking the mouse in `TButton::handleEvent`).
+    down: bool,
+    /// Until when a key press shows the button pushed in. Its command is
+    /// queued to arrive at that same instant, so the loop that delivers it
+    /// redraws the button popped back out.
+    key_down_until: Option<Instant>,
     is_broadcast: bool,
 }
 
@@ -54,6 +86,8 @@ impl Button {
             is_default,
             am_default: is_default,
             pressed: false,
+            down: false,
+            key_down_until: None,
             is_broadcast: false,
         }
     }
@@ -77,6 +111,11 @@ impl Button {
 
     pub fn set_disabled(&mut self, disabled: bool) {
         self.set_state_flag(State::DISABLED, disabled);
+        // A press in progress ends with the button: it no longer handles
+        // the MouseUp that would disarm it.
+        if disabled {
+            self.set_armed(false);
+        }
     }
 
     pub fn is_disabled(&self) -> bool {
@@ -119,6 +158,55 @@ impl Button {
     /// Excludes the shadow row/column at the bottom/right of the bounds.
     fn mouse_in_button(&self, pos: crate::core::geometry::Point) -> bool {
         pos.x >= 0 && pos.x < self.extent().b.x && pos.y >= 0 && pos.y < self.extent().b.y - 1
+    }
+
+    /// Whether the button is currently drawn pushed in: held down with the
+    /// mouse, or pressed from the keyboard less than
+    /// [`press_animation`] ago.
+    pub fn is_down(&self) -> bool {
+        self.down || self.key_down_until.is_some_and(|t| Instant::now() < t)
+    }
+
+    /// Arm or disarm a mouse press. While armed the button is
+    /// `State::DRAGGING`, so its `Group` keeps sending it `MouseMove` and
+    /// `MouseUp` after the pointer leaves it.
+    fn set_armed(&mut self, armed: bool) {
+        self.pressed = armed;
+        self.down = armed;
+        self.set_state_flag(State::DRAGGING, armed);
+    }
+
+    /// Emit the button's command (or broadcast) in place of `event`.
+    fn press(&self, event: &mut Event) {
+        if self.is_broadcast {
+            *event = Event::broadcast(self.command);
+        } else {
+            *event = Event::command(self.command);
+        }
+    }
+
+    /// Press the button from the keyboard (Enter, Space, its hotkey, or a
+    /// dialog's Enter for its default button).
+    ///
+    /// Shows the button pushed in for [`press_animation`] and queues its
+    /// command to arrive afterwards, consuming `event`; with no animation the
+    /// command replaces `event` at once. Matches magiblot's `TButton`, which
+    /// draws itself down and presses when its animation timer expires.
+    /// The queued command enters at the top of the event loop, as Borland's
+    /// `putEvent` would; a broadcast button's broadcast therefore reaches the
+    /// whole modal view or desktop rather than just its owner.
+    pub(crate) fn press_from_key(&mut self, event: &mut Event) {
+        let duration = press_animation();
+        if duration.is_zero() {
+            self.press(event);
+            return;
+        }
+        let mut command = Event::nothing();
+        self.press(&mut command);
+        let until = Instant::now() + duration;
+        crate::core::timed_event::post_at(command, until);
+        self.key_down_until = Some(until);
+        event.clear();
     }
 }
 
@@ -175,6 +263,9 @@ impl View for Button {
             shadow_attr = Attr::from_u8(0x07);
         }
 
+        // Unswapped, a space in the shadow attribute shows the owner's
+        // background: what a pushed-in button leaves where its shadow was.
+        let background_attr = shadow_attr;
         let shadow_attr = shadow_attr.swap();
 
         // Shortcut attributes
@@ -184,6 +275,11 @@ impl View for Button {
             self.map_color(BUTTON_SHORTCUT) // Shortcut color
         };
 
+        // Pushed in, the face slides one column right onto its own shadow
+        // and the shadow disappears, the way Borland's drawState(True) does.
+        let down = self.is_down() && !is_disabled;
+        let face_x = usize::from(down);
+
         // Draw all lines except the last (which is the bottom shadow)
         for y in 0..(height - 1) {
             let mut buf = DrawBuffer::new(width);
@@ -191,9 +287,14 @@ impl View for Button {
             // Fill entire line with button color
             buf.move_char(0, ' ', button_attr, width);
 
-            // Right edge gets shadow character and attribute (last column)
-            let shadow_char = if y == 0 { SHADOW_TOP } else { SHADOW_SOLID };
-            buf.put_char(width - 1, shadow_char, shadow_attr);
+            if down {
+                // The column the face moved away from shows the background
+                buf.put_char(0, ' ', background_attr);
+            } else {
+                // Right edge gets shadow character and attribute (last column)
+                let shadow_char = if y == 0 { SHADOW_TOP } else { SHADOW_SOLID };
+                buf.put_char(width - 1, shadow_char, shadow_attr);
+            }
 
             // Draw the label on the middle line
             if y == (height - 1) / 2 {
@@ -201,16 +302,20 @@ impl View for Button {
                 let display_len = self.title.chars().filter(|&c| c != '~').count();
                 let content_width = width - 1; // Exclude right shadow column
                 let start = (content_width.saturating_sub(display_len)) / 2;
-                buf.move_str_with_shortcut(start, &self.title, button_attr, shortcut_attr);
+                buf.move_str_with_shortcut(start + face_x, &self.title, button_attr, shortcut_attr);
             }
 
             write_line_to_terminal(terminal, 0, y as i16, &buf);
         }
 
-        // Draw bottom shadow line (1 char shorter, offset 1 to the right)
+        // Draw bottom shadow line (1 char shorter, offset 1 to the right);
+        // pushed in, there is no shadow and the row shows the background.
         let mut bottom_buf = DrawBuffer::new(width - 1);
-        // Bottom shadow character across width-1
-        bottom_buf.move_char(0, SHADOW_BOTTOM, shadow_attr, width - 1);
+        if down {
+            bottom_buf.move_char(0, ' ', background_attr, width - 1);
+        } else {
+            bottom_buf.move_char(0, SHADOW_BOTTOM, shadow_attr, width - 1);
+        }
         write_line_to_terminal(terminal, 1, (height - 1) as i16, &bottom_buf);
     }
 
@@ -282,11 +387,7 @@ impl View for Button {
 
                     if key_char_upper == hotkey {
                         // Hotkey matched! Activate button
-                        if self.is_broadcast {
-                            *event = Event::broadcast(self.command);
-                        } else {
-                            *event = Event::command(self.command);
-                        }
+                        self.press_from_key(event);
                         return;
                     }
                 }
@@ -296,11 +397,7 @@ impl View for Button {
                     return;
                 }
                 if event.key_code == KB_ENTER || event.key_code == ' ' as u16 {
-                    if self.is_broadcast {
-                        *event = Event::broadcast(self.command);
-                    } else {
-                        *event = Event::command(self.command);
-                    }
+                    self.press_from_key(event);
                 }
             }
             EventType::MouseDown => {
@@ -311,24 +408,30 @@ impl View for Button {
                 if event.mouse.buttons & MB_LEFT_BUTTON != 0
                     && self.mouse_in_button(event.mouse.pos)
                 {
-                    self.pressed = true;
+                    self.set_armed(true);
+                    event.clear();
+                }
+            }
+            EventType::MouseMove => {
+                // While armed, the button follows the pointer: pushed in over
+                // it, popped out when dragged off (Borland tracks the mouse
+                // with drawState(mouseInView) until the button is released).
+                if self.pressed {
+                    self.down = self.mouse_in_button(event.mouse.pos);
                     event.clear();
                 }
             }
             EventType::MouseUp => {
-                if self.mouse_in_button(event.mouse.pos) {
-                    if self.pressed {
+                let armed = self.pressed;
+                self.set_armed(false);
+                if armed {
+                    if self.mouse_in_button(event.mouse.pos) {
                         // Released inside while armed - fire command or broadcast
-                        self.pressed = false;
-                        if self.is_broadcast {
-                            *event = Event::broadcast(self.command);
-                        } else {
-                            *event = Event::command(self.command);
-                        }
+                        self.press(event);
+                    } else {
+                        // Released outside - cancel the press without firing
+                        event.clear();
                     }
-                } else {
-                    // Released outside - cancel the press without firing
-                    self.pressed = false;
                 }
             }
             _ => {}
@@ -351,7 +454,7 @@ impl View for Button {
 
         // Losing focus also cancels any armed (but unreleased) mouse press.
         if !focused {
-            self.pressed = false;
+            self.set_armed(false);
         }
     }
 
@@ -460,6 +563,7 @@ mod tests {
     use crate::core::command::CM_COMMAND_SET_CHANGED;
     use crate::core::command_set;
     use crate::core::geometry::Point;
+    use crate::core::timed_event;
 
     #[test]
     fn test_button_creation_with_disabled_command() {
@@ -738,6 +842,129 @@ mod tests {
         );
     }
 
+    fn mouse(what: EventType, x: i16, y: i16) -> Event {
+        Event::mouse(what, Point::new(x, y), MB_LEFT_BUTTON, false)
+    }
+
+    #[test]
+    fn a_held_button_is_down_until_released() {
+        const TEST_CMD: u16 = 533;
+        command_set::enable_command(TEST_CMD);
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "Test", TEST_CMD, false);
+        assert!(!button.is_down());
+
+        button.handle_event(&mut mouse(EventType::MouseDown, 3, 0));
+        assert!(button.is_down(), "pushed in while held");
+        assert!(button.state().contains(State::DRAGGING), "keeps the mouse");
+
+        let mut up = mouse(EventType::MouseUp, 3, 0);
+        button.handle_event(&mut up);
+        assert_eq!((up.what, up.command), (EventType::Command, TEST_CMD));
+        assert!(!button.is_down(), "pops out on release");
+        assert!(!button.state().contains(State::DRAGGING));
+    }
+
+    #[test]
+    fn dragging_off_pops_the_button_out_and_back_in() {
+        const TEST_CMD: u16 = 534;
+        command_set::enable_command(TEST_CMD);
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "Test", TEST_CMD, false);
+
+        button.handle_event(&mut mouse(EventType::MouseDown, 3, 0));
+        button.handle_event(&mut mouse(EventType::MouseMove, 20, 5));
+        assert!(!button.is_down(), "out while the pointer is off it");
+        button.handle_event(&mut mouse(EventType::MouseMove, 4, 0));
+        assert!(button.is_down(), "back in when the pointer returns");
+
+        button.handle_event(&mut mouse(EventType::MouseMove, 20, 5));
+        let mut up = mouse(EventType::MouseUp, 20, 5);
+        button.handle_event(&mut up);
+        assert_eq!(
+            up.what,
+            EventType::Nothing,
+            "released off: consumed, no command"
+        );
+        assert!(!button.state().contains(State::DRAGGING));
+    }
+
+    #[test]
+    fn disabling_or_blurring_a_held_button_releases_it() {
+        const TEST_CMD: u16 = 535;
+        command_set::enable_command(TEST_CMD);
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "Test", TEST_CMD, false);
+
+        button.handle_event(&mut mouse(EventType::MouseDown, 3, 0));
+        button.set_disabled(true);
+        assert!(!button.is_down());
+        assert!(!button.state().contains(State::DRAGGING));
+
+        button.set_disabled(false);
+        button.set_focus(true);
+        button.handle_event(&mut mouse(EventType::MouseDown, 3, 0));
+        button.set_focus(false);
+        assert!(!button.is_down());
+        assert!(!button.state().contains(State::DRAGGING));
+    }
+
+    #[test]
+    fn a_pushed_in_button_shifts_right_and_loses_its_shadow() {
+        const TEST_CMD: u16 = 536;
+        command_set::enable_command(TEST_CMD);
+        // Face columns 0..8, shadow column 9, label "OK" at columns 3..5.
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "OK", TEST_CMD, false);
+        let mut terminal = crate::test_util::test_terminal(20, 5);
+
+        button.draw(&mut terminal);
+        let ch = |t: &Terminal, x, y| t.read_cell(x, y).unwrap().ch;
+        assert_eq!((ch(&terminal, 3, 0), ch(&terminal, 4, 0)), ('O', 'K'));
+        assert_eq!(ch(&terminal, 9, 0), SHADOW_TOP);
+        assert_eq!(ch(&terminal, 1, 1), SHADOW_BOTTOM);
+        let face = terminal.read_cell(0, 0).unwrap().attr;
+
+        button.handle_event(&mut mouse(EventType::MouseDown, 3, 0));
+        button.draw(&mut terminal);
+        assert_eq!((ch(&terminal, 4, 0), ch(&terminal, 5, 0)), ('O', 'K'));
+        assert_eq!(ch(&terminal, 9, 0), ' ', "face covers the shadow column");
+        assert_eq!(terminal.read_cell(9, 0).unwrap().attr, face);
+        assert_ne!(
+            terminal.read_cell(0, 0).unwrap().attr,
+            face,
+            "vacated column"
+        );
+        assert_eq!(ch(&terminal, 1, 1), ' ', "no bottom shadow");
+    }
+
+    #[test]
+    fn a_dialog_keeps_feeding_a_held_button_after_the_pointer_leaves_it() {
+        use crate::views::dialog::Dialog;
+        use crate::views::group::GroupLike as _;
+        const TEST_CMD: u16 = 537;
+        command_set::enable_command(TEST_CMD);
+
+        let mut dialog = Dialog::new(Rect::new(0, 0, 40, 10), "Test");
+        dialog.add(Button::new(Rect::new(2, 2, 12, 4), "Go", TEST_CMD, false));
+        let button = |d: &Dialog| {
+            d.child_at(0)
+                .as_any()
+                .downcast_ref::<Button>()
+                .expect("button")
+                .is_down()
+        };
+        // Dialog coordinates; the client area starts inside the frame.
+        let inside = |p: Point| Point::new(p.x + 1, p.y + 1);
+        let at = |what, p: Point| Event::mouse(what, p, MB_LEFT_BUTTON, false);
+
+        dialog.handle_event(&mut at(EventType::MouseDown, inside(Point::new(5, 2))));
+        assert!(button(&dialog));
+        dialog.handle_event(&mut at(EventType::MouseMove, inside(Point::new(30, 6))));
+        assert!(!button(&dialog), "the move off the button reached it");
+        dialog.handle_event(&mut at(EventType::MouseMove, inside(Point::new(6, 2))));
+        assert!(button(&dialog));
+        let mut up = at(EventType::MouseUp, inside(Point::new(6, 2)));
+        dialog.handle_event(&mut up);
+        assert!(!button(&dialog));
+    }
+
     #[test]
     fn test_button_grabs_default_on_focus_and_releases_on_blur() {
         // Focused button becomes the acting default; on blur the role reverts
@@ -800,7 +1027,54 @@ mod tests {
         let mut button = Button::new(Rect::new(0, 0, 10, 2), "~Ñ~o", CMD, false);
         let mut e = Event::text('ñ');
         button.handle_event(&mut e);
+        let e = timed_event::take_next().expect("a queued press");
         assert_eq!((e.what, e.command), (EventType::Command, CMD));
+    }
+
+    #[test]
+    fn a_key_press_shows_the_button_down_then_sends_its_command() {
+        const CMD: u16 = 538;
+        command_set::enable_command(CMD);
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "Go", CMD, false);
+        button.set_focus(true);
+
+        let before = Instant::now();
+        let mut e = Event::keyboard(KB_ENTER);
+        button.handle_event(&mut e);
+        assert_eq!(e.what, EventType::Nothing, "the key is consumed");
+        assert!(button.is_down(), "pushed in during the animation");
+
+        let due = timed_event::next_due().expect("command queued");
+        assert!(due >= before + press_animation());
+        assert!(timed_event::take_due(Instant::now()).is_none(), "not yet");
+        assert_eq!(button.key_down_until, Some(due), "pops out as it arrives");
+        let e = timed_event::take_due(due).expect("due");
+        assert_eq!((e.what, e.command), (EventType::Command, CMD));
+    }
+
+    #[test]
+    fn a_broadcast_button_queues_its_broadcast() {
+        const CMD: u16 = 539;
+        command_set::enable_command(CMD);
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "~G~o", CMD, false);
+        button.set_broadcast(true);
+        button.handle_event(&mut Event::text('g'));
+        let e = timed_event::take_next().expect("a queued press");
+        assert_eq!((e.what, e.command), (EventType::Broadcast, CMD));
+    }
+
+    #[test]
+    fn without_animation_a_key_press_sends_the_command_at_once() {
+        const CMD: u16 = 540;
+        command_set::enable_command(CMD);
+        set_press_animation(Duration::ZERO);
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "Go", CMD, false);
+        button.set_focus(true);
+        let mut e = Event::keyboard(KB_ENTER);
+        button.handle_event(&mut e);
+        assert_eq!((e.what, e.command), (EventType::Command, CMD));
+        assert!(!button.is_down());
+        assert!(timed_event::next_due().is_none());
     }
 
     #[test]

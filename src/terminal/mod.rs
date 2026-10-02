@@ -72,7 +72,7 @@ use crate::core::geometry::{Point, Rect};
 use crate::core::palette::Attr;
 use std::io::{self, Write};
 use std::sync::mpsc::Receiver;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 /// Build the full SGR escape for a cell run: a reset, truecolor fg/bg, then any
 /// style flags. The leading `0` reset prevents a previous run's style from
@@ -763,6 +763,16 @@ impl Terminal {
             return Ok(Some(event));
         }
 
+        // Then a timed event that has come due (a view acting after a delay,
+        // such as a key-pressed button sending its command once it has been
+        // seen pushed in). The clock is read only when one is queued.
+        let next_due = crate::core::timed_event::next_due();
+        if next_due.is_some() {
+            if let Some(event) = crate::core::timed_event::take_due(Instant::now()) {
+                return Ok(Some(event));
+            }
+        }
+
         // Then any event injected by the remote-input listener. The capture
         // chords are served here rather than in the application's command
         // handling, so that an example driving its own event loop can still be
@@ -785,7 +795,16 @@ impl Terminal {
             return Ok(Some(event));
         }
 
-        self.backend.poll_event(timeout)
+        // Wait no longer than the next timed event, and serve it if it came
+        // due while the backend had nothing.
+        let Some(due) = next_due else {
+            return self.backend.poll_event(timeout);
+        };
+        let timeout = timeout.min(due.saturating_duration_since(Instant::now()));
+        match self.backend.poll_event(timeout)? {
+            Some(event) => Ok(Some(event)),
+            None => Ok(crate::core::timed_event::take_due(Instant::now())),
+        }
     }
 
     /// Save a timestamped capture of the screen in the working directory.
@@ -1114,6 +1133,24 @@ mod tests {
             s.ends_with(";3;4m"),
             "style codes emitted in canonical order: {s:?}"
         );
+    }
+
+    // ---- timed events are served by poll_event once due ----
+
+    #[test]
+    fn poll_event_serves_a_timed_event_once_due() {
+        use crate::core::timed_event;
+        timed_event::clear();
+        let mut t = crate::test_util::test_terminal(20, 10);
+        let started = std::time::Instant::now();
+        timed_event::post_after(Event::command(7), Duration::from_millis(30));
+        let mut got = None;
+        while got.is_none() && started.elapsed() < Duration::from_secs(2) {
+            got = t.poll_event(Duration::from_millis(5)).unwrap();
+        }
+        assert_eq!(got.map(|e| e.command), Some(7));
+        assert!(started.elapsed() >= Duration::from_millis(30), "not before due");
+        assert!(timed_event::next_due().is_none());
     }
 
     // ---- origin stack: local coordinates are translated by the owners' origins ----
