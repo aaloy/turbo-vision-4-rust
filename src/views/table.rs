@@ -44,6 +44,34 @@
 //! table.set_rows(vec![vec!["main.rs".into(), "1024".into()]]);
 //! assert_eq!(table.selected_row(), Some(0));
 //! ```
+//!
+//! ## Frozen panes
+//!
+//! A region column and a totals row that stay put while the rest scrolls:
+//!
+//! ```rust
+//! use turbo_vision::views::table::{Column, TableBuilder};
+//! use turbo_vision::core::geometry::Rect;
+//!
+//! let table = TableBuilder::new()
+//!     .bounds(Rect::new(1, 2, 69, 17))
+//!     .columns(vec![
+//!         Column::new("Region", 14),
+//!         Column::right("Jan", 6),
+//!         Column::right("Feb", 6),
+//!     ])
+//!     .rows(vec![
+//!         vec!["All regions".into(), "870".into(), "940".into()],
+//!         vec!["Baleares".into(), "310".into(), "420".into()],
+//!     ])
+//!     .frozen_cols(1)
+//!     .frozen_rows(1)
+//!     .build();
+//! assert_eq!((table.frozen_cols(), table.frozen_rows()), (1, 1));
+//! ```
+//!
+//! `examples/table_frozen.rs` shows it running, over thirty regions by twelve
+//! months.
 
 use super::list_viewer::{ListViewer, ListViewerState};
 use super::view::{View, ViewCore, write_line_to_terminal};
