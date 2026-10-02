@@ -24,7 +24,7 @@ use turbo_vision::terminal::Terminal;
 use turbo_vision::views::GroupLike;
 use turbo_vision::views::ViewCore;
 use turbo_vision::views::shared::Shared;
-use turbo_vision::views::view::write_line_to_terminal;
+use turbo_vision::views::view::{dispatch_to_child, write_line_to_terminal};
 use turbo_vision::views::{
     View,
     button::ButtonBuilder,
@@ -1582,14 +1582,20 @@ fn init_application()
     Ok((app, clock, crab_widget))
 }
 
-/// Handle event routing through menu bar, status line, and desktop
+/// Handle event routing through menu bar, status line, and desktop.
+///
+/// Each view gets the event in its own coordinate space (through
+/// `dispatch_to_child`), as `Application::handle_event` does: the desktop
+/// starts below the menu bar and the status line sits on the last row, so
+/// handing them screen coordinates puts every click one row (or the whole
+/// screen) off.
 fn handle_event_routing(app: &mut Application, event: &mut Event) {
     // Convert global keyboard shortcuts to commands
     handle_global_shortcuts(event);
 
     // Menu bar handles events first
     if let Some(ref mut menu_bar) = app.menu_bar {
-        menu_bar.handle_event(event);
+        dispatch_to_child(menu_bar, event);
 
         // Check for cascading submenu
         if event.what == EventType::Keyboard || event.what == EventType::MouseUp {
@@ -1603,11 +1609,11 @@ fn handle_event_routing(app: &mut Application, event: &mut Event) {
 
     // Status line handles events
     if let Some(ref mut status_line) = app.status_line {
-        status_line.handle_event(event);
+        dispatch_to_child(status_line, event);
     }
 
     // Desktop handles events
-    app.desktop.handle_event(event);
+    dispatch_to_child(&mut app.desktop, event);
 }
 
 /// Handle command events

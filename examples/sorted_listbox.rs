@@ -15,10 +15,9 @@ use turbo_vision::core::geometry::Rect;
 use turbo_vision::core::palette::Attr;
 use turbo_vision::core::status_data::StatusItemBuilder;
 use turbo_vision::terminal::Terminal;
-use turbo_vision::views::View;
 use turbo_vision::views::sorted_listbox::SortedListBox;
 use turbo_vision::views::status_line::StatusLine;
-use turbo_vision::views::view::write_line_to_terminal;
+use turbo_vision::views::view::{dispatch_to_child, write_line_to_terminal};
 
 const CMD_SEARCH_A: u16 = 100;
 const CMD_SEARCH_B: u16 = 101;
@@ -219,12 +218,13 @@ fn handle_event(
     event: &mut turbo_vision::core::event::Event,
     case_sensitive: &mut bool,
 ) {
+    // Each view gets the event in its own coordinate space
     // Listbox handles navigation
-    listbox.handle_event(event);
+    dispatch_to_child(listbox, event);
 
     // Status line handles shortcuts
     if let Some(ref mut status_line) = app.status_line {
-        status_line.handle_event(event);
+        dispatch_to_child(status_line, event);
     }
 
     // Handle commands
