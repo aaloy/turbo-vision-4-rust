@@ -280,10 +280,10 @@ crate::impl_view_for_window!(Dialog {
                 // did not handle Enter. Guard anyway: never fire the flagged
                 // default while a different button is focused.
                 if event.key_code == KB_ENTER {
-                    if !self.focused_child_is_button() {
-                        if let Some(default_command) = self.find_default_button_command() {
-                            *event = Event::command(default_command);
-                            // Re-process as command (will be handled below)
+                    if !self.focused_child_is_button() && self.press_default_button(event) {
+                        // Pressed with no animation: the button's command
+                        // replaced the key, so process it now.
+                        if event.what != EventType::Nothing {
                             self.handle_event(event);
                         }
                     }
@@ -374,22 +374,29 @@ impl Dialog {
         })
     }
 
-    /// Find the default button and return its command if it's enabled
-    /// Returns None if no default button found or if it's disabled
-    /// Matches Borland's TButton::handleEvent() cmDefault broadcast handling (tbutton.cc lines 238-244)
-    fn find_default_button_command(&self) -> Option<CommandId> {
-        // Borland checks: amDefault && !(state & sfDisabled); a disabled
-        // default button yields None rather than falling through to another.
-        (0..self.child_count())
-            .filter_map(|i| self.child_at(i).as_any().downcast_ref::<Button>())
-            .find(|b| b.is_default())
-            .and_then(|b| {
-                if b.can_focus() {
-                    Some(b.command())
-                } else {
-                    None
-                }
-            })
+    /// Press the enabled default button from the keyboard, the way it
+    /// answers Borland's cmDefault broadcast: it is shown pushed in and its
+    /// command follows (see `Button::press_from_key`). Returns false, leaving
+    /// `event` alone, when there is no such button.
+    fn press_default_button(&mut self, event: &mut Event) -> bool {
+        // Borland checks amDefault && !(state & sfDisabled): the first
+        // flagged default decides, and a disabled one does not hand over to
+        // another.
+        let Some(index) = (0..self.child_count()).find(|&i| {
+            self.child_at(i)
+                .as_any()
+                .downcast_ref::<Button>()
+                .is_some_and(Button::is_default)
+        }) else {
+            return false;
+        };
+        match self.child_at_mut(index).as_any_mut().downcast_mut::<Button>() {
+            Some(button) if button.can_focus() => {
+                button.press_from_key(event);
+                true
+            }
+            _ => false,
+        }
     }
 }
 
@@ -567,7 +574,10 @@ mod tests {
         let mut d = Dialog::new(Rect::new(0, 0, 40, 10), "t");
         d.add(StaticText::new(Rect::new(1, 1, 10, 2), "label"));
         d.add(Button::new(Rect::new(1, 3, 12, 5), "OK", CM_OK, true));
-        assert_eq!(d.find_default_button_command(), Some(CM_OK));
+        crate::views::button::set_press_animation(Duration::ZERO);
+        let mut ev = Event::keyboard(KB_ENTER);
+        assert!(d.press_default_button(&mut ev));
+        assert_eq!((ev.what, ev.command), (EventType::Command, CM_OK));
     }
 
     #[test]
@@ -832,6 +842,7 @@ mod tests {
 
         let mut event = Event::keyboard(KB_ENTER);
         dialog.handle_event(&mut event);
+        deliver_queued_press(&mut dialog);
 
         assert_eq!(
             dialog.end_state(),
@@ -860,12 +871,48 @@ mod tests {
 
         let mut event = Event::keyboard(KB_ENTER);
         dialog.handle_event(&mut event);
+        let default = |d: &Dialog| d.child_at(1).as_any().downcast_ref::<Button>().unwrap().is_down();
+        assert!(default(&dialog), "the default button is shown pushed in");
+        assert_eq!(dialog.end_state(), 0, "its command waits for the animation");
+        deliver_queued_press(&mut dialog);
 
         assert_eq!(
             dialog.end_state(),
             CM_OK,
             "Enter with a non-button focused must fire the default button"
         );
+    }
+
+    /// Without the press animation, Enter on a non-button presses the default
+    /// button at once.
+    #[test]
+    fn enter_presses_the_default_button_at_once_without_animation() {
+        use crate::core::command::CM_OK;
+        use crate::core::command_set;
+        use crate::core::event::KB_ENTER;
+        use crate::views::button::{Button, set_press_animation};
+        use crate::views::static_text::StaticText;
+
+        command_set::enable_command(CM_OK);
+        set_press_animation(Duration::ZERO);
+
+        let mut dialog = Dialog::new(Rect::new(0, 0, 40, 10), "Test");
+        let state = dialog.state();
+        dialog.set_state(state | State::MODAL);
+        dialog.add(StaticText::new(Rect::new(2, 2, 20, 3), "Hello"));
+        dialog.add(Button::new(Rect::new(2, 4, 12, 6), "OK", CM_OK, true));
+
+        let mut event = Event::keyboard(KB_ENTER);
+        dialog.handle_event(&mut event);
+        assert_eq!(dialog.end_state(), CM_OK);
+        assert!(crate::core::timed_event::next_due().is_none(), "nothing queued");
+    }
+
+    /// Hand the dialog the command a key-pressed button queued, as the event
+    /// loop does once the press animation is over.
+    fn deliver_queued_press(dialog: &mut Dialog) {
+        let mut command = crate::core::timed_event::take_next().expect("a queued press");
+        dialog.handle_event(&mut command);
     }
 
     #[test]
