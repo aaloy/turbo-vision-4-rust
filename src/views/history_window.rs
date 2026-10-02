@@ -59,8 +59,14 @@ impl HistoryWindow {
 
     /// Execute the history window modally
     ///
-    /// Returns the selected history item, or None if cancelled.
+    /// Returns the selected history item, or None if cancelled. The cursor
+    /// is hidden while the popup is up and put back when it closes.
     pub fn execute(&mut self, terminal: &mut Terminal) -> Option<String> {
+        terminal.with_cursor_hidden(|terminal| self.run(terminal))
+    }
+
+    /// The loop behind [`execute`](Self::execute).
+    fn run(&mut self, terminal: &mut Terminal) -> Option<String> {
         loop {
             // Nothing owns this popup, so it pushes its own origin, draws the
             // viewer in the window's space and translates the raw screen

@@ -539,8 +539,14 @@ impl DropdownWindow {
     /// Run the popup modally.
     ///
     /// Returns the chosen index and writes it into the shared state, or `None`
-    /// when the user cancelled, leaving the state untouched.
+    /// when the user cancelled, leaving the state untouched. The cursor is
+    /// hidden while the popup is up and put back when it closes.
     pub fn execute(&mut self, terminal: &mut Terminal) -> Option<usize> {
+        terminal.with_cursor_hidden(|terminal| self.run(terminal))
+    }
+
+    /// The loop behind [`execute`](Self::execute).
+    fn run(&mut self, terminal: &mut Terminal) -> Option<usize> {
         self.scroll_into_view();
         loop {
             // Nothing owns this popup, so it pushes its own origin and

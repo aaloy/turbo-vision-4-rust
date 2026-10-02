@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `Terminal::cursor` reads back where the cursor was asked to show, and
+  `Terminal::with_cursor_hidden` runs a closure with the cursor hidden and
+  puts it back afterwards, for popups that run their own loop.
+
+### Fixed
+- `MenuBox`, the `ComboBox` drop-down and the `HistoryWindow` popup hide
+  the text cursor while they are open and put it back when they close,
+  whether the choice was accepted or cancelled. Their own flushes used to
+  show the cursor again at the control underneath while the popup had the
+  keyboard. This covers cascading menu-bar submenus and anything else built
+  on `MenuBox::execute`.
+- `Terminal::write_raw` puts a shown cursor back after the raw bytes
+  (Kitty graphics, for one), which used to leave the cursor wherever their
+  escape sequences moved it.
+- The text cursor no longer shows for a moment at its new place over the
+  old cells on each frame. `Terminal::show_cursor` and `hide_cursor` now
+  only record the request, and `Terminal::flush` sends the final cursor
+  state once, after the changed cells: hidden while they are written, then
+  shown where it was asked for. A cursor that only moved still moves, and
+  a frame where neither the cells nor the cursor changed sends nothing but
+  the flush. Code that drives the backend itself must flush (as every
+  turbo-vision loop does) for a cursor change to reach it; a host that
+  reads the cursor without flushing can use `Terminal::cursor`.
+  - A loop that drives the terminal itself must call `show_cursor` or
+    `hide_cursor` *before* `flush`. Set after the flush, the cursor lags a
+    frame behind the cells.
+  - A host-driven embedder that reads the cursor from its backend must
+    flush after the final `draw` of each frame (or read
+    `Terminal::cursor`). Otherwise it sees the cursor of the last flush,
+    not of the frame in `Terminal::buffer`.
+  - The cursor is re-sent only when it changes or after a frame that wrote
+    cells, so bytes that move the real cursor should go through
+    `Terminal::write_raw`.
+
 ## [4.0.1] - 2026-10-02
 
 ### Added

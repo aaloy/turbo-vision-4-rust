@@ -155,10 +155,20 @@ pub struct Terminal {
     /// before the built-in capture by Ctrl+F12, F12, `CM_SCREENSHOT`, and
     /// injected capture chords.
     capture_hook: Option<CaptureHook>,
-    /// The screen cell the cursor was last shown at, or `None` while it is
-    /// hidden. Writing cells moves a real terminal's cursor, so `flush`
-    /// puts it back here afterwards.
+    /// The screen cell the cursor was asked to show at, or `None` while it
+    /// is asked to be hidden. `show_cursor` and `hide_cursor` only set this;
+    /// `flush` sends it to the backend, after the cells.
     cursor: Option<(u16, u16)>,
+    /// The cursor state the backend was last sent (`None`: hidden, as every
+    /// backend starts). `flush` compares it with `cursor` so a cursor that
+    /// only moved still moves, and an unchanged one costs nothing.
+    ///
+    /// The cursor is therefore re-sent only when the request changes or
+    /// after a frame that wrote cells. Bytes that move or show the real
+    /// cursor behind `Terminal`'s back leave it wrong until then; send such
+    /// bytes through [`write_raw`](Terminal::write_raw), which puts the
+    /// cursor back.
+    shown_cursor: Option<(u16, u16)>,
 }
 
 impl Terminal {
@@ -255,6 +265,7 @@ impl Terminal {
             injected_tx: None,
             capture_hook: None,
             cursor: None,
+            shown_cursor: None,
         })
     }
 
@@ -302,6 +313,9 @@ impl Terminal {
     /// Re-initializes terminal state and forces full screen redraw.
     pub fn resume(&mut self) -> Result<()> {
         self.backend.resume()?;
+        // Re-entering the screen hides the cursor; the next flush shows the
+        // requested one again.
+        self.shown_cursor = None;
 
         // Force full screen redraw by clearing prev_buffer
         let empty_cell = Cell::new(' ', Attr::from_u8(0x07));
@@ -608,15 +622,16 @@ impl Terminal {
         }
 
         // Send through backend. Writing cells moves the cursor, so hide it
-        // while they go out (it would sweep across the screen) and put it
-        // back where it was asked for. With nothing to write, leave it be.
+        // while they go out (it would sweep across the screen). Then the
+        // cursor goes where it was last asked for, once per frame, so it
+        // never shows at its new place over stale cells. With nothing to
+        // write and the cursor where it was, nothing but the flush goes out.
         if !output.is_empty() {
             self.backend.hide_cursor()?;
+            self.shown_cursor = None;
             self.backend.write_raw(&output)?;
-            if let Some((x, y)) = self.cursor {
-                self.backend.show_cursor(x, y)?;
-            }
         }
+        self.emit_cursor()?;
         self.backend.flush()?;
 
         // Copy current buffer to previous buffer
@@ -625,8 +640,17 @@ impl Terminal {
         Ok(())
     }
 
-    /// Show the cursor at a local position, shifted by the pushed origins.
-    /// A cursor that lands off screen is hidden instead.
+    /// Ask for the cursor at a local position, shifted by the pushed
+    /// origins. A cursor that lands off screen is hidden instead.
+    ///
+    /// Only the request is recorded: the next [`flush`](Self::flush) sends
+    /// it, after the frame's cells, so views can set and reset the cursor
+    /// while they draw without it flickering. A loop that drives the
+    /// terminal itself must set the cursor before it flushes. The cursor is
+    /// re-sent only when the request changes or after a frame that wrote
+    /// cells, so bytes that move the real cursor belong in
+    /// [`write_raw`](Self::write_raw). Never fails; the `Result` is kept for
+    /// compatibility.
     pub fn show_cursor(&mut self, x: i16, y: i16) -> io::Result<()> {
         let o = self.origin();
         let (sx, sy) = (x + o.x, y + o.y);
@@ -634,13 +658,51 @@ impl Terminal {
             return self.hide_cursor();
         }
         self.cursor = Some((sx as u16, sy as u16));
-        self.backend.show_cursor(sx as u16, sy as u16)
+        Ok(())
     }
 
-    /// Hide the cursor.
+    /// Ask for the cursor to be hidden. Like
+    /// [`show_cursor`](Self::show_cursor), this takes effect on the next
+    /// [`flush`](Self::flush), and is re-sent only when the request changes
+    /// or after a frame that wrote cells.
     pub fn hide_cursor(&mut self) -> io::Result<()> {
         self.cursor = None;
-        self.backend.hide_cursor()
+        Ok(())
+    }
+
+    /// Send the requested cursor state to the backend if it differs from
+    /// what the backend was last sent.
+    fn emit_cursor(&mut self) -> io::Result<()> {
+        if self.cursor == self.shown_cursor {
+            return Ok(());
+        }
+        match self.cursor {
+            Some((x, y)) => self.backend.show_cursor(x, y)?,
+            None => self.backend.hide_cursor()?,
+        }
+        self.shown_cursor = self.cursor;
+        Ok(())
+    }
+
+    /// The screen cell the cursor was asked to show at, or `None` while it
+    /// is hidden. Screen coordinates: the pushed origins are already applied.
+    pub fn cursor(&self) -> Option<(u16, u16)> {
+        self.cursor
+    }
+
+    /// Run `f` with the cursor hidden, then put the cursor back where it was
+    /// asked for before, however `f` returns. Both take effect on a flush:
+    /// the popup's own, and the next one after it closes.
+    ///
+    /// For popups and menus that run their own loop and own the input while
+    /// they are up (Borland hides the cursor under them): the control
+    /// underneath keeps its cursor, but it must not show through the popup.
+    pub fn with_cursor_hidden<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+        let saved = self.cursor;
+        let _ = self.hide_cursor();
+        let result = f(self);
+        self.cursor = saved;
+        result
     }
 
     /// Put an event in the queue for next iteration.
@@ -910,11 +972,19 @@ impl Terminal {
     /// flush. For protocols drawn outside the cells, such as the Kitty
     /// graphics protocol (see the `tv-extensions` crate).
     ///
+    /// Such bytes usually move the terminal's cursor, so a shown cursor is
+    /// put back where the last [`flush`](Self::flush) left it. A cursor
+    /// asked for since then still waits for the next flush, which sends it
+    /// after that frame's cells.
+    ///
     /// # Errors
     ///
     /// Returns an error if the backend cannot write or flush.
     pub fn write_raw(&mut self, data: &[u8]) -> io::Result<()> {
         self.backend.write_raw(data)?;
+        if let Some((x, y)) = self.shown_cursor {
+            self.backend.show_cursor(x, y)?;
+        }
         self.backend.flush()
     }
 }
@@ -1120,7 +1190,24 @@ mod tests {
         let mut t = Terminal::with_backend(Box::new(backend)).unwrap();
         t.push_origin(Point::new(3, 2));
         t.show_cursor(1, 1).unwrap();
+        t.flush().unwrap();
         assert_eq!(*cursor.lock().unwrap(), Some((4, 3)));
+    }
+
+    /// Re-entering the screen after a suspend hides the real cursor, even
+    /// when no cell needs rewriting; the next flush must show it again.
+    #[test]
+    fn a_flush_after_resume_shows_the_cursor_again() {
+        let backend = crate::test_util::TestBackend::new(20, 10);
+        let cursor = backend.cursor_handle();
+        let mut t = Terminal::with_backend(Box::new(backend)).unwrap();
+        t.show_cursor(3, 2).unwrap();
+        t.flush().unwrap();
+        t.suspend().unwrap();
+        t.resume().unwrap();
+        *cursor.lock().unwrap() = None; // what the real terminal now shows
+        t.flush().unwrap();
+        assert_eq!(*cursor.lock().unwrap(), Some((3, 2)));
     }
 
     #[test]

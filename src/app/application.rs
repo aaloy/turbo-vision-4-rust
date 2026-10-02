@@ -737,7 +737,10 @@ impl Application {
     /// for each event [`poll_event_or_quit`](Self::poll_event_or_quit)
     /// returns while [`running`](Self::running), one `step(handler, None)`,
     /// and a final [`draw`](Self::draw), after which the frame is in
-    /// [`Terminal::buffer`]. Nothing here waits for input, and on a
+    /// [`Terminal::buffer`]. The cursor that draw asked for is
+    /// [`Terminal::cursor`]; the backend only sees it on the next
+    /// [`Terminal::flush`], so a host either reads `terminal.cursor()` or
+    /// flushes after the final draw. Nothing here waits for input, and on a
     /// host-driven application nothing reachable from it does either: modal
     /// views and popups refuse with `CM_CANCEL`.
     pub fn step<H: AppHandler>(&mut self, handler: &mut H, event: Option<Event>) {
@@ -2962,6 +2965,7 @@ mod cursor_tests {
         window.add(Box::new(input("hello")));
         app.desktop.add(window);
         app.draw();
+        app.terminal.flush().unwrap();
 
         let (x, y) = drawn_at(&app, "hello");
         assert!(x > 10 && y > 5, "drawn inside the window: {:?}", (x, y));
@@ -2981,6 +2985,7 @@ mod cursor_tests {
         window.add(Box::new(pane));
         app.desktop.add(window);
         app.draw();
+        app.terminal.flush().unwrap();
 
         let (x, y) = drawn_at(&app, "tabbed");
         assert_eq!(*cursor.lock().unwrap(), Some((x + 6, y)));
@@ -3014,6 +3019,7 @@ mod cursor_tests {
         window.add(Box::new(split));
         app.desktop.add(window);
         app.draw();
+        app.terminal.flush().unwrap();
 
         // The first half holds the focus to begin with.
         let (x, y) = drawn_at(&app, "left");
@@ -3027,6 +3033,7 @@ mod cursor_tests {
         let mut up = Event::mouse(EventType::MouseUp, at, 0, false);
         app.handle_event(&mut up);
         app.draw();
+        app.terminal.flush().unwrap();
         let (rx, ry) = drawn_at(&app, "right");
         let shown = cursor.lock().unwrap().expect("the cursor is shown");
         assert_eq!(shown.1, ry, "cursor on the right input line: {shown:?}");
@@ -3052,6 +3059,7 @@ mod cursor_tests {
         window.add(Box::new(input("hello")));
         app.desktop.add(window);
         app.draw();
+        app.terminal.flush().unwrap();
         let (x, y) = drawn_at(&app, "hello");
         assert_eq!(*cursor.lock().unwrap(), Some((x + 5, y)));
 
@@ -3059,12 +3067,14 @@ mod cursor_tests {
         app.handle_event(&mut f10);
         assert!(app.menu_bar.as_ref().unwrap().is_open());
         app.draw();
+        app.terminal.flush().unwrap();
         assert_eq!(*cursor.lock().unwrap(), None, "no cursor under the menu");
 
         let mut esc = Event::keyboard(KB_ESC);
         app.handle_event(&mut esc);
         assert!(!app.menu_bar.as_ref().unwrap().is_open());
         app.draw();
+        app.terminal.flush().unwrap();
         assert_eq!(
             *cursor.lock().unwrap(),
             Some((x + 5, y)),
@@ -3075,7 +3085,9 @@ mod cursor_tests {
     #[test]
     fn no_focused_text_control_hides_the_cursor() {
         let (mut app, cursor) = app();
-        *cursor.lock().unwrap() = Some((1, 1));
+        app.terminal.show_cursor(1, 1).unwrap();
+        app.terminal.flush().unwrap();
+        assert_eq!(*cursor.lock().unwrap(), Some((1, 1)));
         let mut window = Window::new(Rect::new(10, 5, 50, 15), "W");
         window.add(Box::new(Button::new(
             Rect::new(2, 2, 12, 4),
@@ -3085,6 +3097,7 @@ mod cursor_tests {
         )));
         app.desktop.add(window);
         app.draw();
+        app.terminal.flush().unwrap();
         assert_eq!(*cursor.lock().unwrap(), None);
     }
 
@@ -3099,6 +3112,7 @@ mod cursor_tests {
         dialog.set_state(dialog.state() | State::MODAL);
         app.desktop.add(dialog);
         app.draw();
+        app.terminal.flush().unwrap();
 
         let (x, y) = drawn_at(&app, "front!");
         assert_eq!(*cursor.lock().unwrap(), Some((x + 6, y)));
@@ -3117,5 +3131,197 @@ mod cursor_tests {
         let (x, y) = drawn_at(&app, "abc");
         assert!(x > 20 && y > 6, "drawn inside the dialog: {:?}", (x, y));
         assert_eq!(*cursor.lock().unwrap(), Some((x + 3, y)));
+    }
+
+    /// Run a popup over a focused input line whose cursor is at `at`, with
+    /// `key` queued to close it, and check that the cursor stayed hidden
+    /// while the popup drew and comes back at `at` once it is gone.
+    fn assert_hidden_under_popup<R>(key: u16, popup: impl FnOnce(&mut Terminal) -> R) -> R {
+        let (mut app, log, at) = logged_app();
+        log.lock().unwrap().clear();
+        app.terminal
+            .event_injector()
+            .send(Event::keyboard(key))
+            .unwrap();
+
+        let result = popup(&mut app.terminal);
+        let during = log.lock().unwrap().clone();
+        assert!(
+            during.contains(&Op::Write),
+            "the popup drew something: {during:?}"
+        );
+        let last_flush = during.iter().rposition(|o| *o == Op::Flush).unwrap();
+        assert_eq!(
+            during[..last_flush]
+                .iter()
+                .rev()
+                .find(|o| matches!(o, Op::Show(..) | Op::Hide)),
+            Some(&Op::Hide),
+            "the cursor is hidden under the popup: {during:?}"
+        );
+        assert!(
+            !during[..last_flush]
+                .iter()
+                .any(|o| matches!(o, Op::Show(..))),
+            "no cursor while the popup is up: {during:?}"
+        );
+
+        assert_eq!(app.terminal.cursor(), Some(at), "the cursor is remembered");
+        app.terminal.flush().unwrap();
+        let log = log.lock().unwrap();
+        assert_eq!(
+            log.iter()
+                .rev()
+                .find(|o| matches!(o, Op::Show(..) | Op::Hide)),
+            Some(&Op::Show(at.0, at.1)),
+            "the cursor is back at the input line: {log:?}"
+        );
+        result
+    }
+
+    fn menu_box() -> crate::views::menu_box::MenuBox {
+        use crate::core::geometry::Point;
+        use crate::core::menu_data::MenuBuilder;
+        crate::views::menu_box::MenuBox::new(
+            Point::new(30, 2),
+            MenuBuilder::new().item("~O~pen", 100).build(),
+        )
+    }
+
+    fn dropdown() -> crate::views::combo_box::DropdownWindow {
+        use crate::views::combo_box::{ComboBox, DropdownWindow};
+        let combo = ComboBox::with_items(
+            Rect::new(30, 2, 50, 3),
+            930,
+            vec!["one".into(), "two".into()],
+        );
+        DropdownWindow::new(combo.state(), Rect::new(0, 0, 80, 25))
+    }
+
+    #[test]
+    fn a_menu_box_hides_the_cursor_and_puts_it_back() {
+        use crate::core::event::{KB_ENTER, KB_ESC};
+        assert_eq!(
+            assert_hidden_under_popup(KB_ESC, |t| menu_box().execute(t)),
+            0
+        );
+        assert_eq!(
+            assert_hidden_under_popup(KB_ENTER, |t| menu_box().execute(t)),
+            100
+        );
+    }
+
+    #[test]
+    fn a_combo_dropdown_hides_the_cursor_and_puts_it_back() {
+        use crate::core::event::{KB_ENTER, KB_ESC};
+        assert_eq!(
+            assert_hidden_under_popup(KB_ESC, |t| dropdown().execute(t)),
+            None
+        );
+        assert!(assert_hidden_under_popup(KB_ENTER, |t| dropdown().execute(t)).is_some());
+    }
+
+    #[test]
+    fn a_history_popup_hides_the_cursor_and_puts_it_back() {
+        use crate::core::event::{KB_ENTER, KB_ESC};
+        use crate::core::geometry::Point;
+        use crate::core::history::HistoryManager;
+        use crate::views::history_window::HistoryWindow;
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear(931);
+        HistoryManager::add(931, "earlier".to_string());
+        let history = || HistoryWindow::new(Point::new(30, 2), 931, 30);
+        assert_eq!(
+            assert_hidden_under_popup(KB_ESC, |t| history().execute(t)),
+            None
+        );
+        assert_eq!(
+            assert_hidden_under_popup(KB_ENTER, |t| history().execute(t)),
+            Some("earlier".to_string())
+        );
+    }
+
+    #[test]
+    fn write_raw_puts_a_shown_cursor_back() {
+        let (mut app, log, at) = logged_app();
+        log.lock().unwrap().clear();
+        // Kitty graphics bytes that move the real cursor.
+        app.terminal.write_raw(b"\x1b_Ga=T\x1b\\").unwrap();
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec![Op::Write, Op::Show(at.0, at.1), Op::Flush]
+        );
+    }
+
+    #[test]
+    fn write_raw_leaves_a_hidden_cursor_hidden() {
+        let (mut app, log, _) = logged_app();
+        app.terminal.hide_cursor().unwrap();
+        app.terminal.flush().unwrap();
+        log.lock().unwrap().clear();
+        app.terminal.write_raw(b"\x1b_Ga=d\x1b\\").unwrap();
+        assert_eq!(*log.lock().unwrap(), vec![Op::Write, Op::Flush]);
+    }
+
+    /// Type `ch` into the focused input line and draw and flush the frame.
+    fn type_frame(app: &mut Application, ch: char) {
+        let mut key = Event::keyboard(ch as u16);
+        app.handle_event(&mut key);
+        app.draw();
+        app.terminal.flush().unwrap();
+    }
+
+    #[test]
+    fn a_typing_frame_shows_the_cursor_once_after_the_cells() {
+        let (mut app, log, _) = logged_app();
+        log.lock().unwrap().clear();
+        type_frame(&mut app, '!');
+        let (x, y) = drawn_at(&app, "!");
+        assert_eq!(
+            *log.lock().unwrap(),
+            vec![Op::Hide, Op::Write, Op::Show(x + 1, y), Op::Flush]
+        );
+    }
+
+    #[test]
+    fn a_frame_where_only_the_cursor_moved_just_moves_it() {
+        use crate::core::event::KB_LEFT;
+        let (mut app, log, _) = logged_app();
+        type_frame(&mut app, '!');
+        let (x, y) = drawn_at(&app, "!");
+        log.lock().unwrap().clear();
+
+        let mut left = Event::keyboard(KB_LEFT);
+        app.handle_event(&mut left);
+        app.draw();
+        app.terminal.flush().unwrap();
+        assert_eq!(*log.lock().unwrap(), vec![Op::Show(x, y), Op::Flush]);
+    }
+
+    #[test]
+    fn a_frame_with_no_change_emits_only_the_flush() {
+        let (mut app, log, _) = logged_app();
+        log.lock().unwrap().clear();
+        app.draw();
+        app.terminal.flush().unwrap();
+        assert_eq!(*log.lock().unwrap(), vec![Op::Flush]);
+    }
+
+    #[test]
+    fn the_cursor_reaches_the_backend_only_on_flush() {
+        let (mut app, log, _) = logged_app();
+        log.lock().unwrap().clear();
+        app.terminal.show_cursor(1, 1).unwrap();
+        app.terminal.hide_cursor().unwrap();
+        app.terminal.show_cursor(2, 2).unwrap();
+        assert_eq!(*log.lock().unwrap(), vec![], "nothing before the flush");
+        assert_eq!(app.terminal.cursor(), Some((2, 2)));
+        app.terminal.flush().unwrap();
+        assert_eq!(*log.lock().unwrap(), vec![Op::Show(2, 2), Op::Flush]);
+
+        log.lock().unwrap().clear();
+        app.terminal.hide_cursor().unwrap();
+        app.terminal.flush().unwrap();
+        assert_eq!(*log.lock().unwrap(), vec![Op::Hide, Op::Flush]);
     }
 }
