@@ -22,6 +22,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Terminal::write_raw` puts a shown cursor back after the raw bytes
   (Kitty graphics, for one), which used to leave the cursor wherever their
   escape sequences moved it.
+- The text cursor no longer shows for a moment at its new place over the
+  old cells on each frame. `Terminal::show_cursor` and `hide_cursor` now
+  only record the request, and `Terminal::flush` sends the final cursor
+  state once, after the changed cells: hidden while they are written, then
+  shown where it was asked for. A cursor that only moved still moves, and
+  a frame where neither the cells nor the cursor changed sends nothing but
+  the flush. Code that drives the backend itself must flush (as every
+  turbo-vision loop does) for a cursor change to reach it; a host that
+  reads the cursor without flushing can use `Terminal::cursor`.
 
 ## [4.0.1] - 2026-10-02
 
