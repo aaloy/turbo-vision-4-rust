@@ -11,6 +11,7 @@ From the 2026-07-02 review of `turbo-vision-4-rust` v1.3.1 vs the kloczek/tvisio
 - [x] `paramtext.rs`, `terminal_widget.rs` — truncate by chars
 - [x] (bonus) clipboard: OS pasteboard access serialized + skipped under `cfg(test)` — fixes pre-existing flaky SIGSEGV in parallel tests
 - [x] (bonus) global HistoryManager tests serialized via test lock — fixes test-order flake
+- [x] Typing non-ASCII text: `Event::ch` / `Event::typed_char` carry the typed character, so input lines, memos, the editor, type-ahead and menu letters accept any one-cell character, and characters past Latin-1 (`KB_TEXT`) no longer collide with special keys (`ě` was Esc)
 
 ### Unfinished features that look done
 - [x] Radio buttons now mutually exclusive via `CM_RADIO_SELECTED` broadcast with group id in new `Event.info` field

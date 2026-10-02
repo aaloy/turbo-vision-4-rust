@@ -17,6 +17,19 @@ stay ordinary rows you can focus and select, and they work with a lazy `RowProvi
 default to zero, so existing tables are unchanged. The `table_frozen` example freezes a region
 column and a totals row over thirty regions by twelve months.
 
+Text can be typed beyond ASCII. Input lines, memos, the editor, a sorted list's type-ahead and
+menu letters accept `é`, `ñ`, `ç`, `€`, `ł`, Greek, Cyrillic and any other character one cell
+wide. A keyboard event now carries the character it types in `Event::ch`, as Borland's
+`charCode` and tvision's `keyDown.text` do, and views read it through `Event::typed_char`.
+
+This also fixes characters that arrived as special keys: their code points collided with the
+key codes, so typing `ě` (U+011B) closed a dialog as if Esc had been pressed. Characters past
+Latin-1 now arrive with the key code `KB_TEXT`. Characters two cells wide (CJK, emoji) are not
+typed yet.
+
+**Upgrade note:** `Event` gains the public field `ch`. Code that builds an `Event` with a
+struct literal naming every field adds `ch: None` or `..Event::nothing()`.
+
 ## 4.0.2 &mdash; October 2026
 
 The text cursor no longer shows through menus, combo-box drop-downs and history lists: a popup hides
