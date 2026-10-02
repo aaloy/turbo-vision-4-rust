@@ -21,12 +21,11 @@ use crate::core::event::{
     Event, EventType, KB_ALT_A, KB_ALT_B, KB_ALT_C, KB_ALT_D, KB_ALT_E, KB_ALT_F, KB_ALT_G,
     KB_ALT_H, KB_ALT_I, KB_ALT_J, KB_ALT_K, KB_ALT_L, KB_ALT_M, KB_ALT_N, KB_ALT_O, KB_ALT_P,
     KB_ALT_Q, KB_ALT_R, KB_ALT_S, KB_ALT_T, KB_ALT_U, KB_ALT_V, KB_ALT_W, KB_ALT_X, KB_ALT_Y,
-    KB_ALT_Z, KB_BACKSPACE, KB_DEL, KB_DOWN, KB_END, KB_ENTER, KB_ESC, KB_F1, KB_F2, KB_F3, KB_F4,
-    KB_F5, KB_F6, KB_F7, KB_F8, KB_F9, KB_F10, KB_F11, KB_F12, KB_HOME, KB_INS, KB_LEFT, KB_PGDN,
-    KB_PGUP, KB_RIGHT, KB_SHIFT_TAB, KB_TAB, KB_UP, MB_LEFT_BUTTON, MB_MIDDLE_BUTTON,
-    MB_RIGHT_BUTTON,
+    KB_ALT_Z, KB_BACKSPACE, KB_ENTER, KB_ESC, KB_SHIFT_TAB, KB_TAB, MB_LEFT_BUTTON,
+    MB_MIDDLE_BUTTON, MB_RIGHT_BUTTON,
 };
 use crate::core::geometry::Point;
+use crate::core::keys::{KeyCode as CKC, KeyEvent, KeyModifiers};
 
 /// Parser for raw terminal input bytes.
 ///
@@ -177,21 +176,25 @@ impl InputParser {
 
         let params = &buf[2..end - 1];
         let final_byte = buf[end - 1];
-        let modifiers = self.parse_modifiers(params);
 
-        let key_code = match final_byte {
-            b'A' => apply_modifiers(KB_UP, modifiers),
-            b'B' => apply_modifiers(KB_DOWN, modifiers),
-            b'C' => apply_modifiers(KB_RIGHT, modifiers),
-            b'D' => apply_modifiers(KB_LEFT, modifiers),
-            b'H' => apply_modifiers(KB_HOME, modifiers),
-            b'F' => apply_modifiers(KB_END, modifiers),
-            b'Z' => KB_SHIFT_TAB,
-            b'~' => self.parse_tilde(params),
-            _ => 0,
+        let code = match final_byte {
+            b'A' => Some(CKC::Up),
+            b'B' => Some(CKC::Down),
+            b'C' => Some(CKC::Right),
+            b'D' => Some(CKC::Left),
+            b'H' => Some(CKC::Home),
+            b'F' => Some(CKC::End),
+            // F1-F4 with modifiers: ESC [ 1 ; m P..S
+            b'P' => Some(CKC::F(1)),
+            b'Q' => Some(CKC::F(2)),
+            b'R' => Some(CKC::F(3)),
+            b'S' => Some(CKC::F(4)),
+            b'Z' => return Some((Event::keyboard(KB_SHIFT_TAB), end)),
+            b'~' => tilde_key(params),
+            _ => None,
         };
 
-        Some((Event::keyboard(key_code), end))
+        Some((key_event(code, csi_modifiers(params)), end))
     }
 
     /// Parse SS3 (Single Shift 3) sequences: ESC O
@@ -200,73 +203,21 @@ impl InputParser {
             return None;
         }
 
-        let key_code = match self.buffer[2] {
-            b'P' => KB_F1,
-            b'Q' => KB_F2,
-            b'R' => KB_F3,
-            b'S' => KB_F4,
-            b'A' => KB_UP,
-            b'B' => KB_DOWN,
-            b'C' => KB_RIGHT,
-            b'D' => KB_LEFT,
-            b'H' => KB_HOME,
-            b'F' => KB_END,
-            _ => 0,
+        let code = match self.buffer[2] {
+            b'P' => Some(CKC::F(1)),
+            b'Q' => Some(CKC::F(2)),
+            b'R' => Some(CKC::F(3)),
+            b'S' => Some(CKC::F(4)),
+            b'A' => Some(CKC::Up),
+            b'B' => Some(CKC::Down),
+            b'C' => Some(CKC::Right),
+            b'D' => Some(CKC::Left),
+            b'H' => Some(CKC::Home),
+            b'F' => Some(CKC::End),
+            _ => None,
         };
 
-        Some((Event::keyboard(key_code), 3))
-    }
-
-    /// Parse tilde-terminated sequences: ESC [ number ~
-    fn parse_tilde(&self, params: &[u8]) -> u16 {
-        let num: u8 = params
-            .iter()
-            .take_while(|&&b| b.is_ascii_digit())
-            .fold(0, |acc, &b| acc.saturating_mul(10).saturating_add(b - b'0'));
-
-        match num {
-            1 | 7 => KB_HOME,
-            2 => KB_INS,
-            3 => KB_DEL,
-            4 | 8 => KB_END,
-            5 => KB_PGUP,
-            6 => KB_PGDN,
-            11 => KB_F1,
-            12 => KB_F2,
-            13 => KB_F3,
-            14 => KB_F4,
-            15 => KB_F5,
-            17 => KB_F6,
-            18 => KB_F7,
-            19 => KB_F8,
-            20 => KB_F9,
-            21 => KB_F10,
-            23 => KB_F11,
-            24 => KB_F12,
-            _ => 0,
-        }
-    }
-
-    /// Parse modifier parameters from CSI sequences.
-    fn parse_modifiers(&self, params: &[u8]) -> u8 {
-        let s = std::str::from_utf8(params).unwrap_or("");
-        let mod_code: u8 = s
-            .split(';')
-            .nth(1)
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(1);
-
-        let mut mods = 0u8;
-        if mod_code & 2 != 0 {
-            mods |= 1;
-        } // Shift
-        if mod_code & 4 != 0 {
-            mods |= 2;
-        } // Alt
-        if mod_code & 8 != 0 {
-            mods |= 4;
-        } // Control
-        mods
+        Some((key_event(code, KeyModifiers::empty()), 3))
     }
 
     /// Parse a UTF-8 character.
@@ -410,16 +361,74 @@ fn char_to_alt_code(c: char) -> Option<u16> {
     }
 }
 
-/// Apply modifier bits to a key code (placeholder - modifiers are complex).
-fn apply_modifiers(base: u16, _modifiers: u8) -> u16 {
-    // For now, just return the base code
-    // Full modifier support would require more complex key code handling
-    base
+/// The event for a key with modifiers, made the way the crossterm backend
+/// makes it, so a key from a byte stream looks exactly like the same key
+/// from a local terminal. An unknown key is key code 0, as before.
+fn key_event(code: Option<CKC>, modifiers: KeyModifiers) -> Event {
+    match code {
+        Some(code) => Event::from_crossterm_key(KeyEvent::new(code, modifiers)),
+        None => Event::keyboard(0),
+    }
+}
+
+/// The key of a tilde-terminated sequence: ESC [ number ( ; m ) ~
+fn tilde_key(params: &[u8]) -> Option<CKC> {
+    let num: u8 = params
+        .iter()
+        .take_while(|&&b| b.is_ascii_digit())
+        .fold(0, |acc, &b| acc.saturating_mul(10).saturating_add(b - b'0'));
+
+    Some(match num {
+        1 | 7 => CKC::Home,
+        2 => CKC::Insert,
+        3 => CKC::Delete,
+        4 | 8 => CKC::End,
+        5 => CKC::PageUp,
+        6 => CKC::PageDown,
+        11 => CKC::F(1),
+        12 => CKC::F(2),
+        13 => CKC::F(3),
+        14 => CKC::F(4),
+        15 => CKC::F(5),
+        17 => CKC::F(6),
+        18 => CKC::F(7),
+        19 => CKC::F(8),
+        20 => CKC::F(9),
+        21 => CKC::F(10),
+        23 => CKC::F(11),
+        24 => CKC::F(12),
+        _ => return None,
+    })
+}
+
+/// The modifiers in a CSI sequence's second parameter, as xterm encodes
+/// them: m = 1 + (Shift=1 | Alt=2 | Ctrl=4 | Meta=8). Meta has no
+/// `KeyModifiers` bit here and is ignored.
+fn csi_modifiers(params: &[u8]) -> KeyModifiers {
+    let m: u16 = std::str::from_utf8(params)
+        .ok()
+        .and_then(|s| s.split(';').nth(1))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(1);
+    let bits = m.saturating_sub(1);
+
+    let mut mods = KeyModifiers::empty();
+    if bits & 1 != 0 {
+        mods |= KeyModifiers::SHIFT;
+    }
+    if bits & 2 != 0 {
+        mods |= KeyModifiers::ALT;
+    }
+    if bits & 4 != 0 {
+        mods |= KeyModifiers::CONTROL;
+    }
+    mods
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::event::{KB_DOWN, KB_F1, KB_F5, KB_LEFT, KB_RIGHT, KB_UP};
 
     #[test]
     fn test_parse_regular_chars() {
@@ -520,6 +529,73 @@ mod tests {
         let events = parser.parse(b"A");
         assert_eq!(events.len(), 1);
         assert_eq!(events[0].key_code, KB_UP);
+    }
+
+    /// What crossterm's path makes of a key: the event the native backend
+    /// would deliver.
+    fn crossterm_event(code: CKC, mods: KeyModifiers) -> (u16, KeyModifiers) {
+        let ev = Event::from_crossterm_key(KeyEvent::new(code, mods));
+        (ev.key_code, ev.key_modifiers)
+    }
+
+    #[test]
+    fn modified_keys_match_the_crossterm_path() {
+        let ctrl = KeyModifiers::CONTROL;
+        let shift = KeyModifiers::SHIFT;
+        let alt = KeyModifiers::ALT;
+        let none = KeyModifiers::empty();
+        let cases: &[(&[u8], CKC, KeyModifiers)] = &[
+            (b"\x1b[15;5~", CKC::F(5), ctrl),
+            (b"\x1b[17;2~", CKC::F(6), shift),
+            (b"\x1b[1;3C", CKC::Right, alt),
+            (b"\x1b[1;5P", CKC::F(1), ctrl),
+            (b"\x1b[1;3P", CKC::F(1), alt),
+            (b"\x1b[1;2S", CKC::F(4), shift),
+            (b"\x1b[24;5~", CKC::F(12), ctrl),
+            (b"\x1b[2;5~", CKC::Insert, ctrl),
+            (b"\x1b[3;2~", CKC::Delete, shift),
+            (b"\x1b[5;7~", CKC::PageUp, ctrl | alt),
+            (b"\x1b[1;6H", CKC::Home, ctrl | shift),
+            (b"\x1b[1;5F", CKC::End, ctrl),
+            (b"\x1b[1;8A", CKC::Up, ctrl | alt | shift),
+            // Unmodified sequences, as before.
+            (b"\x1b[15~", CKC::F(5), none),
+            (b"\x1bOP", CKC::F(1), none),
+            (b"\x1b[C", CKC::Right, none),
+            (b"\x1b[1;1D", CKC::Left, none),
+        ];
+        for (bytes, code, mods) in cases {
+            let mut parser = InputParser::new();
+            let events = parser.parse(bytes);
+            assert_eq!(events.len(), 1, "{bytes:?}");
+            assert_eq!(events[0].what, EventType::Keyboard, "{bytes:?}");
+            assert_eq!(
+                (events[0].key_code, events[0].key_modifiers),
+                crossterm_event(*code, *mods),
+                "{bytes:?}"
+            );
+        }
+        // Spot-check the codes themselves.
+        let mut parser = InputParser::new();
+        let ev = &parser.parse(b"\x1b[15;5~")[0];
+        assert_eq!((ev.key_code, ev.key_modifiers), (KB_F5, ctrl));
+        let ev = &parser.parse(b"\x1b[24;5~")[0];
+        assert_eq!(ev.key_code, crate::core::event::KB_CTRL_F12);
+        let ev = &parser.parse(b"\x1b[1;3P")[0];
+        assert_eq!(ev.key_code, crate::core::event::KB_ALT_F1);
+    }
+
+    #[test]
+    fn a_modified_key_split_across_reads_is_buffered() {
+        let mut parser = InputParser::new();
+        assert!(parser.parse(b"\x1b[15;").is_empty());
+        let events = parser.parse(b"5~a");
+        assert_eq!(events.len(), 2);
+        assert_eq!(
+            (events[0].key_code, events[0].key_modifiers),
+            crossterm_event(CKC::F(5), KeyModifiers::CONTROL)
+        );
+        assert_eq!(events[1].key_code, 'a' as u16);
     }
 
     #[test]

@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `HelpViewer`: a mouse click on a link after scrolling the text sideways
   now hits the link where it is drawn; the hit-test ignored the horizontal
   scroll offset.
+- `InputParser` (the byte-stream parser SSH and WASM hosts use) now keeps
+  the xterm modifier of F-keys, arrows, Home/End and the tilde keys
+  (`ESC [ 15 ; 5 ~`, `ESC [ 1 ; 3 C`, `ESC [ 1 ; 5 P`, ...) in
+  `key_modifiers`, and makes the event through the same conversion as the
+  crossterm backend, so a modified key from a remote host is the same event
+  as from a local terminal (Ctrl+F5 is `KB_F5` + `CONTROL`, Ctrl+F12 is
+  `KB_CTRL_F12`). Modified F1-F4 (`ESC [ 1 ; m P..S`) were key code 0.
 
 ## [4.0.0] - 2026-10-01
 
