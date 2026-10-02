@@ -21,7 +21,6 @@ exclude = [
     "to-do/*",
     ".claude/*",
     ".tokensave/*",
-    "fable-tv3.0",
     "*.png",
     "*.jpg",
     "*.jpeg",
