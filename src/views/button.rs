@@ -274,9 +274,10 @@ impl View for Button {
             EventType::Keyboard => {
                 // Handle hotkey (works even without focus, matches Borland PostProcess)
                 // Check if the key pressed matches this button's hotkey
-                if let Some(hotkey) = self.get_hotkey() {
-                    // Get the character from the key code (low byte)
-                    let key_char = (event.key_code & 0xFF) as u8 as char;
+                // The typed character, not the key code's low byte: past
+                // Latin-1 that byte is unrelated to the character (`ł`,
+                // U+0142, would read as `B`).
+                if let (Some(hotkey), Some(key_char)) = (self.get_hotkey(), event.typed_char()) {
                     let key_char_upper = key_char.to_uppercase().next().unwrap_or(key_char);
 
                     if key_char_upper == hotkey {
@@ -790,5 +791,26 @@ mod tests {
             assert!(bounds.width_clamped() >= 0);
             assert!(bounds.height_clamped() >= 0);
         }
+    }
+
+    #[test]
+    fn a_non_ascii_hotkey_answers_its_letter() {
+        const CMD: u16 = 531;
+        command_set::enable_command(CMD);
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "~Ñ~o", CMD, false);
+        let mut e = Event::text('ñ');
+        button.handle_event(&mut e);
+        assert_eq!((e.what, e.command), (EventType::Command, CMD));
+    }
+
+    #[test]
+    fn a_character_past_latin1_does_not_press_an_unrelated_button() {
+        // `ł` is U+0142: its key code's low byte used to read as `B`.
+        const CMD: u16 = 532;
+        command_set::enable_command(CMD);
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "~B~ack", CMD, false);
+        let mut e = Event::text('ł');
+        button.handle_event(&mut e);
+        assert_eq!(e.what, EventType::Keyboard, "left alone");
     }
 }

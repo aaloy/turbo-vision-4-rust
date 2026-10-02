@@ -170,11 +170,13 @@ impl MenuViewerState {
     ///
     /// Matches Borland: TMenuView::findItem(char ch)
     pub fn find_item_by_char(&self, ch: char) -> Option<usize> {
+        // Case-insensitive for any letter, not only ASCII: `~Ñ~` answers `ñ`.
+        let fold = |c: char| c.to_lowercase().next().unwrap_or(c);
         if let Some(menu) = &self.menu {
-            let ch_lower = ch.to_ascii_lowercase();
+            let ch_lower = fold(ch);
             for (i, item) in menu.items.iter().enumerate() {
                 if let Some(accel) = item.get_accelerator() {
-                    if accel == ch_lower && item.is_selectable() {
+                    if fold(accel) == ch_lower && item.is_selectable() {
                         return Some(i);
                     }
                 }
@@ -309,10 +311,9 @@ pub trait MenuViewer: View {
                         // Enter activates current item - handled by subclass
                         false
                     }
-                    key_code => {
-                        // Check for accelerator key (printable characters)
-                        if (32..127).contains(&key_code) {
-                            let ch = (key_code as u8 as char).to_ascii_lowercase();
+                    _ => {
+                        // Check for accelerator key (any typed character)
+                        if let Some(ch) = event.typed_char() {
                             if let Some(idx) = self.find_item_by_char(ch) {
                                 self.set_current_item(Some(idx));
                                 event.clear();
@@ -452,5 +453,17 @@ mod tests {
         let item = state.get_current_item();
         assert!(item.is_some());
         assert_eq!(item.unwrap().text(), "First");
+    }
+
+    #[test]
+    fn a_non_ascii_accelerator_matches_either_case() {
+        let menu = MenuBuilder::new()
+            .item("~O~pen", 100)
+            .item("~Ñ~ou", 101)
+            .build();
+        let state = MenuViewerState::with_menu(menu);
+        assert_eq!(state.find_item_by_char('ñ'), Some(1));
+        assert_eq!(state.find_item_by_char('Ñ'), Some(1));
+        assert_eq!(state.find_item_by_char('o'), Some(0));
     }
 }

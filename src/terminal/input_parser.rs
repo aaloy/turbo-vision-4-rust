@@ -224,7 +224,7 @@ impl InputParser {
     fn parse_utf8(&self) -> Option<(Event, usize)> {
         if let Ok(s) = std::str::from_utf8(&self.buffer) {
             if let Some(ch) = s.chars().next() {
-                return Some((Event::keyboard(ch as u16), ch.len_utf8()));
+                return Some((Event::text(ch), ch.len_utf8()));
             }
         }
         if self.buffer.len() < 4 {
@@ -620,5 +620,19 @@ mod tests {
         // Parser recovers: a normal key still comes through
         let events = parser.parse(b"a");
         assert!(events.iter().any(|e| e.key_code == 'a' as u16));
+    }
+
+    #[test]
+    fn utf8_text_keeps_its_character_without_colliding() {
+        let mut parser = InputParser::new();
+        let events = parser.parse("éěł€".as_bytes());
+        let typed: Vec<_> = events.iter().map(Event::typed_char).collect();
+        assert_eq!(typed, [Some('é'), Some('ě'), Some('ł'), Some('€')]);
+        assert_eq!(events[0].key_code, 0xE9);
+        assert_eq!(
+            events[1].key_code,
+            crate::core::event::KB_TEXT,
+            "not KB_ESC"
+        );
     }
 }

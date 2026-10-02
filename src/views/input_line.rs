@@ -418,9 +418,9 @@ impl View for InputLine {
                     }
                     event.clear();
                 }
-                // Regular character input
-                key_code => {
-                    if (32..127).contains(&key_code) {
+                // Regular character input: any character that fits a cell
+                _ => {
+                    if let Some(ch) = event.typed_char() {
                         // Delete selection if any
                         if self.has_selection() {
                             self.delete_selection();
@@ -428,8 +428,6 @@ impl View for InputLine {
 
                         let text_len = char_len(&self.text);
                         if text_len < self.max_length {
-                            let ch = key_code as u8 as char;
-
                             // Check validator before inserting
                             // Matches Borland's TValidator::IsValidInput() pattern
                             if let Some(ref validator) = self.validator {
@@ -841,5 +839,51 @@ mod tests {
         let mut ev = Event::keyboard('Y' as u16);
         input.handle_event(&mut ev);
         assert_eq!(input.text(), "XYbc");
+    }
+
+    fn type_text(input: &mut InputLine, text: &str) {
+        for ch in text.chars() {
+            input.handle_event(&mut Event::text(ch));
+        }
+    }
+
+    #[test]
+    fn any_one_cell_character_can_be_typed() {
+        let mut input = InputLine::new(Rect::new(0, 0, 30, 1), 30);
+        input.set_focus(true);
+        type_text(&mut input, "Añó ěł € ωж");
+        assert_eq!(input.text(), "Añó ěł € ωж");
+        input.handle_event(&mut Event::keyboard(KB_BACKSPACE));
+        assert_eq!(
+            input.text(),
+            "Añó ěł € ω",
+            "removes one character, not one byte"
+        );
+    }
+
+    #[test]
+    fn latin1_typed_by_key_code_alone_is_accepted() {
+        // Events injected by number (tests, remote input) carry no `ch`.
+        let mut input = make("");
+        input.handle_event(&mut Event::keyboard(0xE7));
+        assert_eq!(input.text(), "ç");
+    }
+
+    #[test]
+    fn typing_e_caron_in_a_modal_dialog_does_not_close_it() {
+        // `ě` used to arrive as 0x011B, which is KB_ESC.
+        use crate::core::state::State;
+        use crate::views::dialog::Dialog;
+        use crate::views::{GroupLike, View};
+        let mut dialog = Dialog::new(Rect::new(0, 0, 30, 6), "Name");
+        let state = dialog.state();
+        dialog.set_state(state | State::MODAL);
+        let input = dialog.add_typed(InputLine::new(Rect::new(1, 1, 20, 2), 20));
+        dialog.set_initial_focus();
+        for ch in ['ě', 'Ĝ'] {
+            dialog.handle_event(&mut Event::text(ch));
+        }
+        assert_eq!(dialog.end_state(), 0, "still open");
+        assert_eq!(dialog.get(input).map(InputLine::text), Some("ěĜ"));
     }
 }
