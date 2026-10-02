@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `Terminal::cursor` reads back where the cursor was asked to show, and
+  `Terminal::with_cursor_hidden` runs a closure with the cursor hidden and
+  puts it back afterwards, for popups that run their own loop.
+
+### Fixed
+- `MenuBox`, the `ComboBox` drop-down and the `HistoryWindow` popup hide
+  the text cursor while they are open and put it back when they close,
+  whether the choice was accepted or cancelled. Their own flushes used to
+  show the cursor again at the control underneath while the popup had the
+  keyboard. This covers cascading menu-bar submenus and anything else built
+  on `MenuBox::execute`.
+
 ## [4.0.1] - 2026-10-02
 
 ### Added

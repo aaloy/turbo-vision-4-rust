@@ -643,6 +643,29 @@ impl Terminal {
         self.backend.hide_cursor()
     }
 
+    /// The screen cell the cursor was asked to show at, or `None` while it
+    /// is hidden. Screen coordinates: the pushed origins are already applied.
+    pub fn cursor(&self) -> Option<(u16, u16)> {
+        self.cursor
+    }
+
+    /// Run `f` with the cursor hidden, then put the cursor back where it was
+    /// asked for before, however `f` returns.
+    ///
+    /// For popups and menus that run their own loop and own the input while
+    /// they are up (Borland hides the cursor under them): the control
+    /// underneath keeps its cursor, but it must not show through the popup.
+    pub fn with_cursor_hidden<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
+        let saved = self.cursor;
+        let _ = self.hide_cursor();
+        let result = f(self);
+        self.cursor = saved;
+        if let Some((x, y)) = saved {
+            let _ = self.backend.show_cursor(x, y);
+        }
+        result
+    }
+
     /// Put an event in the queue for next iteration.
     ///
     /// This allows re-queuing events, matching Borland's `TProgram::putEvent()`.

@@ -3118,4 +3118,104 @@ mod cursor_tests {
         assert!(x > 20 && y > 6, "drawn inside the dialog: {:?}", (x, y));
         assert_eq!(*cursor.lock().unwrap(), Some((x + 3, y)));
     }
+
+    /// Run a popup over a focused input line whose cursor is at `at`, with
+    /// `key` queued to close it, and check that the cursor stayed hidden
+    /// while the popup drew and comes back at `at` once it is gone.
+    fn assert_hidden_under_popup<R>(key: u16, popup: impl FnOnce(&mut Terminal) -> R) -> R {
+        let (mut app, log, at) = logged_app();
+        log.lock().unwrap().clear();
+        app.terminal
+            .event_injector()
+            .send(Event::keyboard(key))
+            .unwrap();
+
+        let result = popup(&mut app.terminal);
+        let during = log.lock().unwrap().clone();
+        assert!(
+            during.contains(&Op::Write),
+            "the popup drew something: {during:?}"
+        );
+        let last_flush = during.iter().rposition(|o| *o == Op::Flush).unwrap();
+        assert!(
+            !during[..last_flush]
+                .iter()
+                .any(|o| matches!(o, Op::Show(..))),
+            "no cursor while the popup is up: {during:?}"
+        );
+
+        assert_eq!(app.terminal.cursor(), Some(at), "the cursor is remembered");
+        app.terminal.flush().unwrap();
+        let log = log.lock().unwrap();
+        assert_eq!(
+            log.iter()
+                .rev()
+                .find(|o| matches!(o, Op::Show(..) | Op::Hide)),
+            Some(&Op::Show(at.0, at.1)),
+            "the cursor is back at the input line: {log:?}"
+        );
+        result
+    }
+
+    fn menu_box() -> crate::views::menu_box::MenuBox {
+        use crate::core::geometry::Point;
+        use crate::core::menu_data::MenuBuilder;
+        crate::views::menu_box::MenuBox::new(
+            Point::new(30, 2),
+            MenuBuilder::new().item("~O~pen", 100).build(),
+        )
+    }
+
+    fn dropdown() -> crate::views::combo_box::DropdownWindow {
+        use crate::views::combo_box::{ComboBox, DropdownWindow};
+        let combo = ComboBox::with_items(
+            Rect::new(30, 2, 50, 3),
+            930,
+            vec!["one".into(), "two".into()],
+        );
+        DropdownWindow::new(combo.state(), Rect::new(0, 0, 80, 25))
+    }
+
+    #[test]
+    fn a_menu_box_hides_the_cursor_and_puts_it_back() {
+        use crate::core::event::{KB_ENTER, KB_ESC};
+        assert_eq!(
+            assert_hidden_under_popup(KB_ESC, |t| menu_box().execute(t)),
+            0
+        );
+        assert_eq!(
+            assert_hidden_under_popup(KB_ENTER, |t| menu_box().execute(t)),
+            100
+        );
+    }
+
+    #[test]
+    fn a_combo_dropdown_hides_the_cursor_and_puts_it_back() {
+        use crate::core::event::{KB_ENTER, KB_ESC};
+        assert_eq!(
+            assert_hidden_under_popup(KB_ESC, |t| dropdown().execute(t)),
+            None
+        );
+        assert!(assert_hidden_under_popup(KB_ENTER, |t| dropdown().execute(t)).is_some());
+    }
+
+    #[test]
+    fn a_history_popup_hides_the_cursor_and_puts_it_back() {
+        use crate::core::event::{KB_ENTER, KB_ESC};
+        use crate::core::geometry::Point;
+        use crate::core::history::HistoryManager;
+        use crate::views::history_window::HistoryWindow;
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear(931);
+        HistoryManager::add(931, "earlier".to_string());
+        let history = || HistoryWindow::new(Point::new(30, 2), 931, 30);
+        assert_eq!(
+            assert_hidden_under_popup(KB_ESC, |t| history().execute(t)),
+            None
+        );
+        assert_eq!(
+            assert_hidden_under_popup(KB_ENTER, |t| history().execute(t)),
+            Some("earlier".to_string())
+        );
+    }
 }

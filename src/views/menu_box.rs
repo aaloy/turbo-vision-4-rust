@@ -103,8 +103,14 @@ impl MenuBox {
     /// Execute the menu modally
     ///
     /// Matches Borland: TMenuView::execute()
-    /// Returns the selected command, or 0 if cancelled
+    /// Returns the selected command, or 0 if cancelled. The cursor is hidden
+    /// while the menu is up and put back when it closes.
     pub fn execute(&mut self, terminal: &mut Terminal) -> CommandId {
+        terminal.with_cursor_hidden(|terminal| self.run(terminal))
+    }
+
+    /// The loop behind [`execute`](Self::execute).
+    fn run(&mut self, terminal: &mut Terminal) -> CommandId {
         loop {
             // Nothing owns this popup, so it pushes its own origin and
             // translates the raw screen events itself.
