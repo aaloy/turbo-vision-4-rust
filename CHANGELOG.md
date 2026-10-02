@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `Event::ch`, the character a key types, as the terminal reported it
+  (Borland's `charScan.charCode`, tvision's `keyDown.text`), and
+  `Event::typed_char`, which text-taking views read it through: any
+  character one cell wide, with a fallback to the key code for events built
+  from a code alone. `Event::text(ch)` builds such a key.
+- `KB_TEXT`, the key code of a typed character past U+00FF. Key codes keep a
+  character's own value only up to Latin-1; past it they collided with
+  special keys.
+
+### Fixed
+- Non-ASCII text can be typed. `InputLine`, `Memo`, `SortedListBox`'s
+  type-ahead and menu letters accepted only ASCII 32–126 (the editor a
+  little more): `é`, `ñ`, `ç`, `€`, `ł`, Greek, Cyrillic and the rest now
+  type everywhere. Characters two cells wide (CJK, emoji) are not typed yet:
+  a screen cell holds one character, one column wide.
+- Typed characters no longer act as special keys. `ě` (U+011B) arrived as
+  `KB_ESC` and closed the dialog it was typed into; `Ĝ` was Esc-Esc and
+  `ⴀ` Alt+X. They now arrive as `KB_TEXT` with the character in `ch`.
+- A button's hotkey is the typed character, not the key code's low byte:
+  `ł` (U+0142) no longer presses a `~B~` button, and a `~Ñ~` hotkey works.
+  Menu letters match non-ASCII accelerators in either case.
+- `Memo` measures line width in characters, not bytes.
+
+### Changed
+- `Event` has a new public field, `ch`. Code that builds an `Event` with a
+  struct literal naming every field needs `ch: None` or
+  `..Event::nothing()`; the constructors (`Event::keyboard` and the rest)
+  are unchanged.
+
 ## [4.0.2] - 2026-10-02
 
 ### Added
