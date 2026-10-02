@@ -821,11 +821,16 @@ impl Application {
             Self::draw_child(&mut self.terminal, widget);
         }
 
-        // Update cursor after drawing all views
-        // Desktop contains windows/dialogs with focused controls
-        self.terminal.push_origin(self.desktop.bounds().a);
-        self.desktop.update_cursor(&mut self.terminal);
-        self.terminal.pop_origin();
+        // Update cursor after drawing all views: the focused control in the
+        // desktop's windows shows it, except under an open menu, which owns
+        // the keyboard and may cover that control.
+        if self.menu_bar.as_ref().is_some_and(MenuBar::is_open) {
+            let _ = self.terminal.hide_cursor();
+        } else {
+            self.terminal.push_origin(self.desktop.bounds().a);
+            self.desktop.update_cursor(&mut self.terminal);
+            self.terminal.pop_origin();
+        }
     }
 
     /// Draw the desktop, menu bar and status line, each in its own space.
@@ -3028,6 +3033,42 @@ mod cursor_tests {
         assert!(
             (rx..=rx + 5).contains(&shown.0),
             "cursor within the right input line: {shown:?}"
+        );
+    }
+
+    #[test]
+    fn an_open_menu_hides_the_cursor() {
+        use crate::core::event::{KB_ESC, KB_F10};
+        use crate::core::menu_data::MenuBuilder;
+        use crate::views::menu_bar::SubMenu;
+        let (mut app, cursor) = app();
+        let mut bar = MenuBar::new(Rect::new(0, 0, 80, 1));
+        bar.add_submenu(SubMenu::new(
+            "~F~ile",
+            MenuBuilder::new().item("~O~pen", 100).build(),
+        ));
+        app.set_menu_bar(bar);
+        let mut window = Window::new(Rect::new(10, 5, 50, 15), "W");
+        window.add(Box::new(input("hello")));
+        app.desktop.add(window);
+        app.draw();
+        let (x, y) = drawn_at(&app, "hello");
+        assert_eq!(*cursor.lock().unwrap(), Some((x + 5, y)));
+
+        let mut f10 = Event::keyboard(KB_F10);
+        app.handle_event(&mut f10);
+        assert!(app.menu_bar.as_ref().unwrap().is_open());
+        app.draw();
+        assert_eq!(*cursor.lock().unwrap(), None, "no cursor under the menu");
+
+        let mut esc = Event::keyboard(KB_ESC);
+        app.handle_event(&mut esc);
+        assert!(!app.menu_bar.as_ref().unwrap().is_open());
+        app.draw();
+        assert_eq!(
+            *cursor.lock().unwrap(),
+            Some((x + 5, y)),
+            "back once it closes"
         );
     }
 

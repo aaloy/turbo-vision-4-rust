@@ -15,14 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `glyph_sample` example shows them.
 
 ### Fixed
-- The text cursor shows again in a focused `InputLine`, `Memo` or `Editor`
-  in a window on the desktop. `Desktop` did not forward `update_cursor` to
-  its windows, so `Application::draw` never reached the focused control and
-  the cursor was never shown (or hidden). A modal window on top owns the
-  cursor. `Terminal::flush` hides the cursor while it writes changed cells
-  and then puts it back where it was shown, since writing cells moves a
-  real terminal's cursor. `TabbedPane` and `SplitPane` forward the cursor
-  to the active page and the focused half.
+- The text cursor now shows in a focused `InputLine`, `Memo` or `Editor`,
+  inside windows, dialogs, tab pages and split panes. `Desktop`,
+  `TabbedPane` and `SplitPane` did not forward `update_cursor`, so the
+  focused control never reached the terminal. A modal window on top owns
+  the cursor, and an open menu-bar dropdown hides it. `Terminal::flush`
+  hides the cursor while it writes changed cells and then puts it back
+  where it was shown, since writing cells moves a real terminal's cursor.
 - `HelpViewer`: a mouse click on a link after scrolling the text sideways
   now hits the link where it is drawn; the hit-test ignored the horizontal
   scroll offset.
