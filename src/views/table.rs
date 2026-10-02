@@ -11,6 +11,10 @@
 //! between columns, and the grid scrolls in both directions to keep the focused
 //! cell on screen.
 //!
+//! The leading columns can be frozen with [`Table::set_frozen_cols`]: they stay
+//! at the left edge while the others scroll past them, like a spreadsheet's
+//! frozen panes, and a [`FROZEN_SEPARATOR`] marks where the frozen part ends.
+//!
 //! Rows come from `set_rows`, or lazily from a [`RowProvider`] given to
 //! [`Table::set_provider`], which asks only for the rows on screen.
 //!
@@ -57,6 +61,10 @@ const COLUMN_GAP: usize = 1;
 
 /// Drawn in each gap between two visible columns when separators are on.
 pub const SEPARATOR: char = '│';
+
+/// Drawn in the gap after the last frozen column, whether separators are on
+/// or not, so the edge of the frozen part always shows.
+pub const FROZEN_SEPARATOR: char = '║';
 
 /// How a cell's text sits inside its column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -145,8 +153,11 @@ pub struct Table {
     list_state: ListViewerState,
     /// Index of the focused column.
     focused_col: usize,
-    /// Leftmost visible column, for grids wider than the view.
+    /// Leftmost visible scrolling column, for grids wider than the view.
+    /// Never one of the frozen columns.
     first_col: usize,
+    /// Leading columns that stay put while the rest scroll sideways.
+    frozen_cols: usize,
     /// Whether the header row is drawn.
     show_header: bool,
     /// Whether a `SEPARATOR` is drawn between columns.
@@ -170,6 +181,7 @@ impl Table {
             list_state: ListViewerState::new(),
             focused_col: 0,
             first_col: 0,
+            frozen_cols: 0,
             show_header: true,
             separators: false,
             on_select,
@@ -212,7 +224,7 @@ impl Table {
     pub fn clear_rows(&mut self) {
         self.rows = Rows::Owned(Vec::new());
         self.list_state.set_range(0);
-        self.first_col = 0;
+        self.first_col = self.frozen();
     }
 
     /// Read rows from `provider` instead of an in-memory list. The focus is
@@ -287,6 +299,21 @@ impl Table {
         self.separators
     }
 
+    /// Freeze the first `count` columns: they stay at the left edge while
+    /// the others scroll sideways, and a [`FROZEN_SEPARATOR`] follows them.
+    /// Zero, the default, freezes none. A count past the last column freezes
+    /// them all.
+    pub fn set_frozen_cols(&mut self, count: usize) {
+        self.frozen_cols = count;
+        self.clamp_columns();
+    }
+
+    /// How many leading columns are frozen, as set (it may exceed the
+    /// columns there are).
+    pub fn frozen_cols(&self) -> usize {
+        self.frozen_cols
+    }
+
     /// Command emitted by Enter or a double-click.
     pub fn set_on_select(&mut self, command: CommandId) {
         self.on_select = command;
@@ -303,8 +330,20 @@ impl Table {
         usize::from(self.show_header)
     }
 
-    /// Keep the column indices inside the current column list.
+    /// Frozen columns that exist: the setting, capped at the column count.
+    fn frozen(&self) -> usize {
+        self.frozen_cols.min(self.columns.len())
+    }
+
+    /// Cells the frozen columns take, the gap after each included.
+    fn frozen_span(&self) -> usize {
+        (0..self.frozen()).map(|i| self.column_span(i)).sum()
+    }
+
+    /// Keep the column indices inside the current column list, and the
+    /// leftmost scrolling column out of the frozen ones.
     fn clamp_columns(&mut self) {
+        let frozen = self.frozen();
         if self.columns.is_empty() {
             self.focused_col = 0;
             self.first_col = 0;
@@ -312,7 +351,8 @@ impl Table {
         }
         let last = self.columns.len() - 1;
         self.focused_col = self.focused_col.min(last);
-        self.first_col = self.first_col.min(last);
+        // With every column frozen there is no scrolling column to start at.
+        self.first_col = self.first_col.clamp(frozen, last.max(frozen));
         self.scroll_col_into_view();
     }
 
@@ -327,13 +367,21 @@ impl Table {
     /// Scroll horizontally so the focused column is fully visible.
     ///
     /// Columns are whole units: the leftmost visible column advances until the
-    /// focused one fits, rather than clipping a column in half.
+    /// focused one fits, rather than clipping a column in half. A frozen
+    /// column is always visible, so focusing one scrolls nothing; the others
+    /// scroll in the width the frozen ones leave.
     fn scroll_col_into_view(&mut self) {
+        let frozen = self.frozen();
+        self.first_col = self.first_col.max(frozen);
+        if self.focused_col < frozen {
+            return;
+        }
         if self.focused_col < self.first_col {
             self.first_col = self.focused_col;
             return;
         }
-        let width = self.core.bounds.width_clamped().max(0) as usize;
+        let width =
+            (self.core.bounds.width_clamped().max(0) as usize).saturating_sub(self.frozen_span());
         while self.first_col < self.focused_col {
             let span: usize = (self.first_col..=self.focused_col)
                 .map(|i| self.column_span(i))
@@ -353,38 +401,43 @@ impl Table {
             .map_or(0, |c| c.width as usize + COLUMN_GAP)
     }
 
-    /// Starting cell of a column within the drawn row, or `None` when it is
-    /// scrolled off to the left.
-    fn column_offset(&self, index: usize) -> Option<usize> {
-        if index < self.first_col {
-            return None;
+    /// The columns as drawn, in order: each one's index, x offset from the
+    /// table's left edge, and the cells it is drawn in. The frozen columns
+    /// come first, then the scrolling ones from `first_col`. A column that
+    /// starts past the right edge is left out and the last one shown is
+    /// clipped to the table's width. Drawing, hit-testing and
+    /// [`column_offsets`](Self::column_offsets) all read this, so they agree.
+    fn layout(&self) -> Vec<(usize, usize, usize)> {
+        let width = usize::try_from(self.core.bounds.width_clamped()).unwrap_or(0);
+        let frozen = self.frozen();
+        let mut columns = Vec::new();
+        let mut x = 0;
+        for index in (0..frozen).chain(self.first_col.max(frozen)..self.columns.len()) {
+            if x >= width {
+                break;
+            }
+            let column_width = self.columns[index].width as usize;
+            columns.push((index, x, column_width.min(width - x)));
+            x += column_width + COLUMN_GAP;
         }
-        Some((self.first_col..index).map(|i| self.column_span(i)).sum())
+        columns
     }
 
     /// Where each visible column lands, in draw order: its x offset from the
     /// table's left edge and the cells it is drawn in.
     ///
-    /// Columns scrolled off to the left are left out, and so is any that
-    /// starts past the right edge; the last one shown is clipped to the
-    /// table's width, as it is drawn. The one-cell gap after each column is
-    /// not part of its width, so a widget that draws between columns (a
-    /// separator, a resize handle) finds the gap at `x + width`.
+    /// Frozen columns come first. Scrolling columns scrolled off to the left
+    /// are left out, and so is any that starts past the right edge; the last
+    /// one shown is clipped to the table's width, as it is drawn. The
+    /// one-cell gap after each column is not part of its width, so a widget
+    /// that draws between columns (a separator, a resize handle) finds the
+    /// gap at `x + width`.
     #[must_use]
     pub fn column_offsets(&self) -> Vec<(usize, u16)> {
-        let width = usize::try_from(self.core.bounds.width_clamped()).unwrap_or(0);
-        let mut spans = Vec::new();
-        for index in self.first_col..self.columns.len() {
-            let Some(offset) = self.column_offset(index) else {
-                continue;
-            };
-            if offset >= width {
-                break;
-            }
-            let room = u16::try_from(width - offset).unwrap_or(u16::MAX);
-            spans.push((offset, self.columns[index].width.min(room)));
-        }
-        spans
+        self.layout()
+            .into_iter()
+            .map(|(_, x, width)| (x, u16::try_from(width).unwrap_or(u16::MAX)))
+            .collect()
     }
 
     /// Move the focused row by `delta`, clamping at both ends. Clamps to
@@ -424,16 +477,12 @@ impl Table {
             return None;
         }
 
+        // A click in the gap after a column lands on the next one.
         let local_x = (pos.x) as usize;
-        let mut offset = 0;
-        for index in self.first_col..self.columns.len() {
-            let width = self.columns[index].width as usize;
-            if local_x < offset + width {
-                return Some((row, index));
-            }
-            offset += width + COLUMN_GAP;
-        }
-        None
+        self.layout()
+            .into_iter()
+            .find(|&(_, x, width)| local_x < x + width)
+            .map(|(index, _, _)| (row, index))
     }
 
     /// Lay one row of text into a buffer, one column at a time.
@@ -444,19 +493,11 @@ impl Table {
     fn write_row(
         &self,
         buf: &mut DrawBuffer,
-        width: usize,
         cell: impl Fn(usize) -> String,
         attr_for: impl Fn(usize) -> crate::core::palette::Attr,
     ) {
-        for index in self.first_col..self.columns.len() {
-            let Some(offset) = self.column_offset(index) else {
-                continue;
-            };
-            if offset >= width {
-                break;
-            }
+        for (index, offset, col_width) in self.layout() {
             let column = &self.columns[index];
-            let col_width = (column.width as usize).min(width - offset);
             let attr = attr_for(index);
             buf.move_char(offset, ' ', attr, col_width);
 
@@ -475,17 +516,26 @@ impl Table {
     /// Put a separator into each gap between two visible columns of one
     /// drawn line, in the colour the line already has there. The gap after
     /// the last visible column is not between two columns and stays blank.
+    ///
+    /// The gap after the last frozen column takes a [`FROZEN_SEPARATOR`]
+    /// whether separators are on or not, as long as a scrolling column
+    /// follows.
     fn write_separators(&self, buf: &mut DrawBuffer, width: usize) {
-        if !self.separators {
-            return;
-        }
-        let offsets = self.column_offsets();
-        for &(x, w) in offsets.iter().take(offsets.len().saturating_sub(1)) {
-            let gap = x + usize::from(w);
+        let mut put = |gap: usize, ch: char| {
             if gap < width {
                 let attr = buf.data[gap].attr;
-                buf.put_char(gap, SEPARATOR, attr);
+                buf.put_char(gap, ch, attr);
             }
+        };
+        if self.separators {
+            let offsets = self.column_offsets();
+            for &(x, w) in offsets.iter().take(offsets.len().saturating_sub(1)) {
+                put(x + usize::from(w), SEPARATOR);
+            }
+        }
+        let frozen = self.frozen();
+        if frozen > 0 && frozen < self.columns.len() {
+            put(self.frozen_span() - COLUMN_GAP, FROZEN_SEPARATOR);
         }
     }
 
@@ -593,17 +643,14 @@ impl View for Table {
         if self.show_header {
             let mut buf = DrawBuffer::new(width);
             buf.move_char(0, ' ', header, width);
-            self.write_row(
-                &mut buf,
-                width,
-                |i| self.columns[i].title.clone(),
-                |_| header,
-            );
+            self.write_row(&mut buf, |i| self.columns[i].title.clone(), |_| header);
             self.write_separators(&mut buf, width);
             write_line_to_terminal(terminal, 0, y, &buf);
             y += 1;
         }
 
+        let frozen = self.frozen();
+        let frozen_span = self.frozen_span().min(width);
         for screen_row in 0..self.visible_rows() {
             let mut buf = DrawBuffer::new(width);
             let row_index = self.list_state.top_item + screen_row;
@@ -612,17 +659,23 @@ impl View for Table {
             // Fill the whole line, gaps included, so the selected row reads
             // as one bar, as ListBox draws its selected item.
             buf.move_char(0, ' ', row_attr, width);
+            // Frozen columns read as row labels, in the header's colour,
+            // except where the selected row's bar runs through them.
+            if !row_selected {
+                buf.move_char(0, ' ', header, frozen_span);
+            }
 
             if row_index < self.rows.len() {
                 self.write_row(
                     &mut buf,
-                    width,
                     |i| self.rows.get(row_index, i).unwrap_or_default(),
                     |i| {
                         // Within the selected row the focused cell is marked
                         // while the table has focus, so Left and Right show.
                         if row_selected && focused && i == self.focused_col {
                             cursor
+                        } else if i < frozen && !row_selected {
+                            header
                         } else {
                             row_attr
                         }
@@ -714,6 +767,7 @@ pub struct TableBuilder {
     rows: Vec<Vec<String>>,
     show_header: bool,
     separators: bool,
+    frozen_cols: usize,
     on_select: CommandId,
 }
 
@@ -725,6 +779,7 @@ impl TableBuilder {
             rows: Vec::new(),
             show_header: true,
             separators: false,
+            frozen_cols: 0,
             on_select: 0,
         }
     }
@@ -759,6 +814,13 @@ impl TableBuilder {
         self
     }
 
+    /// See [`Table::set_frozen_cols`].
+    #[must_use]
+    pub fn frozen_cols(mut self, count: usize) -> Self {
+        self.frozen_cols = count;
+        self
+    }
+
     #[must_use]
     pub fn on_select(mut self, command: CommandId) -> Self {
         self.on_select = command;
@@ -771,6 +833,7 @@ impl TableBuilder {
         table.set_show_header(self.show_header);
         table.set_separators(self.separators);
         table.set_columns(self.columns);
+        table.set_frozen_cols(self.frozen_cols);
         table.set_rows(self.rows);
         table
     }
@@ -1291,5 +1354,168 @@ mod tests {
         t.set_rows(vec![vec!["short".into()]]);
         t.set_selected_col(2);
         assert_eq!(t.selected_cell(), None);
+    }
+
+    // ---- frozen columns ----
+
+    /// The three-column test table, 20 wide (Name 10 + gap fills half), with
+    /// Name frozen.
+    fn frozen_table(rows: usize) -> Table {
+        let mut t = table(rows);
+        t.set_bounds(Rect::new(0, 0, 20, 6));
+        t.set_frozen_cols(1);
+        t
+    }
+
+    #[test]
+    fn nothing_is_frozen_by_default() {
+        let t = table(3);
+        assert_eq!(t.frozen_cols(), 0);
+        assert_eq!(t.column_offsets(), vec![(0, 10), (11, 6), (18, 8)]);
+    }
+
+    #[test]
+    fn a_frozen_column_stays_at_the_left_while_the_rest_scroll() {
+        let mut t = frozen_table(3);
+        // Name 0..10 frozen, gap 10, Size 11..17, Kind from 18, clipped to 2.
+        assert_eq!(t.column_offsets(), vec![(0, 10), (11, 6), (18, 2)]);
+        // Focusing Kind scrolls Size away; Name stays.
+        t.set_selected_col(2);
+        assert_eq!(t.column_offsets(), vec![(0, 10), (11, 8)]);
+        assert_eq!(t.first_col, 2);
+    }
+
+    #[test]
+    fn focusing_a_frozen_column_scrolls_nothing() {
+        let mut t = frozen_table(3);
+        t.set_selected_col(2);
+        t.set_selected_col(0);
+        assert_eq!(t.first_col, 2, "the scrolled part stays where it was");
+        assert_eq!(t.selected_cell().as_deref(), Some("file0"));
+    }
+
+    #[test]
+    fn left_walks_back_into_the_frozen_column() {
+        let mut t = frozen_table(3);
+        press_ctrl(&mut t, KB_RIGHT);
+        assert_eq!(t.selected_col(), 2);
+        press(&mut t, KB_LEFT);
+        assert_eq!(t.selected_col(), 1);
+        assert_eq!(t.first_col, 1, "Size scrolls back in");
+        press(&mut t, KB_LEFT);
+        assert_eq!(t.selected_col(), 0);
+        press_ctrl(&mut t, KB_RIGHT);
+        press_ctrl(&mut t, KB_LEFT);
+        assert_eq!(t.selected_col(), 0, "Ctrl+Left still reaches column 0");
+    }
+
+    #[test]
+    fn clicks_land_on_frozen_and_scrolled_columns_alike() {
+        let mut t = frozen_table(3);
+        t.set_selected_col(2); // Size scrolled off
+        for (index, (x, width)) in t.column_offsets().into_iter().enumerate() {
+            let expected = [0, 2][index];
+            let first = Point::new(i16::try_from(x).unwrap(), 1);
+            let last = Point::new(i16::try_from(x + usize::from(width) - 1).unwrap(), 1);
+            assert_eq!(t.cell_at(first), Some((0, expected)));
+            assert_eq!(t.cell_at(last), Some((0, expected)));
+        }
+    }
+
+    #[test]
+    fn the_freeze_line_marks_the_edge_even_without_separators() {
+        let mut t = frozen_table(3);
+        assert!(!t.separators());
+        let term = draw(&mut t, 20, 6);
+        for y in 0..6 {
+            assert_eq!(ch(&term, 10, y), FROZEN_SEPARATOR, "line {y}");
+        }
+        assert_eq!(ch(&term, 17, 1), ' ', "no plain separators");
+    }
+
+    #[test]
+    fn with_separators_the_freeze_line_keeps_its_own_glyph() {
+        let mut t = frozen_table(3);
+        t.set_separators(true);
+        let term = draw(&mut t, 20, 6);
+        assert_eq!(ch(&term, 10, 1), FROZEN_SEPARATOR);
+        assert_eq!(ch(&term, 17, 1), SEPARATOR);
+    }
+
+    #[test]
+    fn no_freeze_line_when_nothing_or_everything_is_frozen() {
+        let mut t = table(3);
+        let term = draw(&mut t, 30, 6);
+        assert_ne!(ch(&term, 10, 1), FROZEN_SEPARATOR);
+        t.set_frozen_cols(3);
+        let term = draw(&mut t, 30, 6);
+        assert_ne!(
+            ch(&term, 26, 1),
+            FROZEN_SEPARATOR,
+            "nothing scrolls past it"
+        );
+    }
+
+    #[test]
+    fn frozen_cells_take_the_header_colour_outside_the_selected_row() {
+        let mut t = frozen_table(3);
+        let term = draw(&mut t, 20, 6);
+        let attr = |x, y| term.read_cell(x, y).unwrap().attr;
+        let header = attr(0, 0);
+        // Row 1 (screen line 2) is not selected: its label is header-coloured,
+        // its scrolling cells are not.
+        assert_eq!(attr(0, 2), header);
+        assert_eq!(attr(9, 2), header);
+        assert_ne!(attr(11, 2), header);
+        // The selected row's bar runs through the frozen part; the focused
+        // cell (Name, frozen) still shows as the cursor.
+        assert_ne!(attr(0, 1), header);
+        t.set_selected_col(1);
+        let term = draw(&mut t, 20, 6);
+        let attr = |x, y| term.read_cell(x, y).unwrap().attr;
+        assert_eq!(attr(0, 1), attr(18, 1), "one bar across the selected row");
+    }
+
+    #[test]
+    fn freezing_more_columns_than_exist_freezes_them_all() {
+        let mut t = table(3);
+        t.set_frozen_cols(10);
+        assert_eq!(t.frozen_cols(), 10);
+        assert_eq!(t.column_offsets(), vec![(0, 10), (11, 6), (18, 8)]);
+        press_ctrl(&mut t, KB_RIGHT);
+        assert_eq!(t.selected_col(), 2);
+        let _ = draw(&mut t, 30, 6);
+    }
+
+    #[test]
+    fn frozen_columns_wider_than_the_table_are_clipped() {
+        let mut t = table(3);
+        t.set_bounds(Rect::new(0, 0, 8, 6));
+        t.set_frozen_cols(2);
+        assert_eq!(t.column_offsets(), vec![(0, 8)]);
+        press_ctrl(&mut t, KB_RIGHT);
+        assert_eq!(t.selected_col(), 2);
+        let _ = draw(&mut t, 8, 6);
+    }
+
+    #[test]
+    fn fewer_columns_keep_the_scroll_out_of_the_frozen_part() {
+        let mut t = frozen_table(3);
+        t.set_selected_col(2);
+        t.set_columns(vec![Column::new("Name", 10), Column::new("Kind", 8)]);
+        assert!(t.first_col >= 1);
+        assert_eq!(t.column_offsets(), vec![(0, 10), (11, 8)]);
+        t.clear_rows();
+        assert_eq!(t.first_col, 1);
+    }
+
+    #[test]
+    fn the_builder_freezes_columns() {
+        let t = TableBuilder::new()
+            .bounds(Rect::new(0, 0, 20, 6))
+            .columns(vec![Column::new("A", 4), Column::new("B", 4)])
+            .frozen_cols(1)
+            .build();
+        assert_eq!(t.frozen_cols(), 1);
     }
 }
