@@ -52,6 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- `showcase` and `sorted_listbox` examples: mouse clicks missed their
+  views. Their hand-written event routing handed the menu bar, status line,
+  desktop and list box screen coordinates, while views take events in their
+  own space since the owner-relative coordinates change; every click in a
+  desktop window landed a row low, so calculator buttons did nothing and
+  windows could not be dragged, and the status line's Exit never saw its
+  click. They now route through `views::view::dispatch_to_child`.
 - Non-ASCII text can be typed. `InputLine`, `Memo`, `SortedListBox`'s
   type-ahead and menu letters accepted only ASCII 32–126 (the editor a
   little more): `é`, `ñ`, `ç`, `€`, `ł`, Greek, Cyrillic and the rest now
