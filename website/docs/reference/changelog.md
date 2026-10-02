@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.1] - 2026-10-02
+
+### Added
+- PNG screenshots draw the whole box-drawing block (U+2500-U+257F): heavy
+  lines and their corners, tees and crosses, every light/heavy mix, dashed
+  lines, rounded corners, diagonals and half lines, instead of `?`. Heavy
+  strokes sit centred on the light rail, so all weights tile together; the
+  `glyph_sample` example shows them.
+
+### Fixed
+- The text cursor now shows in a focused `InputLine`, `Memo` or `Editor`,
+  inside windows, dialogs, tab pages and split panes. `Desktop`,
+  `TabbedPane` and `SplitPane` did not forward `update_cursor`, so the
+  focused control never reached the terminal. A modal window on top owns
+  the cursor, and an open menu-bar dropdown hides it. `Terminal::flush`
+  hides the cursor while it writes changed cells and then puts it back
+  where it was shown, since writing cells moves a real terminal's cursor.
+- `HelpViewer`: a mouse click on a link after scrolling the text sideways
+  now hits the link where it is drawn; the hit-test ignored the horizontal
+  scroll offset.
+- `InputParser` (the byte-stream parser SSH and WASM hosts use) now keeps
+  the xterm modifier of F-keys, arrows, Home/End and the tilde keys
+  (`ESC [ 15 ; 5 ~`, `ESC [ 1 ; 3 C`, `ESC [ 1 ; 5 P`, ...) in
+  `key_modifiers`, and makes the event through the same conversion as the
+  crossterm backend, so a modified key from a remote host is the same event
+  as from a local terminal (Ctrl+F5 is `KB_F5` + `CONTROL`, Ctrl+F12 is
+  `KB_CTRL_F12`). Modified F1-F4 (`ESC [ 1 ; m P..S`) were key code 0.
+- `HelpFile` records every link on a line in the topic's `links` (and its
+  "See also" list), not just the first. Links are found the same way the
+  inline links are drawn.
+- `examples/README.md` lists the 39 examples that exist, grouped, each with
+  its run command; it named five that no longer exist and missed 28.
+
 ## [4.0.0] - 2026-10-01
 
 ### Removed

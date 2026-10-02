@@ -5,6 +5,15 @@ in prose, newest first. If you are moving a project onto 4.0.0, work through
 [the 4.0 upgrade guide](reference/upgrading-4.0.md) instead: it is the same ground as an ordered
 checklist. Moving from 3.0.0 instead uses [the 3.0 upgrade guide](reference/upgrading.md).
 
+## 4.0.1 &mdash; October 2026
+
+The text cursor now shows in a focused InputLine, Memo or Editor, inside windows, dialogs, tab pages
+and split panes, and stays put on a real terminal and over SSH (it is put back after each redraw).
+Also fixed: help links are clickable after scrolling sideways, every link on a help line reaches
+"See also", and the byte-stream input parser used by SSH and WASM hosts keeps Shift/Alt/Ctrl on
+F-keys, arrows and editing keys. PNG screenshots now draw the whole box-drawing block (heavy, dashed,
+rounded, diagonal and half lines).
+
 ## 4.0.0 &mdash; October 2026
 
 SSH, remote input, Kitty/ANSI graphics, the log window and terminal widget, and the
