@@ -627,6 +627,14 @@ impl View for Desktop {
         self.children.draw(terminal);
     }
 
+    fn update_cursor(&self, terminal: &mut Terminal) {
+        // The child group fills the desktop's own space, so, as in `draw`,
+        // no origin is pushed for it. It hides the cursor, then lets the
+        // focused window (the modal one, when a modal window is on top)
+        // show it for its focused control.
+        self.children.update_cursor(terminal);
+    }
+
     fn handle_event(&mut self, event: &mut Event) {
         use crate::core::event::EventType;
 

@@ -2728,3 +2728,109 @@ mod window_key_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod cursor_tests {
+    //! The terminal cursor follows the focused text control: the desktop
+    //! hands `update_cursor` down to its windows.
+    use super::*;
+    use crate::views::button::Button;
+    use crate::views::dialog::Dialog;
+    use crate::views::group::GroupLike;
+    use crate::views::input_line::InputLine;
+    use crate::views::window::Window;
+    use std::sync::{Arc, Mutex};
+
+    type Cursor = Arc<Mutex<Option<(u16, u16)>>>;
+
+    /// An application with a menu bar, so the desktop starts at row 1, and
+    /// the handle its backend records the cursor through.
+    fn app() -> (Application, Cursor) {
+        let backend = crate::test_util::TestBackend::new(80, 25);
+        let cursor = backend.cursor_handle();
+        let terminal = Terminal::with_backend(Box::new(backend)).unwrap();
+        let mut app = Application::with_terminal(terminal);
+        app.set_menu_bar(MenuBar::new(Rect::new(0, 0, 80, 1)));
+        (app, cursor)
+    }
+
+    fn input(text: &str) -> InputLine {
+        let mut line = InputLine::new(Rect::new(2, 2, 22, 3), 40);
+        line.set_text(text);
+        line
+    }
+
+    /// Where `text` was drawn on screen.
+    fn drawn_at(app: &Application, text: &str) -> (u16, u16) {
+        let (w, h) = app.terminal.size();
+        for y in 0..h as i16 {
+            let row: String = (0..w as i16)
+                .map(|x| app.terminal.read_cell(x, y).unwrap().ch)
+                .collect();
+            if let Some(i) = row.find(text) {
+                return (row[..i].chars().count() as u16, y as u16);
+            }
+        }
+        panic!("{text:?} was not drawn");
+    }
+
+    #[test]
+    fn a_focused_input_line_shows_the_cursor() {
+        let (mut app, cursor) = app();
+        let mut window = Window::new(Rect::new(10, 5, 50, 15), "W");
+        window.add(Box::new(input("hello")));
+        app.desktop.add(window);
+        app.draw();
+
+        let (x, y) = drawn_at(&app, "hello");
+        assert!(x > 10 && y > 5, "drawn inside the window: {:?}", (x, y));
+        assert_eq!(*cursor.lock().unwrap(), Some((x + 5, y)));
+    }
+
+    #[test]
+    fn no_focused_text_control_hides_the_cursor() {
+        let (mut app, cursor) = app();
+        *cursor.lock().unwrap() = Some((1, 1));
+        let mut window = Window::new(Rect::new(10, 5, 50, 15), "W");
+        window.add(Box::new(Button::new(
+            Rect::new(2, 2, 12, 4),
+            "OK",
+            crate::core::command::CM_OK,
+            true,
+        )));
+        app.desktop.add(window);
+        app.draw();
+        assert_eq!(*cursor.lock().unwrap(), None);
+    }
+
+    #[test]
+    fn a_modal_dialog_on_the_desktop_owns_the_cursor() {
+        let (mut app, cursor) = app();
+        let mut back = Window::new(Rect::new(1, 1, 40, 12), "Back");
+        back.add(Box::new(input("behind")));
+        app.desktop.add(back);
+        let mut dialog = Dialog::new(Rect::new(30, 8, 70, 18), "Modal");
+        dialog.add(input("front!"));
+        dialog.set_state(dialog.state() | State::MODAL);
+        app.desktop.add(dialog);
+        app.draw();
+
+        let (x, y) = drawn_at(&app, "front!");
+        assert_eq!(*cursor.lock().unwrap(), Some((x + 6, y)));
+    }
+
+    #[test]
+    fn execute_modal_puts_the_cursor_in_the_view_once() {
+        let (mut app, cursor) = app();
+        let mut dialog = Dialog::new(Rect::new(20, 6, 60, 16), "Run");
+        dialog.add(input("abc"));
+        // What `Dialog::execute` does before the loop.
+        dialog.set_initial_focus();
+        let result = app.execute_modal(&mut dialog, |_, _| ModalTick::End(CM_CANCEL));
+        assert_eq!(result, CM_CANCEL);
+
+        let (x, y) = drawn_at(&app, "abc");
+        assert!(x > 20 && y > 6, "drawn inside the dialog: {:?}", (x, y));
+        assert_eq!(*cursor.lock().unwrap(), Some((x + 3, y)));
+    }
+}

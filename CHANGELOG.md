@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `glyph_sample` example shows them.
 
 ### Fixed
+- The text cursor shows again in a focused `InputLine`, `Memo` or `Editor`
+  in a window on the desktop. `Desktop` did not forward `update_cursor` to
+  its windows, so `Application::draw` never reached the focused control and
+  the cursor was never shown (or hidden). A modal window on top owns the
+  cursor.
 - `HelpViewer`: a mouse click on a link after scrolling the text sideways
   now hits the link where it is drawn; the hit-test ignored the horizontal
   scroll offset.
