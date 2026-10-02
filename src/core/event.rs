@@ -7,6 +7,7 @@ use super::geometry::Point;
 use crate::core::keys::{KeyCode as CKC, KeyEvent, KeyModifiers};
 use std::fmt;
 use std::time::{Duration, Instant};
+use unicode_width::UnicodeWidthChar;
 
 /// Keyboard code (scan code + character)
 pub type KeyCode = u16;
@@ -132,6 +133,13 @@ pub const KB_CTRL_Z: KeyCode = 0x001a; // CTRL+Z
 // Double ESC for closing dialogs
 pub const KB_ESC_ESC: KeyCode = 0x011C; // Double ESC
 
+/// Key code of a typed character past Latin-1. Key codes carry a typed
+/// character's own value only up to U+00FF: past that, characters would
+/// collide with special keys (`ě` is U+011B, the value of [`KB_ESC`]). Such a
+/// character arrives with this key code and is read from [`Event::ch`], or
+/// better through [`Event::typed_char`], which covers every character.
+pub const KB_TEXT: KeyCode = 0xFFFF;
+
 /// Event types (matching original Turbo Vision)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventType {
@@ -207,6 +215,12 @@ pub struct Event {
     /// Matches Borland's TEvent.message.infoPtr/infoInt (e.g. the radio-button
     /// group id on a selection broadcast). Zero when unused.
     pub info: u16,
+    /// The character a keyboard event types, as the terminal reported it, or
+    /// `None` for a key that types nothing (an arrow, a function key, a
+    /// Ctrl or Alt chord). Matches Borland's `charScan.charCode` and tvision's
+    /// `keyDown.text`. Text-taking views read it through
+    /// [`typed_char`](Self::typed_char).
+    pub ch: Option<char>,
 }
 
 impl Event {
@@ -222,6 +236,7 @@ impl Event {
             },
             command: 0,
             info: 0,
+            ch: None,
         }
     }
 
@@ -272,14 +287,64 @@ impl Event {
         }
     }
 
+    /// A key that types `ch`, with the key code a terminal would give it:
+    /// the character's value up to U+00FF, [`KB_TEXT`] past it.
+    pub fn text(ch: char) -> Self {
+        Self {
+            ch: Some(ch),
+            ..Self::keyboard(text_key_code(ch))
+        }
+    }
+
     pub fn from_crossterm_key(key_event: KeyEvent) -> Self {
-        let key_code = crossterm_to_keycode(key_event);
+        Self::from_key(key_event, crossterm_to_keycode(key_event))
+    }
+
+    /// The event for `key` once its key code is known. The typed character
+    /// is kept only when the key code is the key's plain one: a key turned
+    /// into an Alt chord (Esc then a letter) types nothing.
+    pub(crate) fn from_key(key: KeyEvent, key_code: KeyCode) -> Self {
+        let plain = key_code == crossterm_to_keycode(key);
         Self {
             what: EventType::Keyboard,
             key_code,
-            key_modifiers: key_event.modifiers,
+            key_modifiers: key.modifiers,
+            ch: if plain { key_text(key) } else { None },
             ..Self::nothing()
         }
+    }
+
+    /// The character this event types into a text field, if it types one
+    /// that fits a screen cell.
+    ///
+    /// Reads [`ch`](Self::ch) when the terminal reported it. An event built
+    /// from a key code alone, as `Event::keyboard('a' as u16)` in a test or a
+    /// key injected by number, falls back to the code itself when it is a
+    /// printable ASCII or Latin-1 character. Control characters, and
+    /// characters two cells wide or with no width of their own (CJK,
+    /// emoji, combining marks), are not typed: a screen cell holds one
+    /// character, one column wide.
+    ///
+    /// ```
+    /// use turbo_vision::core::event::{Event, KB_ESC, KB_TEXT};
+    ///
+    /// let e = Event::text('ě');
+    /// assert_eq!(e.key_code, KB_TEXT); // not KB_ESC, whose value is U+011B
+    /// assert_eq!(e.typed_char(), Some('ě'));
+    /// assert_eq!(Event::text('é').key_code, 0xE9); // Latin-1 keeps its value
+    /// assert_eq!(Event::keyboard(KB_ESC).typed_char(), None);
+    /// ```
+    pub fn typed_char(&self) -> Option<char> {
+        if self.what != EventType::Keyboard {
+            return None;
+        }
+        let ch = self.ch.or_else(|| {
+            let code = u32::from(self.key_code);
+            ((0x20..0x7F).contains(&code) || (0xA0..=0xFF).contains(&code))
+                .then(|| char::from_u32(code))
+                .flatten()
+        })?;
+        (!ch.is_control() && ch.width() == Some(1)).then_some(ch)
     }
 
     /// Mark this event as handled (clear it)
@@ -578,6 +643,27 @@ pub fn parse_key_chord(chord: &str) -> Option<Event> {
     })
 }
 
+/// The key code of a typed character: its value up to U+00FF, [`KB_TEXT`]
+/// past it, where values would collide with special keys.
+fn text_key_code(ch: char) -> KeyCode {
+    u16::try_from(u32::from(ch))
+        .ok()
+        .filter(|&code| code <= 0xFF)
+        .unwrap_or(KB_TEXT)
+}
+
+/// The character a crossterm key types: a plain or shifted character key.
+/// Ctrl or Alt alone make it a chord; both together are `AltGr` on Windows,
+/// which types characters such as `@` or `€` on many layouts.
+fn key_text(key: KeyEvent) -> Option<char> {
+    let CKC::Char(c) = key.code else {
+        return None;
+    };
+    let ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    let alt = key.modifiers.contains(KeyModifiers::ALT);
+    (ctrl == alt && !c.is_control()).then_some(c)
+}
+
 /// Convert crossterm KeyEvent to our KeyCode
 fn crossterm_to_keycode(key: KeyEvent) -> KeyCode {
     match key.code {
@@ -599,7 +685,7 @@ fn crossterm_to_keycode(key: KeyEvent) -> KeyCode {
                 }
             }
 
-            c as u16
+            text_key_code(c)
         }
         CKC::Enter => KB_ENTER,
         CKC::Backspace => KB_BACKSPACE,
@@ -691,5 +777,85 @@ mod chord_tests {
         assert!(parse_key_chord("NOPEKEY").is_none());
         assert!(parse_key_chord("CTRL+").is_none());
         assert!(parse_key_chord("").is_none());
+    }
+
+    // ---- typed characters ----
+
+    fn key(c: char, modifiers: KeyModifiers) -> Event {
+        Event::from_crossterm_key(KeyEvent::new(CKC::Char(c), modifiers))
+    }
+
+    #[test]
+    fn ascii_and_latin1_keep_their_value_as_key_code() {
+        let e = key('a', KeyModifiers::empty());
+        assert_eq!(
+            (e.key_code, e.ch, e.typed_char()),
+            (u16::from(b'a'), Some('a'), Some('a'))
+        );
+        let e = key('é', KeyModifiers::SHIFT);
+        assert_eq!((e.key_code, e.typed_char()), (0xE9, Some('é')));
+    }
+
+    #[test]
+    fn characters_past_latin1_no_longer_collide_with_special_keys() {
+        // U+011B is KB_ESC's value, U+011C KB_ESC_ESC's, U+2D00 Alt+X's.
+        for c in ['ě', 'Ĝ', 'ⴀ', 'ł', '€', 'ω', 'ж'] {
+            let e = key(c, KeyModifiers::empty());
+            assert_eq!(e.key_code, KB_TEXT, "{c}");
+            assert_eq!(e.typed_char(), Some(c), "{c}");
+        }
+        assert_ne!(key('ě', KeyModifiers::empty()).key_code, KB_ESC);
+    }
+
+    #[test]
+    fn chords_type_nothing_but_altgr_types_its_character() {
+        assert_eq!(key('a', KeyModifiers::CONTROL).typed_char(), None);
+        assert_eq!(key('f', KeyModifiers::ALT).typed_char(), None);
+        // AltGr arrives as Ctrl+Alt on Windows: `@` on a Spanish keyboard.
+        let altgr = KeyModifiers::CONTROL | KeyModifiers::ALT;
+        assert_eq!(key('@', altgr).typed_char(), Some('@'));
+        assert_eq!(key('€', altgr).typed_char(), Some('€'));
+    }
+
+    #[test]
+    fn wide_and_zero_width_characters_are_not_typed_yet() {
+        for c in ['中', '😀', '\u{0301}'] {
+            let e = key(c, KeyModifiers::empty());
+            assert_eq!(e.ch, Some(c), "the terminal's character is kept");
+            assert_eq!(e.typed_char(), None, "but a cell holds one column: {c:?}");
+        }
+    }
+
+    #[test]
+    fn events_built_from_a_key_code_still_type_their_character() {
+        assert_eq!(Event::keyboard(u16::from(b'x')).typed_char(), Some('x'));
+        assert_eq!(Event::keyboard(0xF1).typed_char(), Some('ñ'));
+        for code in [KB_ESC, KB_ENTER, KB_BACKSPACE, KB_TAB, KB_TEXT, 0x7F, 0x9F] {
+            assert_eq!(Event::keyboard(code).typed_char(), None, "{code:#06x}");
+        }
+        assert_eq!(
+            Event::command(u16::from(b'a')).typed_char(),
+            None,
+            "not a key"
+        );
+    }
+
+    #[test]
+    fn event_text_gives_the_terminal_key_code() {
+        assert_eq!(Event::text('é').key_code, 0xE9);
+        assert_eq!(Event::text('ě').key_code, KB_TEXT);
+        assert_eq!(Event::text('ě').typed_char(), Some('ě'));
+    }
+
+    #[test]
+    fn esc_then_a_letter_is_an_alt_chord_and_types_nothing() {
+        let mut tracker = EscSequenceTracker::new();
+        let esc = KeyEvent::new(CKC::Esc, KeyModifiers::empty());
+        assert_eq!(tracker.process_key(esc), 0);
+        let f = KeyEvent::new(CKC::Char('f'), KeyModifiers::empty());
+        let code = tracker.process_key(f);
+        let e = Event::from_key(f, code);
+        assert_eq!(e.key_code, KB_ALT_F);
+        assert_eq!(e.typed_char(), None);
     }
 }

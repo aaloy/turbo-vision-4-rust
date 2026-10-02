@@ -153,7 +153,7 @@ impl Memo {
     fn max_line_length(&self) -> i16 {
         self.lines
             .iter()
-            .map(|line| line.len() as i16)
+            .map(|line| line.chars().count() as i16)
             .max()
             .unwrap_or(0)
     }
@@ -764,10 +764,9 @@ impl View for Memo {
                         }
                         event.clear();
                     }
-                    key_code => {
-                        // Regular character input
-                        if (32..127).contains(&key_code) {
-                            let ch = key_code as u8 as char;
+                    _ => {
+                        // Regular character input: any character that fits a cell
+                        if let Some(ch) = event.typed_char() {
                             self.insert_char(ch);
                             event.clear();
                         }
@@ -1004,6 +1003,20 @@ mod tests {
 
         assert!(!memo.has_selection());
         assert_eq!(ev.what, EventType::Command); // not consumed
+    }
+    #[test]
+    fn non_ascii_text_can_be_typed() {
+        let mut memo = Memo::new(Rect::new(0, 0, 40, 10));
+        memo.set_focus(true);
+        for ch in "Ñandú ě €".chars() {
+            memo.handle_event(&mut Event::text(ch));
+        }
+        assert_eq!(memo.get_text(), "Ñandú ě €");
+        assert_eq!(
+            memo.max_line_length(),
+            9,
+            "measured in characters, not bytes"
+        );
     }
 }
 

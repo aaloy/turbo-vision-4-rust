@@ -326,9 +326,9 @@ impl View for SortedListBox {
                     event.clear();
                     return;
                 }
-                key @ 32..=126 => {
+                _ if event.typed_char().is_some() => {
                     let mut candidate = self.search_string.clone();
-                    candidate.push(key as u8 as char);
+                    candidate.extend(event.typed_char());
                     if self.focus_prefix(&candidate) {
                         self.search_string = candidate;
                     }
@@ -602,5 +602,15 @@ mod tests {
         assert_eq!(listbox.items[0], "apple");
         assert_eq!(listbox.items[1], "Banana");
         assert_eq!(listbox.items[2], "ZEBRA");
+    }
+
+    #[test]
+    fn type_ahead_finds_non_ascii_prefixes() {
+        let mut list = SortedListBox::new(Rect::new(0, 0, 20, 5), 0);
+        list.set_items(vec!["Zaragoza".into(), "Ñandú".into(), "Ávila".into()]);
+        list.set_focus(true);
+        list.handle_event(&mut Event::text('ñ'));
+        let selected = list.get_selection().map(|i| list.items[i].clone());
+        assert_eq!(selected.as_deref(), Some("Ñandú"));
     }
 }

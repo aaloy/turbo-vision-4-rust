@@ -2027,20 +2027,13 @@ impl View for EditorWindow {
                     self.redo();
                     event.clear();
                 }
-                key_code => {
-                    // Accept printable characters (Unicode BMP, excludes control chars).
-                    // Key codes above 0xFF with a zero low byte are special keys
-                    // (Alt combos, function keys, arrow keys) that must NOT be
-                    // inserted as text — they need to propagate to the menu bar
-                    // and application for shortcut handling.
-                    let is_special = key_code > 0xFF && (key_code & 0xFF) == 0;
-                    if !is_special {
-                        if let Some(ch) = char::from_u32(key_code as u32) {
-                            if !ch.is_control() {
-                                self.insert_char(ch);
-                                event.clear();
-                            }
-                        }
+                _ => {
+                    // Any character that fits a cell. Keys that type nothing
+                    // (Alt combos, function keys, arrows) are left for the
+                    // menu bar and the application's shortcuts.
+                    if let Some(ch) = event.typed_char() {
+                        self.insert_char(ch);
+                        event.clear();
                     }
                 }
             }
@@ -2705,5 +2698,17 @@ mod tests {
         editor.set_focus(true);
         editor.handle_event(&mut down);
         assert_eq!(editor.selection_mode, SelectionMode::Stream);
+    }
+
+    #[test]
+    fn characters_past_latin1_are_typed_not_taken_for_keys() {
+        use crate::core::event::Event;
+        let mut editor = EditorWindow::new(Rect::new(0, 0, 40, 10));
+        editor.set_focus(true);
+        for ch in "ěł€".chars() {
+            let mut e = Event::text(ch);
+            editor.handle_event(&mut e);
+        }
+        assert_eq!(editor.get_text(), "ěł€");
     }
 }
