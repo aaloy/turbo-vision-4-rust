@@ -2774,6 +2774,182 @@ mod cursor_tests {
         panic!("{text:?} was not drawn");
     }
 
+    /// What the terminal asked of the backend, in order.
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    enum Op {
+        Write,
+        Show(u16, u16),
+        Hide,
+        Flush,
+    }
+
+    struct LogBackend {
+        log: Arc<Mutex<Vec<Op>>>,
+    }
+
+    impl crate::terminal::Backend for LogBackend {
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+        fn init(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn cleanup(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn size(&self) -> std::io::Result<(u16, u16)> {
+            Ok((80, 25))
+        }
+        fn poll_event(&mut self, _: std::time::Duration) -> std::io::Result<Option<Event>> {
+            Ok(None)
+        }
+        fn write_raw(&mut self, _: &[u8]) -> std::io::Result<()> {
+            self.log.lock().unwrap().push(Op::Write);
+            Ok(())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.log.lock().unwrap().push(Op::Flush);
+            Ok(())
+        }
+        fn show_cursor(&mut self, x: u16, y: u16) -> std::io::Result<()> {
+            self.log.lock().unwrap().push(Op::Show(x, y));
+            Ok(())
+        }
+        fn hide_cursor(&mut self) -> std::io::Result<()> {
+            self.log.lock().unwrap().push(Op::Hide);
+            Ok(())
+        }
+    }
+
+    /// An application over a [`LogBackend`] with a window holding a focused
+    /// input line "hello", drawn and flushed once.
+    fn logged_app() -> (Application, Arc<Mutex<Vec<Op>>>, (u16, u16)) {
+        let log = Arc::new(Mutex::new(Vec::new()));
+        let terminal = Terminal::with_backend(Box::new(LogBackend {
+            log: Arc::clone(&log),
+        }))
+        .unwrap();
+        let mut app = Application::with_terminal(terminal);
+        app.set_menu_bar(MenuBar::new(Rect::new(0, 0, 80, 1)));
+        let mut window = Window::new(Rect::new(10, 5, 50, 15), "W");
+        window.add(Box::new(input("hello")));
+        app.desktop.add(window);
+        app.draw();
+        app.terminal.flush().unwrap();
+        let (x, y) = drawn_at(&app, "hello");
+        (app, log, (x + 5, y))
+    }
+
+    /// Every flush that wrote cells hid the cursor before the first write
+    /// and showed it at `at` after the last one.
+    fn assert_cursor_put_back(log: &[Op], at: (u16, u16)) {
+        let mut start = 0;
+        let mut checked = 0;
+        for (i, op) in log.iter().enumerate() {
+            if *op != Op::Flush {
+                continue;
+            }
+            let segment = &log[start..i];
+            start = i + 1;
+            let Some(first) = segment.iter().position(|o| *o == Op::Write) else {
+                continue;
+            };
+            let last = segment.iter().rposition(|o| *o == Op::Write).unwrap();
+            assert_eq!(
+                segment[..first]
+                    .iter()
+                    .rev()
+                    .find(|o| matches!(o, Op::Show(..) | Op::Hide)),
+                Some(&Op::Hide),
+                "the cursor is hidden while cells are written: {log:?}"
+            );
+            assert_eq!(
+                segment[last..]
+                    .iter()
+                    .rev()
+                    .find(|o| matches!(o, Op::Show(..) | Op::Hide)),
+                Some(&Op::Show(at.0, at.1)),
+                "the cursor is put back after the cells: {log:?}"
+            );
+            checked += 1;
+        }
+        assert!(checked > 0, "no flush wrote cells: {log:?}");
+    }
+
+    #[test]
+    fn the_cursor_is_put_back_after_a_flush_writes_cells() {
+        let (mut app, log, at) = logged_app();
+        assert_cursor_put_back(&log.lock().unwrap(), at);
+
+        // A later frame that changes cells: typing (which replaces the
+        // selected text) moves the cursor to just after the "!".
+        log.lock().unwrap().clear();
+        let mut key = Event::keyboard('!' as u16);
+        app.handle_event(&mut key);
+        app.draw();
+        app.terminal.flush().unwrap();
+        let (x, y) = drawn_at(&app, "!");
+        assert_cursor_put_back(&log.lock().unwrap(), (x + 1, y));
+    }
+
+    #[test]
+    fn a_flush_with_no_changed_cells_leaves_the_cursor_alone() {
+        let (mut app, log, _) = logged_app();
+        log.lock().unwrap().clear();
+        app.terminal.flush().unwrap();
+        assert_eq!(*log.lock().unwrap(), vec![Op::Flush]);
+    }
+
+    /// An overlay that draws a different digit each time.
+    struct Ticker {
+        core: crate::views::view::ViewCore,
+        n: u8,
+    }
+
+    impl View for Ticker {
+        fn core(&self) -> &crate::views::view::ViewCore {
+            &self.core
+        }
+        fn core_mut(&mut self) -> &mut crate::views::view::ViewCore {
+            &mut self.core
+        }
+        fn draw(&mut self, terminal: &mut Terminal) {
+            self.n = (self.n + 1) % 10;
+            let attr = crate::core::palette::Attr::from_u8(0x1F);
+            terminal.write_cell(
+                78,
+                0,
+                crate::core::draw::Cell::new((b'0' + self.n) as char, attr),
+            );
+        }
+        fn handle_event(&mut self, _: &mut Event) {}
+        fn get_palette(&self) -> Option<crate::core::palette::Palette> {
+            None
+        }
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+    }
+
+    #[test]
+    fn an_idle_overlay_redraw_puts_the_cursor_back() {
+        let (mut app, log, at) = logged_app();
+        app.add_overlay_widget(Ticker {
+            core: crate::views::view::ViewCore {
+                bounds: Rect::new(78, 0, 79, 1),
+                ..Default::default()
+            },
+            n: 0,
+        });
+        app.needs_redraw = false;
+        log.lock().unwrap().clear();
+        app.step(&mut (), None);
+        assert_cursor_put_back(&log.lock().unwrap(), at);
+    }
+
     #[test]
     fn a_focused_input_line_shows_the_cursor() {
         let (mut app, cursor) = app();

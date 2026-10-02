@@ -155,6 +155,10 @@ pub struct Terminal {
     /// before the built-in capture by Ctrl+F12, F12, `CM_SCREENSHOT`, and
     /// injected capture chords.
     capture_hook: Option<CaptureHook>,
+    /// The screen cell the cursor was last shown at, or `None` while it is
+    /// hidden. Writing cells moves a real terminal's cursor, so `flush`
+    /// puts it back here afterwards.
+    cursor: Option<(u16, u16)>,
 }
 
 impl Terminal {
@@ -250,6 +254,7 @@ impl Terminal {
             injected_rx: None,
             injected_tx: None,
             capture_hook: None,
+            cursor: None,
         })
     }
 
@@ -602,9 +607,15 @@ impl Terminal {
             }
         }
 
-        // Send through backend
+        // Send through backend. Writing cells moves the cursor, so hide it
+        // while they go out (it would sweep across the screen) and put it
+        // back where it was asked for. With nothing to write, leave it be.
         if !output.is_empty() {
+            self.backend.hide_cursor()?;
             self.backend.write_raw(&output)?;
+            if let Some((x, y)) = self.cursor {
+                self.backend.show_cursor(x, y)?;
+            }
         }
         self.backend.flush()?;
 
@@ -620,13 +631,15 @@ impl Terminal {
         let o = self.origin();
         let (sx, sy) = (x + o.x, y + o.y);
         if sx < 0 || sy < 0 || sx >= self.width as i16 || sy >= self.height as i16 {
-            return self.backend.hide_cursor();
+            return self.hide_cursor();
         }
+        self.cursor = Some((sx as u16, sy as u16));
         self.backend.show_cursor(sx as u16, sy as u16)
     }
 
     /// Hide the cursor.
     pub fn hide_cursor(&mut self) -> io::Result<()> {
+        self.cursor = None;
         self.backend.hide_cursor()
     }
 
