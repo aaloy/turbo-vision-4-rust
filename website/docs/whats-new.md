@@ -5,6 +5,16 @@ in prose, newest first. If you are moving a project onto 4.0.0, work through
 [the 4.0 upgrade guide](reference/upgrading-4.0.md) instead: it is the same ground as an ordered
 checklist. Moving from 3.0.0 instead uses [the 3.0 upgrade guide](reference/upgrading.md).
 
+## 4.0.2 &mdash; October 2026
+
+The text cursor no longer shows through menus, combo-box drop-downs and history lists: a popup hides
+it while it owns the input and puts it back when it closes. The cursor is now sent once per frame,
+after the changed cells, so it never flickers at its new position over the old screen, and raw
+output (`Terminal::write_raw`, used for Kitty images) leaves it where it was. `show_cursor` and
+`hide_cursor` take effect on the next `flush`: a loop that drives the terminal itself sets the
+cursor before flushing, and a host-driven embedder flushes after its final draw or reads
+`Terminal::cursor`.
+
 ## 4.0.1 &mdash; October 2026
 
 The text cursor now shows in a focused InputLine, Memo or Editor, inside windows, dialogs, tab pages
