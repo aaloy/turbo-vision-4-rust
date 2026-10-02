@@ -1,12 +1,14 @@
 // (C) 2026 - Enzo Lombardi
 
-//! Glyphs drawn from geometry rather than bitmaps: CP437's box drawing, the
-//! block elements (U+2580-U+259F), shades, and the triangles Turbo Vision
-//! uses for arrows and the resize handle.
+//! Glyphs drawn from geometry rather than bitmaps: box drawing
+//! (U+2500-U+257F), the block elements (U+2580-U+259F), shades, and the
+//! triangles Turbo Vision uses for arrows and the resize handle.
 //!
 //! Box-drawing strokes run from the cell edge to the middle of the cell on
 //! fixed rails, so a stroke leaving one cell meets the stroke entering the
-//! next whatever the two characters are.
+//! next whatever the two characters are. Dashed lines are the solid stroke
+//! with gaps, rounded corners are light corners with the corner pixel cut,
+//! and the diagonals run corner to corner.
 
 use super::{FONT_H, FONT_W, GlyphMask};
 
@@ -31,6 +33,15 @@ fn fill_rect(mask: &mut GlyphMask, x0: usize, y0: usize, x1: usize, y1: usize) {
 pub(super) fn glyph(ch: char) -> Option<GlyphMask> {
     if let Some(arms) = box_arms(ch) {
         return Some(box_glyph(arms));
+    }
+    if let Some((solid, dashes)) = dashed(ch) {
+        return Some(dash(box_arms(solid)?, dashes));
+    }
+    if let Some(square) = rounded(ch) {
+        return Some(round_corner(box_arms(square)?));
+    }
+    if let Some(mask) = diagonal(ch) {
+        return Some(mask);
     }
     if let Some(mask) = block(ch) {
         return Some(mask);
@@ -66,8 +77,10 @@ pub(super) fn glyph(ch: char) -> Option<GlyphMask> {
 enum W {
     /// No stroke.
     N,
-    /// A single line.
+    /// A single (light) line.
     S,
+    /// A heavy line: one wide rail centred on the single line's.
+    H,
     /// A double line.
     D,
 }
@@ -81,21 +94,80 @@ struct Arms {
     right: W,
 }
 
-/// CP437's box-drawing characters, by the strokes they have.
+/// The solid box-drawing characters, by the strokes they have: light,
+/// heavy and double lines, their corners, tees and crosses, and the half
+/// lines.
 fn box_arms(ch: char) -> Option<Arms> {
-    use W::{D, N, S};
+    use W::{D, H, N, S};
     let (up, down, left, right) = match ch {
         '─' => (N, N, S, S),
+        '━' => (N, N, H, H),
         '│' => (S, S, N, N),
+        '┃' => (H, H, N, N),
         '┌' => (N, S, N, S),
+        '┍' => (N, S, N, H),
+        '┎' => (N, H, N, S),
+        '┏' => (N, H, N, H),
         '┐' => (N, S, S, N),
+        '┑' => (N, S, H, N),
+        '┒' => (N, H, S, N),
+        '┓' => (N, H, H, N),
         '└' => (S, N, N, S),
+        '┕' => (S, N, N, H),
+        '┖' => (H, N, N, S),
+        '┗' => (H, N, N, H),
         '┘' => (S, N, S, N),
+        '┙' => (S, N, H, N),
+        '┚' => (H, N, S, N),
+        '┛' => (H, N, H, N),
         '├' => (S, S, N, S),
+        '┝' => (S, S, N, H),
+        '┞' => (H, S, N, S),
+        '┟' => (S, H, N, S),
+        '┠' => (H, H, N, S),
+        '┡' => (H, S, N, H),
+        '┢' => (S, H, N, H),
+        '┣' => (H, H, N, H),
         '┤' => (S, S, S, N),
+        '┥' => (S, S, H, N),
+        '┦' => (H, S, S, N),
+        '┧' => (S, H, S, N),
+        '┨' => (H, H, S, N),
+        '┩' => (H, S, H, N),
+        '┪' => (S, H, H, N),
+        '┫' => (H, H, H, N),
         '┬' => (N, S, S, S),
+        '┭' => (N, S, H, S),
+        '┮' => (N, S, S, H),
+        '┯' => (N, S, H, H),
+        '┰' => (N, H, S, S),
+        '┱' => (N, H, H, S),
+        '┲' => (N, H, S, H),
+        '┳' => (N, H, H, H),
         '┴' => (S, N, S, S),
+        '┵' => (S, N, H, S),
+        '┶' => (S, N, S, H),
+        '┷' => (S, N, H, H),
+        '┸' => (H, N, S, S),
+        '┹' => (H, N, H, S),
+        '┺' => (H, N, S, H),
+        '┻' => (H, N, H, H),
         '┼' => (S, S, S, S),
+        '┽' => (S, S, H, S),
+        '┾' => (S, S, S, H),
+        '┿' => (S, S, H, H),
+        '╀' => (H, S, S, S),
+        '╁' => (S, H, S, S),
+        '╂' => (H, H, S, S),
+        '╃' => (H, S, H, S),
+        '╄' => (H, S, S, H),
+        '╅' => (S, H, H, S),
+        '╆' => (S, H, S, H),
+        '╇' => (H, S, H, H),
+        '╈' => (S, H, H, H),
+        '╉' => (H, H, H, S),
+        '╊' => (H, H, S, H),
+        '╋' => (H, H, H, H),
         '═' => (N, N, D, D),
         '║' => (D, D, N, N),
         '╒' => (N, S, N, D),
@@ -125,6 +197,18 @@ fn box_arms(ch: char) -> Option<Arms> {
         '╪' => (S, S, D, D),
         '╫' => (D, D, S, S),
         '╬' => (D, D, D, D),
+        '╴' => (N, N, S, N),
+        '╵' => (S, N, N, N),
+        '╶' => (N, N, N, S),
+        '╷' => (N, S, N, N),
+        '╸' => (N, N, H, N),
+        '╹' => (H, N, N, N),
+        '╺' => (N, N, N, H),
+        '╻' => (N, H, N, N),
+        '╼' => (N, N, S, H),
+        '╽' => (S, H, N, N),
+        '╾' => (N, N, H, S),
+        '╿' => (H, S, N, N),
         _ => return None,
     };
     Some(Arms {
@@ -135,22 +219,109 @@ fn box_arms(ch: char) -> Option<Arms> {
     })
 }
 
+/// The dashed lines: the solid line each is cut from, and how many dashes
+/// it has per cell.
+fn dashed(ch: char) -> Option<(char, usize)> {
+    Some(match ch {
+        '╌' => ('─', 2),
+        '╍' => ('━', 2),
+        '╎' => ('│', 2),
+        '╏' => ('┃', 2),
+        '┄' => ('─', 3),
+        '┅' => ('━', 3),
+        '┆' => ('│', 3),
+        '┇' => ('┃', 3),
+        '┈' => ('─', 4),
+        '┉' => ('━', 4),
+        '┊' => ('│', 4),
+        '┋' => ('┃', 4),
+        _ => return None,
+    })
+}
+
+/// Cut `dashes` evenly spaced gaps into a straight line. The gaps are an
+/// eighth of the cell's length along the line (one pixel across, two
+/// down), centred in each `1/dashes` of it, so the pattern repeats from
+/// one cell to the next.
+fn dash(arms: Arms, dashes: usize) -> GlyphMask {
+    let mut mask = box_glyph(arms);
+    let horizontal = arms.left != W::N;
+    let len = if horizontal { FONT_W } else { FONT_H };
+    let gap = len / 8;
+    for i in 0..dashes {
+        // The centre of the i-th stretch, less half a gap, rounded.
+        let start = ((2 * i + 1) * len + dashes - gap * dashes) / (2 * dashes);
+        for p in start..start + gap {
+            if horizontal {
+                for row in &mut mask {
+                    *row &= !(1 << (7 - p));
+                }
+            } else {
+                mask[p] = 0;
+            }
+        }
+    }
+    mask
+}
+
+/// The rounded corners, by the square light corner each rounds.
+fn rounded(ch: char) -> Option<char> {
+    Some(match ch {
+        '╭' => '┌',
+        '╮' => '┐',
+        '╯' => '┘',
+        '╰' => '└',
+        _ => return None,
+    })
+}
+
+/// A light corner with the pixel at the outside of the bend cut away.
+fn round_corner(arms: Arms) -> GlyphMask {
+    let mut mask = box_glyph(arms);
+    let (x0, x1) = columns(W::S)[0];
+    let (y0, y1) = rows(W::S)[0];
+    let x = if arms.right != W::N { x0 } else { x1 - 1 };
+    let y = if arms.down != W::N { y0 } else { y1 - 1 };
+    mask[y] &= !(1 << (7 - x));
+    mask
+}
+
+/// The diagonals, corner to corner. A line two pixels wide across, about
+/// as heavy as a light stroke, runs from the top-left pixel to the
+/// bottom-right one; `╱` is its mirror image and `╳` both.
+fn diagonal(ch: char) -> Option<GlyphMask> {
+    let back = shade(|x, y| {
+        // Pixel centres within a pixel of the line x = (y + 1/2) / 2.
+        let d = 4 * x as isize - 2 * y as isize + 1;
+        d.abs() < 4
+    });
+    let fwd = back.map(u8::reverse_bits);
+    Some(match ch {
+        '╲' => back,
+        '╱' => fwd,
+        '╳' => std::array::from_fn(|y| back[y] | fwd[y]),
+        _ => return None,
+    })
+}
+
 /// The columns `[x0, x1)` of a vertical stroke: a single line on columns
-/// 3-4, a double line on 1-2 and 5-6.
+/// 3-4, a heavy one on 2-5, a double line on 1-2 and 5-6.
 fn columns(w: W) -> &'static [(usize, usize)] {
     match w {
         W::N => &[],
         W::S => &[(3, 5)],
+        W::H => &[(2, 6)],
         W::D => &[(1, 3), (5, 7)],
     }
 }
 
 /// The rows `[y0, y1)` of a horizontal stroke: a single line on rows 7-8,
-/// a double line on 5-6 and 9-10.
+/// a heavy one on 6-9, a double line on 5-6 and 9-10.
 fn rows(w: W) -> &'static [(usize, usize)] {
     match w {
         W::N => &[],
         W::S => &[(7, 9)],
+        W::H => &[(6, 10)],
         W::D => &[(5, 7), (9, 11)],
     }
 }
@@ -187,7 +358,9 @@ impl Arm {
         let first_end = |l: &[(usize, usize)]| l[0].1;
         let last_end = |l: &[(usize, usize)]| l[l.len() - 1].1;
         let rails = (self.own)(self.w);
-        if self.w == W::S {
+        if self.w != W::D {
+            // One rail (light or heavy): it ends where it meets the strokes
+            // across it.
             let end = if self.opposite != W::N {
                 center.1
             } else if crossing.len() == 2 {
@@ -242,7 +415,9 @@ impl Arm {
         let first_start = |l: &[(usize, usize)]| l[0].0;
         let last_start = |l: &[(usize, usize)]| l[l.len() - 1].0;
         let rails = (self.own)(self.w);
-        if self.w == W::S {
+        if self.w != W::D {
+            // One rail (light or heavy): it ends where it meets the strokes
+            // across it.
             let start = if self.opposite != W::N {
                 center.0
             } else if crossing.len() == 2 {
@@ -284,7 +459,7 @@ impl Arm {
 /// Draw a box-drawing character from its four strokes.
 ///
 /// Each stroke meets the cell edge on its rails. Where strokes meet, a
-/// single line stops at the nearer line it joins, and the rails of a double
+/// single or heavy line stops at the nearer line it joins, and the rails of a double
 /// line turn into the stroke on their side or, with none there, run on to
 /// the far line, so corners and tees join the way CP437 draws them.
 fn box_glyph(a: Arms) -> GlyphMask {

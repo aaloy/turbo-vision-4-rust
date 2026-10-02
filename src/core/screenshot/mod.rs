@@ -368,6 +368,7 @@ mod tests {
     enum W {
         N,
         S,
+        H,
         D,
     }
 
@@ -377,8 +378,10 @@ mod tests {
         let on: &[usize] = match (w, len) {
             (W::N, _) => &[],
             (W::S, 8) => &[3, 4],
+            (W::H, 8) => &[2, 3, 4, 5],
             (W::D, 8) => &[1, 2, 5, 6],
             (W::S, _) => &[7, 8],
+            (W::H, _) => &[6, 7, 8, 9],
             (W::D, _) => &[5, 6, 9, 10],
         };
         (0..len).map(|i| on.contains(&i)).collect()
@@ -390,20 +393,90 @@ mod tests {
 
     #[test]
     fn box_drawing_joins_at_cell_edges() {
-        use W::{D, N, S};
-        // (char, up, down, left, right)
+        use W::{D, H, N, S};
+        // (char, up, down, left, right): every character of U+2500-U+257F
+        // but the diagonals, whose strokes do not end on the rails.
         let cases = [
             ('─', N, N, S, S),
+            ('━', N, N, H, H),
             ('│', S, S, N, N),
+            ('┃', H, H, N, N),
+            ('┄', N, N, S, S),
+            ('┅', N, N, H, H),
+            ('┆', S, S, N, N),
+            ('┇', H, H, N, N),
+            ('┈', N, N, S, S),
+            ('┉', N, N, H, H),
+            ('┊', S, S, N, N),
+            ('┋', H, H, N, N),
             ('┌', N, S, N, S),
+            ('┍', N, S, N, H),
+            ('┎', N, H, N, S),
+            ('┏', N, H, N, H),
             ('┐', N, S, S, N),
+            ('┑', N, S, H, N),
+            ('┒', N, H, S, N),
+            ('┓', N, H, H, N),
             ('└', S, N, N, S),
+            ('┕', S, N, N, H),
+            ('┖', H, N, N, S),
+            ('┗', H, N, N, H),
             ('┘', S, N, S, N),
+            ('┙', S, N, H, N),
+            ('┚', H, N, S, N),
+            ('┛', H, N, H, N),
             ('├', S, S, N, S),
+            ('┝', S, S, N, H),
+            ('┞', H, S, N, S),
+            ('┟', S, H, N, S),
+            ('┠', H, H, N, S),
+            ('┡', H, S, N, H),
+            ('┢', S, H, N, H),
+            ('┣', H, H, N, H),
             ('┤', S, S, S, N),
+            ('┥', S, S, H, N),
+            ('┦', H, S, S, N),
+            ('┧', S, H, S, N),
+            ('┨', H, H, S, N),
+            ('┩', H, S, H, N),
+            ('┪', S, H, H, N),
+            ('┫', H, H, H, N),
             ('┬', N, S, S, S),
+            ('┭', N, S, H, S),
+            ('┮', N, S, S, H),
+            ('┯', N, S, H, H),
+            ('┰', N, H, S, S),
+            ('┱', N, H, H, S),
+            ('┲', N, H, S, H),
+            ('┳', N, H, H, H),
             ('┴', S, N, S, S),
+            ('┵', S, N, H, S),
+            ('┶', S, N, S, H),
+            ('┷', S, N, H, H),
+            ('┸', H, N, S, S),
+            ('┹', H, N, H, S),
+            ('┺', H, N, S, H),
+            ('┻', H, N, H, H),
             ('┼', S, S, S, S),
+            ('┽', S, S, H, S),
+            ('┾', S, S, S, H),
+            ('┿', S, S, H, H),
+            ('╀', H, S, S, S),
+            ('╁', S, H, S, S),
+            ('╂', H, H, S, S),
+            ('╃', H, S, H, S),
+            ('╄', H, S, S, H),
+            ('╅', S, H, H, S),
+            ('╆', S, H, S, H),
+            ('╇', H, S, H, H),
+            ('╈', S, H, H, H),
+            ('╉', H, H, H, S),
+            ('╊', H, H, S, H),
+            ('╋', H, H, H, H),
+            ('╌', N, N, S, S),
+            ('╍', N, N, H, H),
+            ('╎', S, S, N, N),
+            ('╏', H, H, N, N),
             ('═', N, N, D, D),
             ('║', D, D, N, N),
             ('╒', N, S, N, D),
@@ -433,18 +506,170 @@ mod tests {
             ('╪', S, S, D, D),
             ('╫', D, D, S, S),
             ('╬', D, D, D, D),
+            ('╭', N, S, N, S),
+            ('╮', N, S, S, N),
+            ('╯', S, N, S, N),
+            ('╰', S, N, N, S),
+            ('╴', N, N, S, N),
+            ('╵', S, N, N, N),
+            ('╶', N, N, N, S),
+            ('╷', N, S, N, N),
+            ('╸', N, N, H, N),
+            ('╹', H, N, N, N),
+            ('╺', N, N, N, H),
+            ('╻', N, H, N, N),
+            ('╼', N, N, S, H),
+            ('╽', S, H, N, N),
+            ('╾', N, N, H, S),
+            ('╿', H, S, N, N),
         ];
+        let covered: String = cases.iter().map(|c| c.0).chain(DIAGONALS.chars()).collect();
+        let block: String = (0x2500..=0x257F).filter_map(char::from_u32).collect();
+        let mut sorted: Vec<char> = covered.chars().collect();
+        sorted.sort_unstable();
+        assert_eq!(sorted.into_iter().collect::<String>(), block);
+
         for (ch, up, down, left, right) in cases {
             let m = glyph_mask(ch);
             let top: Vec<bool> = (0..FONT_W).map(|x| px(&m, x, 0)).collect();
             let bottom: Vec<bool> = (0..FONT_W).map(|x| px(&m, x, FONT_H - 1)).collect();
             let west: Vec<bool> = (0..FONT_H).map(|y| px(&m, 0, y)).collect();
             let east: Vec<bool> = (0..FONT_H).map(|y| px(&m, FONT_W - 1, y)).collect();
-            assert_eq!(top, profile(up, FONT_W), "{ch}: top edge");
-            assert_eq!(bottom, profile(down, FONT_W), "{ch}: bottom edge");
-            assert_eq!(west, profile(left, FONT_H), "{ch}: left edge");
-            assert_eq!(east, profile(right, FONT_H), "{ch}: right edge");
+            // A dashed line may have a gap on the cell edge.
+            let joins = |edge: &[bool], w: W| {
+                edge == profile(w, edge.len()).as_slice()
+                    || (DASHED.contains(ch) && edge.iter().all(|&on| !on))
+            };
+            assert!(joins(&top, up), "{ch}: top edge {top:?}");
+            assert!(joins(&bottom, down), "{ch}: bottom edge {bottom:?}");
+            assert!(joins(&west, left), "{ch}: left edge {west:?}");
+            assert!(joins(&east, right), "{ch}: right edge {east:?}");
+            if DASHED.contains(ch) {
+                let (a, b) = if up == N {
+                    (&west, &east)
+                } else {
+                    (&top, &bottom)
+                };
+                assert!(
+                    a.iter().chain(b).any(|&on| on),
+                    "{ch}: no stroke on its edges"
+                );
+            }
         }
+    }
+
+    const DIAGONALS: &str = "╱╲╳";
+    const DASHED: &str = "┄┅┆┇┈┉┊┋╌╍╎╏";
+
+    /// The lengths of the runs of equal pixels along a cyclic line, from
+    /// its first change: what a row of copies of the cell shows.
+    fn cyclic_runs(line: &[bool]) -> Vec<(bool, usize)> {
+        let start = (1..line.len())
+            .find(|&i| line[i] != line[i - 1])
+            .unwrap_or(0);
+        let mut runs: Vec<(bool, usize)> = Vec::new();
+        for i in 0..line.len() {
+            let on = line[(start + i) % line.len()];
+            match runs.last_mut() {
+                Some((v, n)) if *v == on => *n += 1,
+                _ => runs.push((on, 1)),
+            }
+        }
+        runs
+    }
+
+    #[test]
+    fn dashed_lines_tile_with_even_gaps() {
+        // (dashed, solid, dashes per cell)
+        for (dashed, solid, n) in [
+            ('╌', '─', 2),
+            ('╍', '━', 2),
+            ('╎', '│', 2),
+            ('╏', '┃', 2),
+            ('┄', '─', 3),
+            ('┅', '━', 3),
+            ('┆', '│', 3),
+            ('┇', '┃', 3),
+            ('┈', '─', 4),
+            ('┉', '━', 4),
+            ('┊', '│', 4),
+            ('┋', '┃', 4),
+        ] {
+            let (d, s) = (glyph_mask(dashed), glyph_mask(solid));
+            // Segments of the solid stroke, nothing else.
+            for y in 0..FONT_H {
+                assert_eq!(d[y] & !s[y], 0, "{dashed}: row {y} leaves {solid}");
+            }
+            let horizontal = s[0] == 0;
+            let (len, rail) = if horizontal {
+                (FONT_W, s.iter().position(|&r| r != 0).unwrap())
+            } else {
+                (FONT_H, (0..FONT_W).find(|&x| px(&s, x, 0)).unwrap())
+            };
+            let line: Vec<bool> = (0..len)
+                .map(|i| {
+                    if horizontal {
+                        px(&d, i, rail)
+                    } else {
+                        px(&d, rail, i)
+                    }
+                })
+                .collect();
+            // Every pixel across the stroke follows the same pattern.
+            for y in 0..FONT_H {
+                for x in 0..FONT_W {
+                    let i = if horizontal { x } else { y };
+                    assert_eq!(px(&d, x, y), px(&s, x, y) && line[i], "{dashed} ({x},{y})");
+                }
+            }
+            let runs = cyclic_runs(&line);
+            let gaps: Vec<usize> = runs.iter().filter(|r| !r.0).map(|r| r.1).collect();
+            let dashes: Vec<usize> = runs.iter().filter(|r| r.0).map(|r| r.1).collect();
+            assert_eq!(gaps.len(), n, "{dashed}: {runs:?}");
+            assert!(
+                gaps.iter().all(|&g| g == gaps[0]),
+                "{dashed}: gaps {gaps:?}"
+            );
+            let (lo, hi) = (dashes.iter().min().unwrap(), dashes.iter().max().unwrap());
+            assert!(hi - lo <= 1, "{dashed}: dashes {dashes:?}");
+        }
+    }
+
+    #[test]
+    fn rounded_corners_trim_the_light_corner() {
+        for (round, square) in [('╭', '┌'), ('╮', '┐'), ('╯', '┘'), ('╰', '└')] {
+            let (r, s) = (glyph_mask(round), glyph_mask(square));
+            let removed: u32 = (0..FONT_H).map(|y| (s[y] & !r[y]).count_ones()).sum();
+            let added: u32 = (0..FONT_H).map(|y| (r[y] & !s[y]).count_ones()).sum();
+            assert_eq!((removed, added), (1, 0), "{round} against {square}");
+        }
+    }
+
+    #[test]
+    fn diagonals_run_corner_to_corner() {
+        let back = glyph_mask('╲');
+        let fwd = glyph_mask('╱');
+        assert!(px(&back, 0, 0) && px(&back, FONT_W - 1, FONT_H - 1));
+        assert!(!px(&back, FONT_W - 1, 0) && !px(&back, 0, FONT_H - 1));
+        assert!(px(&fwd, FONT_W - 1, 0) && px(&fwd, 0, FONT_H - 1));
+        assert!(!px(&fwd, 0, 0) && !px(&fwd, FONT_W - 1, FONT_H - 1));
+        for y in 0..FONT_H {
+            assert_eq!(fwd[y], back[y].reverse_bits(), "╱ mirrors ╲ on row {y}");
+            assert_eq!(glyph_mask('╳')[y], fwd[y] | back[y], "╳ row {y}");
+        }
+        // One unbroken line: each row touches the row above it.
+        for y in 1..FONT_H {
+            let spread = back[y - 1] | back[y - 1] << 1 | back[y - 1] >> 1;
+            assert!(back[y] != 0 && back[y] & spread != 0, "╲ breaks at row {y}");
+        }
+    }
+
+    #[test]
+    fn whole_box_drawing_range_has_bitmaps() {
+        assert_all_drawn(
+            "box drawing U+2500-U+257F",
+            (0x2500..=0x257F).filter_map(char::from_u32),
+        );
     }
 
     #[test]
@@ -474,6 +699,18 @@ mod tests {
             ('√', '✓'),
             ('◆', '♦'),
             ('❓', '?'),
+            ('━', '─'),
+            ('┃', '│'),
+            ('┏', '┌'),
+            ('╋', '┼'),
+            ('┍', '┎'),
+            ('┄', '─'),
+            ('┅', '━'),
+            ('┆', '│'),
+            ('╌', '┄'),
+            ('┈', '┄'),
+            ('╭', '┌'),
+            ('╱', '╲'),
         ] {
             assert_ne!(glyph_mask(a), glyph_mask(b), "{a} and {b} look the same");
         }

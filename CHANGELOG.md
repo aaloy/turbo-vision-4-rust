@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- PNG screenshots draw the whole box-drawing block (U+2500-U+257F): heavy
+  lines and their corners, tees and crosses, every light/heavy mix, dashed
+  lines, rounded corners, diagonals and half lines, instead of `?`. Heavy
+  strokes sit centred on the light rail, so all weights tile together; the
+  `glyph_sample` example shows them.
+
 ### Fixed
 - `HelpViewer`: a mouse click on a link after scrolling the text sideways
   now hits the link where it is drawn; the hit-test ignored the horizontal

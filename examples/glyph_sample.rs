@@ -3,8 +3,9 @@
 //
 // Renders every character the PNG screenshot renderer draws beyond ASCII into
 // `target/glyph-sample.png`, at 2x: the framework's own marks, CP437's
-// symbols, box drawing and blocks, and the Latin-1 Supplement, with a few
-// frames that mix single and double lines to show how they tile.
+// symbols, box drawing (light, heavy, double, dashed, rounded and diagonal)
+// and blocks, and the Latin-1 Supplement, with a few frames that mix line
+// weights to show how they tile.
 //
 // Run with:
 //   cargo run --example glyph_sample
@@ -21,6 +22,8 @@ const LINES: &[&str] = &[
     "            ¢£¥₧ƒªº¿⌐¬½¼¡«» αßΓπΣσµτΦΘΩδ∞φε∩≡±≥≤⌠⌡÷≈°∙·√ⁿ²■",
     " Blocks:    ▀▁▂▃▄▅▆▇█▉▊▋▌▍▎▏▐░▒▓▔▕▖▗▘▙▚▛▜▝▞▟",
     " Boxes:     ─│┌┐└┘├┤┬┴┼═║╒╓╔╕╖╗╘╙╚╛╜╝╞╟╠╡╢╣╤╥╦╧╨╩╪╫╬",
+    " Heavy:     ━┃┏┓┗┛┣┫┳┻╋ ┍┎┑┒┕┖┙┚┝┞┟┠┡┢┥┦┧┨┩┪┭┮┯┰┱┲┵┶┷┸┹┺┽┾┿╀╁╂╃╄╅╆╇╈╉╊",
+    " Dashed:    ┄┅┆┇┈┉┊┋╌╍╎╏  Rounded: ╭╮╯╰  Diagonal: ╱╲╳  Half: ╴╵╶╷╸╹╺╻╼╽╾╿",
     " Latin-1:   ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿",
     "            ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞß",
     "            àáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ",
@@ -31,6 +34,13 @@ const LINES: &[&str] = &[
     " ├───┼───┤  ╠═══╬═══╣  ╞═══╪═══╡  ╟───╫───╢  │ │ ∞ │",
     " │   │   │  ║   ║   ║  │   │   │  ║   ║   ║  │ ⌡   │",
     " └───┴───┘  ╚═══╩═══╝  ╘═══╧═══╛  ╙───╨───╜  └─────┘",
+    "",
+    " Heavy/dashed/rounded:",
+    " ┏━━━┳━━━┓  ┍━━━┯━━━┑  ┎───┰───┒  ╭───┬───╮  ┌┄┄┄┬╌╌╌┐  ╱╲╱╲  ╶━━╴",
+    " ┃   ┃   ┃  │   │   │  ┃   ┃   ┃  │   │   │  ┆   ┇   ╎  ╲╱╲╱  ╻  ╷",
+    " ┣━━━╋━━━┫  ┝━━━┿━━━┥  ┠───╂───┨  ├───┼───┤  ├┈┈┈┼┉┉┉┤  ╳╳╳╳  ┃  │",
+    " ┃   ┃   ┃  │   │   │  ┃   ┃   ┃  │   │   │  ┊   ┋   ╏  ╱╲╱╲  ╹  ╵",
+    " ┗━━━┻━━━┛  ┕━━━┷━━━┙  ┖───┸───┚  ╰───┴───╯  └╍╍╍┴┅┅┅┘  ╲╱╲╱  ╺──╸",
 ];
 
 fn main() -> std::io::Result<()> {
