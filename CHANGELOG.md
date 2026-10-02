@@ -28,6 +28,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `HelpFile` records every link on a line in the topic's `links` (and its
   "See also" list), not just the first. Links are found the same way the
   inline links are drawn.
+- `examples/README.md` lists the 39 examples that exist, grouped, each with
+  its run command; it named five that no longer exist and missed 28.
 
 ## [4.0.0] - 2026-10-01
 
