@@ -212,6 +212,17 @@ Generated: 2025-11-06
 
 ---
 
+### Timed Events (`src/core/timed_event.rs`)
+
+Per-thread queue of events delivered by `Terminal::poll_event` once due.
+- `post_after(event: Event, delay: Duration)` - Deliver `event` after `delay`
+- `post_at(event: Event, due: Instant)` - Deliver `event` once `due` has come
+- `take_due(now: Instant) -> Option<Event>` - Remove the earliest event due at `now`
+- `next_due() -> Option<Instant>` - When the earliest pending event is due
+- `clear()` - Drop every pending event
+
+---
+
 ### Menu Data Structures (`src/core/menu_data.rs`)
 
 #### MenuItem Enum
@@ -527,7 +538,13 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 - `new(bounds: Rect, title: &str, command: CommandId, is_default: bool) -> Self` - Create button
 - `set_disabled(&mut self, disabled: bool)` - Set disabled state
 - `is_disabled(&self) -> bool` - Check if disabled
+- `is_down(&self) -> bool` - Whether the button is drawn pushed in (held with the mouse, or during a key press's animation)
 - Implements View trait
+
+#### Press Animation
+- `DEFAULT_PRESS_ANIMATION: Duration` - 100 ms
+- `set_press_animation(duration: Duration)` - How long a key-pressed button shows pushed in before sending its command; `Duration::ZERO` sends it at once (per thread)
+- `press_animation() -> Duration` - Current setting
 
 #### ButtonBuilder Struct
 **Public Methods:**

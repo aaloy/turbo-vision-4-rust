@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Buttons give press feedback, like Borland's `TButton::drawState`.
+  Held down with the mouse, a button is drawn pushed in: the face moves one
+  column right onto its shadow and the shadow disappears. It follows the
+  pointer, popping out when dragged off and back in when it returns, and the
+  command still fires only on a release over it. Pressed with Enter, Space,
+  its hotkey or a dialog's Enter for the default button, it shows pushed in
+  for `button::press_animation()` (100 ms by default, magiblot's
+  `animationDurationMs`) and then sends its command.
+  `button::set_press_animation(Duration::ZERO)` turns the delay off.
+  `Button::is_down` tells whether a button is drawn pushed in.
+- `core::timed_event`: `post_after` / `post_at` queue an event to arrive
+  later; `Terminal::poll_event` delivers it once due, to the application's
+  loops and hand-written ones alike, and waits no longer than the next one.
 - Frozen panes for `Table`, like a spreadsheet's.
   `Table::set_frozen_cols` / `TableBuilder::frozen_cols` keep the first
   columns at the left while the others scroll sideways, with a
@@ -27,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   special keys.
 
 ### Changed
+- A button pressed from the keyboard sends its command when its press
+  animation ends, through `Terminal::poll_event`, instead of in place of the
+  key event: the key now comes back consumed. Code that hands a button a key
+  and expects the command in the same event should call
+  `button::set_press_animation(Duration::ZERO)`. A broadcast button's
+  broadcast, queued the same way, reaches the whole modal view or desktop.
 - `Event` has a new public field, `ch`. Code that builds an `Event` with a
   struct literal naming every field needs `ch: None` or
   `..Event::nothing()`; the constructors (`Event::keyboard` and the rest)
