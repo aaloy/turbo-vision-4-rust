@@ -2964,6 +2964,74 @@ mod cursor_tests {
     }
 
     #[test]
+    fn a_focused_input_line_on_a_tab_page_shows_the_cursor() {
+        use crate::views::group::Group;
+        use crate::views::tabbed_pane::TabbedPane;
+        let (mut app, cursor) = app();
+        let mut pane = TabbedPane::new(Rect::new(1, 1, 37, 9));
+        let mut page = Group::new(pane.page_area());
+        page.add(Box::new(input("tabbed")));
+        pane.add_page("~O~ne", page);
+        let mut window = Window::new(Rect::new(10, 5, 50, 17), "W");
+        window.add(Box::new(pane));
+        app.desktop.add(window);
+        app.draw();
+
+        let (x, y) = drawn_at(&app, "tabbed");
+        assert_eq!(*cursor.lock().unwrap(), Some((x + 6, y)));
+    }
+
+    #[test]
+    fn a_focused_input_line_in_a_split_pane_shows_the_cursor() {
+        use crate::core::event::MB_LEFT_BUTTON;
+        use crate::core::geometry::Point;
+        use crate::views::group::Group;
+        use crate::views::split_pane::{Orientation, SplitPane};
+        let (mut app, cursor) = app();
+        let mut split = SplitPane::new(Rect::new(1, 1, 37, 9), Orientation::Vertical, 17);
+        let mut left = Group::new(split.first_area());
+        left.add(Box::new(InputLine::new(Rect::new(1, 1, 15, 2), 20)));
+        left.child_at_mut(0)
+            .as_any_mut()
+            .downcast_mut::<InputLine>()
+            .unwrap()
+            .set_text("left");
+        let mut right = Group::new(split.second_area());
+        right.add(Box::new(InputLine::new(Rect::new(1, 3, 15, 4), 20)));
+        right
+            .child_at_mut(0)
+            .as_any_mut()
+            .downcast_mut::<InputLine>()
+            .unwrap()
+            .set_text("right");
+        split.set_panes(left, right);
+        let mut window = Window::new(Rect::new(10, 5, 50, 17), "W");
+        window.add(Box::new(split));
+        app.desktop.add(window);
+        app.draw();
+
+        // The first half holds the focus to begin with.
+        let (x, y) = drawn_at(&app, "left");
+        assert_eq!(*cursor.lock().unwrap(), Some((x + 4, y)));
+
+        // A click in the second half moves the focus, and the cursor, there.
+        let (rx, ry) = drawn_at(&app, "right");
+        let at = Point::new(rx as i16 + 1, ry as i16);
+        let mut down = Event::mouse(EventType::MouseDown, at, MB_LEFT_BUTTON, false);
+        app.handle_event(&mut down);
+        let mut up = Event::mouse(EventType::MouseUp, at, 0, false);
+        app.handle_event(&mut up);
+        app.draw();
+        let (rx, ry) = drawn_at(&app, "right");
+        let shown = cursor.lock().unwrap().expect("the cursor is shown");
+        assert_eq!(shown.1, ry, "cursor on the right input line: {shown:?}");
+        assert!(
+            (rx..=rx + 5).contains(&shown.0),
+            "cursor within the right input line: {shown:?}"
+        );
+    }
+
+    #[test]
     fn no_focused_text_control_hides_the_cursor() {
         let (mut app, cursor) = app();
         *cursor.lock().unwrap() = Some((1, 1));

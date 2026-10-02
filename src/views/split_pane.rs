@@ -367,6 +367,19 @@ impl View for SplitPane {
         }
     }
 
+    /// The cursor belongs to the half that holds the focus, in its space,
+    /// as `draw` places it.
+    fn update_cursor(&self, terminal: &mut Terminal) {
+        let half = if self.focus_second {
+            &self.second
+        } else {
+            &self.first
+        };
+        terminal.push_origin(half.bounds().a);
+        half.update_cursor(terminal);
+        terminal.pop_origin();
+    }
+
     fn handle_event(&mut self, event: &mut Event) {
         // A drag in progress owns every mouse event, even once the pointer has
         // left the divider; the group forwards them here while State::DRAGGING is

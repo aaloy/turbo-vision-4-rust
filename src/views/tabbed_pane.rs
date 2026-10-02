@@ -510,6 +510,21 @@ impl View for TabbedPane {
         }
     }
 
+    /// The cursor belongs to the active page, in its space, as `draw`
+    /// places it.
+    fn update_cursor(&self, terminal: &mut Terminal) {
+        match self.tabs.get(self.active) {
+            Some(tab) => {
+                terminal.push_origin(tab.page.bounds().a);
+                tab.page.update_cursor(terminal);
+                terminal.pop_origin();
+            }
+            None => {
+                let _ = terminal.hide_cursor();
+            }
+        }
+    }
+
     fn handle_event(&mut self, event: &mut Event) {
         // A click on the strip switches tabs; a click anywhere else belongs to
         // the page.
