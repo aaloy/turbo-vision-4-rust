@@ -19,8 +19,8 @@ use turbo_vision::views::menu_box::MenuBox;
 use turbo_vision::views::status_line::StatusLine;
 
 // Custom command IDs
-const CMD_SHOW_MENU: u16 = 100;
-const CMD_LIST_SELECT: u16 = 101;
+const CMD_SHOW_MENU: u16 = turbo_vision::core::command::CM_USER;
+const CMD_LIST_SELECT: u16 = turbo_vision::core::command::CM_USER + 1;
 
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;

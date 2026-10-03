@@ -1,8 +1,12 @@
 # Turbo Vision Rust API Catalog
 
+> Checked against the source on 2026-10-03. Every module under `src/views/`
+> and `src/core/` has a section; `tests/docs_index.rs` fails when one is
+> missing. For how to use the components together, start with
+> [`AGENTS.md`](../AGENTS.md).
+
 Comprehensive catalog of all public structs, traits, and their public methods in the Turbo Vision Rust codebase.
 
-Generated: 2025-11-06
 
 ---
 
@@ -226,70 +230,108 @@ Per-thread queue of events delivered by `Terminal::poll_event` once due.
 
 ### Menu Data Structures (`src/core/menu_data.rs`)
 
-#### MenuItem Enum
-**Variants:**
-- `Regular { text, command, key_code, help_ctx, enabled, shortcut }`
-- `SubMenu { text, key_code, help_ctx, menu }`
-- `Separator`
+Menu data structures - declarative menu building with Borland-compatible API.
 
-**Public Methods:**
-- `new(text: &str, command: CommandId, key_code: KeyCode, help_ctx: u16) -> Self` - Create regular item
-- `with_shortcut(text: &str, command: CommandId, key_code: KeyCode, shortcut: &str, help_ctx: u16) -> Self` - Create with display shortcut
-- `new_disabled(text: &str, command: CommandId, key_code: KeyCode, help_ctx: u16) -> Self` - Create disabled item
-- `submenu(text: &str, key_code: KeyCode, menu: Menu, help_ctx: u16) -> Self` - Create submenu item
-- `separator() -> Self` - Create separator
-- `is_selectable(&self) -> bool` - Check if selectable (not separator/disabled)
-- `get_accelerator(&self) -> Option<char>` - Extract accelerator key from text
+- `enum MenuItem` - Menu item - can be a regular command, a submenu, or a separator
 
-#### Menu Struct
-**Public Methods:**
-- `new() -> Self` - Create empty menu
-- `with_items(items: Vec<MenuItem>) -> Self` - Create with items
-- `add(&mut self, item: MenuItem)` - Add item to menu
-- `item_count(&self) -> usize` - Get item count
-- `get_item(&self, index: usize) -> Option<&MenuItem>` - Get item by index
+**MenuItem**
+- `flag(text: &str, command: CommandId, key_code: KeyCode, help_ctx: u16, checked: fn() -> bool) -> Self` - Create a flag (checkable) menu item
+- `submenu(text: &str, key_code: KeyCode, menu: Menu, help_ctx: u16) -> Self` - Create a submenu item
+- `separator() -> Self` - Create a separator
+- `is_selectable(&self) -> bool` - Check if this item is selectable (not a separator and not disabled)
+- `get_accelerator(&self) -> Option<char>` - Extract the accelerator key from the text (character between ~ marks)
+- `text(&self) -> &str` - Get the display text (with ~ markers)
+- `command(&self) -> Option<CommandId>` - Get the command (for Regular items only)
+- `shortcut(&self) -> Option<&str>` - Get the shortcut display text (for Regular items only)
+- `struct Menu` - Menu - a collection of menu items
 
-#### MenuBuilder Struct
-- `item(text, command)` - No key binding
-- `item_key(text, command, "Ctrl+O")` - Bound to and labelled with a key chord (panics on an unknown chord)
-- `item_disabled(text, command)`, `add(MenuItem)`, `submenu(text, key_code, menu)`, `separator()`, `help_context(u16)`, `build()`
-- `MenuItemBuilder::key("F3")` binds and labels a single item; `MenuItem::flag`, `MenuItem::submenu`, `MenuItem::separator` remain
-**Public Methods:**
-- `new() -> Self` - Create builder
-- `item(mut self, item: MenuItem) -> Self` - Add item (builder pattern)
-- `build(self) -> Menu` - Build menu
+**Menu**
+- `new() -> Self` - Create an empty menu
+- `from_items(items: Vec<MenuItem>) -> Self` - Create a menu from items
+- `with_default(items: Vec<MenuItem>, default_index: usize) -> Self` - Create a menu with a default item
+- `add(&mut self, item: MenuItem)` - Add an item to the menu
+- `find_hotkey(&self, key_code: KeyCode) -> Option<CommandId>` - Find the command bound to a keyboard shortcut, searching submenus.
+- `set_default(&mut self, index: usize)` - Set the default item by index
+- `len(&self) -> usize` - Get the number of items
+- `is_empty(&self) -> bool` - Check if menu is empty
+- `struct MenuBuilder` - Builder for constructing menus fluently
+
+**MenuBuilder**
+- `new() -> Self` - Create a new menu builder
+- `help_context(mut self, help_ctx: u16) -> Self` - Set the default help context for subsequent items
+- `item(mut self, text: &str, command: CommandId) -> Self` - Add an item with no key binding.
+- `item_key(mut self, text: &str, command: CommandId, chord: &str) -> Self` - Add an item bound to a key chord such as `"Ctrl+O"`, `"F3"` or `"Alt+X"`; the chord is both bound and shown next to the text.
+- `item_disabled(mut self, text: &str, command: CommandId) -> Self` - Add a disabled item.
+- `add(mut self, item: MenuItem) -> Self` - Add an item built elsewhere, typically with [`MenuItemBuilder`].
+- `submenu(mut self, text: &str, key_code: KeyCode, menu: Menu) -> Self` - Add a submenu
+- `separator(mut self) -> Self` - Add a separator
+- `build(self) -> Menu` - Build the menu
+- `struct MenuItemBuilder` - Builder for creating regular menu items with a fluent API.
+
+**MenuItemBuilder**
+- `new() -> Self` - Creates a new MenuItemBuilder with default values.
+- `text(mut self, text: impl Into<String>) -> Self` - Sets the menu item text (required).
+- `command(mut self, command: CommandId) -> Self` - Sets the command to execute (required).
+- `key_code(mut self, key_code: KeyCode) -> Self` - Sets the keyboard shortcut key code.
+- `help_ctx(mut self, help_ctx: u16) -> Self` - Sets the help context ID.
+- `enabled(mut self, enabled: bool) -> Self` - Sets whether the menu item is enabled (default: true).
+- `shortcut(mut self, shortcut: impl Into<String>) -> Self` - Sets the shortcut display text (e.g., "F3", "Ctrl+O") without binding a key; see [`key`](Self::key) to do both from one chord.
+- `key(mut self, chord: &str) -> Self` - Binds the item to a key chord such as `"Ctrl+O"` and shows it next to the text.
+- `checked(mut self, checked: fn() -> bool) -> Self` - Makes this a flag (checkable) item; `checked` is queried on every draw.
+- `build(self) -> MenuItem` - Builds the MenuItem::Regular variant.
 
 ---
 
 ### Status Line Data (`src/core/status_data.rs`)
 
-#### StatusItem Struct
-- Built with `StatusItemBuilder::new().text("~Alt-X~ Exit").key("Alt+X").command(CM_QUIT).build()`; `key_code(KeyCode)` still accepts a constant
-**Fields:**
-- `pub text: String` - Display text
-- `pub key_code: KeyCode` - Keyboard shortcut
-- `pub command: CommandId` - Command to execute
+Status line data structures - declarative status bar building with command-based visibility.
 
-**Public Methods:**
-- `new(text: &str, key_code: KeyCode, command: CommandId) -> Self` - Create item
+- `struct StatusItem` - Status line item - displays text and responds to keyboard shortcuts
 
-#### StatusDef Struct
-**Public Methods:**
-- `new() -> Self` - Create empty definition
-- `add(&mut self, item: StatusItem)` - Add item
-- `item_count(&self) -> usize` - Get count
-- `get_item(&self, index: usize) -> Option<&StatusItem>` - Get by index
+**StatusItem**
+- `get_accelerator(&self) -> Option<char>`
+- `struct StatusItemBuilder` - Builder for creating status items with a fluent API.
 
-#### StatusLine Struct
-**Public Methods:**
-- `new(items: Vec<StatusItem>) -> Self` - Create status line
-- `builder() -> StatusLineBuilder` - Create builder
+**StatusItemBuilder**
+- `new() -> Self` - Creates a new StatusItemBuilder with default values.
+- `text(mut self, text: impl Into<String>) -> Self` - Sets the status item text (required).
+- `key_code(mut self, key_code: KeyCode) -> Self` - Sets the keyboard shortcut key code.
+- `key(mut self, chord: &str) -> Self` - Binds the item to a key chord such as `"Alt+X"` or `"F10"`.
+- `command(mut self, command: CommandId) -> Self` - Sets the command to execute.
+- `build(self) -> StatusItem` - Builds the StatusItem.
+- `struct StatusDef` - Status line definition - defines which items are visible for a command set range
 
-#### StatusLineBuilder Struct
-**Public Methods:**
-- `new() -> Self` - Create builder
-- `item(mut self, item: StatusItem) -> Self` - Add item
-- `build(self) -> StatusLine` - Build status line
+**StatusDef**
+- `new(min: u16, max: u16, items: Vec<StatusItem>) -> Self` - Create a new status definition
+- `default_range(items: Vec<StatusItem>) -> Self` - Create a status definition for all command ranges (default)
+- `applies_to(&self, command_set: u16) -> bool` - Check if this definition applies to the given command set
+- `add(&mut self, item: StatusItem)` - Add an item to this definition
+- `len(&self) -> usize` - Get the number of items
+- `is_empty(&self) -> bool` - Check if definition has no items
+- `struct StatusDefBuilder` - Builder for creating status definitions with a fluent API.
+
+**StatusDefBuilder**
+- `new() -> Self` - Creates a new StatusDefBuilder with default values (full range: 0-0xFFFF).
+- `range(mut self, min: u16, max: u16) -> Self` - Sets the command range (default: 0-0xFFFF).
+- `min(mut self, min: u16) -> Self` - Sets the minimum command ID.
+- `max(mut self, max: u16) -> Self` - Sets the maximum command ID.
+- `add_item(mut self, item: StatusItem) -> Self` - Adds a status item to the definition.
+- `items(mut self, items: Vec<StatusItem>) -> Self` - Sets all items at once.
+- `build(self) -> StatusDef` - Builds the StatusDef.
+- `struct StatusLine` - Status line configuration - collection of status definitions
+
+**StatusLine**
+- `new(defs: Vec<StatusDef>) -> Self` - Create a new status line configuration
+- `single(items: Vec<StatusItem>) -> Self` - Create a status line with a single default definition
+- `get_def_for(&self, command_set: u16) -> Option<&StatusDef>` - Get the status definition that applies to the given command set
+- `add_def(&mut self, def: StatusDef)` - Add a status definition
+- `struct StatusLineBuilder` - Builder for constructing status line configurations fluently
+
+**StatusLineBuilder**
+- `new() -> Self` - Create a new status line builder
+- `add_def(mut self, min: u16, max: u16, items: Vec<StatusItem>) -> Self` - Add a status definition with command range
+- `add_default_def(mut self, items: Vec<StatusItem>) -> Self` - Add a default status definition (applies to all command sets)
+- `build(self) -> StatusLine` - Build the status line configuration
 
 ---
 
@@ -332,6 +374,103 @@ Per-thread queue of events delivered by `Terminal::poll_event` once due.
 - `0..=99` Borland's standard commands (including `CM_NEW`..`CM_CLOSE_FILE` at 30..35)
 - `100..=199` this crate's internal commands and broadcasts
 - `CM_USER` (200) and up: free for applications
+
+### Command Set (`src/core/command_set.rs`)
+
+Command Set System
+
+- `command_enabled(command: CommandId) -> bool` - Check if a command is currently enabled (global query) Matches Borland: TView::commandEnabled(ushort command) (tview.cc:142-147)
+- `enable_command(command: CommandId)` - Enable a command in the global command set Matches Borland: TView::enableCommand(ushort command) (tview.cc:384-389)
+- `disable_command(command: CommandId)` - Disable a command in the global command set Matches Borland: TView::disableCommand(ushort command) (tview.cc:161-166)
+- `get_commands() -> CommandSet` - A copy of the global command set, to put back later with [`set_commands`].
+- `set_commands(commands: CommandSet)` - Replace the global command set, flagging a change if it differs.
+- `command_set_changed() -> bool` - Check if command set has changed (needs broadcast) Matches Borland: TView::commandSetChanged (tview.cc:51)
+- `clear_command_set_changed()` - Clear the command set changed flag Called after broadcasting CM_COMMAND_SET_CHANGED
+- `init_command_set()` - Initialize the global command set with specific disabled commands Matches Borland: initCommands() (tview.cc:58-68)
+- `struct CommandSet` - Command set bitfield for tracking enabled/disabled commands
+
+**CommandSet**
+- `new() -> Self` - Create a new command set with all commands disabled
+- `with_all_enabled() -> Self` - Create a command set with all commands enabled
+- `has(&self, command: CommandId) -> bool` - Check if a command is enabled
+- `enable_command(&mut self, command: CommandId)` - Enable a single command
+- `disable_command(&mut self, command: CommandId)` - Disable a single command
+- `enable_range(&mut self, cmd_start: CommandId, cmd_end: CommandId)` - Enable a range of commands (inclusive)
+- `disable_range(&mut self, cmd_start: CommandId, cmd_end: CommandId)` - Disable a range of commands (inclusive)
+- `enable_set(&mut self, other: &CommandSet)` - Enable all commands in another command set
+- `disable_set(&mut self, other: &CommandSet)` - Disable all commands in another command set
+- `enable_all(&mut self)` - Enable all commands
+- `is_empty(&self) -> bool` - Check if command set is empty (all commands disabled)
+- `intersect(&mut self, other: &CommandSet)` - Perform bitwise AND with another command set
+- `union(&mut self, other: &CommandSet)` - Perform bitwise OR with another command set
+
+---
+
+### Clipboard (`src/core/clipboard.rs`)
+
+Clipboard support - global clipboard management with OS integration.
+
+- `set_clipboard(text: &str)` - Set the clipboard content (both in-memory and OS clipboard)
+- `get_clipboard() -> String` - Get the clipboard content (prefers OS clipboard, falls back to in-memory)
+- `has_clipboard_content() -> bool` - Check if the clipboard has content
+- `clear_clipboard()` - Clear the clipboard (both in-memory and OS)
+
+---
+
+### Keys (`src/core/keys.rs`)
+
+Key types, from one place.
+
+---
+
+### Errors (`src/core/error.rs`)
+
+Error types for Turbo Vision operations.
+
+- `struct TurboVisionError` - Error type for Turbo Vision operations.
+
+**TurboVisionError**
+- `is_io(&self) -> bool` - Returns `true` if this error is an I/O error.
+- `is_terminal_init(&self) -> bool` - Returns `true` if this error is a terminal initialization error.
+- `is_invalid_input(&self) -> bool` - Returns `true` if this error is an invalid input error.
+- `is_parse(&self) -> bool` - Returns `true` if this error is a parse error.
+- `is_file_operation(&self) -> bool` - Returns `true` if this error is a file operation error.
+- `file_path(&self) -> Option<&std::path::Path>` - Returns the file path if this is a file operation error.
+- `type Result` - Result type for Turbo Vision operations.
+
+---
+
+### Palette Chain (`src/core/palette_chain.rs`)
+
+QCell-based safe palette chain for Borland-compatible owner traversal.
+
+- `palette_token() -> &'static QCellOwner` - Get the global palette token.
+- `struct PaletteChainNode` - A node in the palette owner chain.
+
+**PaletteChainNode**
+- `new(palette: Option<Palette>, parent: Option<PaletteChainNode>) -> Self` - Create a new palette chain node.
+- `nearest_palette_len(&self) -> Option<usize>` - Length of the nearest non-empty palette on the way up the chain, or `None` when no ancestor below the application carries one.
+- `remap_color(&self, mut color: u8) -> u8` - Walk up the owner chain, remapping a color index through each ancestor's palette.
+
+---
+
+### ANSI Dumps (`src/core/ansi_dump.rs`)
+
+ANSI dump utilities for debugging terminal output
+
+- `dump_buffer_to_file(buffer: &[Vec<Cell>], width: usize, height: usize, path: &str) -> io::Result<()>` - Dump a buffer to an ANSI text file.
+- `dump_buffer<W: Write>(writer: &mut W, buffer: &[Vec<Cell>], width: usize, height: usize) -> io::Result<()>` - Dump a buffer to any writer with ANSI color codes.
+- `dump_buffer_region<W: Write>(writer: &mut W, buffer: &[Vec<Cell>], x: usize, y: usize, width: usize, height: usize) -> io::Result<()>` - Dump a rectangular region of a buffer.
+
+---
+
+### Screenshots (`src/core/screenshot/`, feature `screenshot`)
+
+Screenshot rendering: turn the terminal cell buffer into a PNG image.
+
+- `render_to_png(buffer: &[Vec<Cell>], cols: usize, rows: usize, scale: usize, path: &Path) -> io::Result<()>` - Render the screen buffer to a PNG file at `path`.
+
+---
 
 ## TERMINAL MODULE
 
@@ -454,7 +593,7 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 
 ---
 
-### Form Layout (`src/views/form.rs`)
+### Form Layout (`src/views/form/mod.rs`)
 
 Builds a `Dialog` from labelled fields, with no coordinates. Guide: `docs/FORMS.md`.
 - `Form::new(title: &str) -> Self` - Start a form
@@ -572,35 +711,31 @@ A titled single-line box drawn around related controls; it only draws (never foc
 
 ### Button (`src/views/button.rs`)
 
-#### Button Struct
-**Fields:**
-- `pub bounds: Rect`
-- `pub title: String`
-- `pub command: CommandId`
-- `pub is_default: bool`
-- `pub disabled: bool`
-- `pub state: StateFlags`
+Button view - clickable button with keyboard shortcuts and command dispatch.
 
-**Public Methods:**
-- `new(bounds: Rect, title: &str, command: CommandId, is_default: bool) -> Self` - Create button
-- `set_disabled(&mut self, disabled: bool)` - Set disabled state
-- `is_disabled(&self) -> bool` - Check if disabled
-- `is_down(&self) -> bool` - Whether the button is drawn pushed in (held with the mouse, or during a key press's animation)
-- Implements View trait
+- `set_press_animation(duration: Duration)` - Set how long a button pressed with Enter, Space or its hotkey stays pushed in before it sends its command.
+- `press_animation() -> Duration` - How long a key-pressed button stays pushed in (see [`set_press_animation`]).
+- `struct Button`
 
-#### Press Animation
-- `DEFAULT_PRESS_ANIMATION: Duration` - 100 ms
-- `set_press_animation(duration: Duration)` - How long a key-pressed button shows pushed in before sending its command; `Duration::ZERO` sends it at once (per thread)
-- `press_animation() -> Duration` - Current setting
+**Button**
+- `new(bounds: Rect, title: &str, command: CommandId, is_default: bool) -> Self`
+- `is_default(&self) -> bool` - Whether this button was created as the dialog's default button (Borland: `TButton::amDefault`).
+- `command(&self) -> CommandId` - The command this button emits when pressed.
+- `is_broadcast(&self) -> bool` - Whether the button broadcasts its command to its siblings instead of emitting it as a command (see `set_broadcast`).
+- `set_disabled(&mut self, disabled: bool)`
+- `is_disabled(&self) -> bool`
+- `set_broadcast(&mut self, broadcast: bool)` - Set whether this button broadcasts its command instead of sending it as a command event Matches Borland: bfBroadcast flag
+- `set_selectable(&mut self, selectable: bool)` - Set whether this button is selectable (can receive focus) Matches Borland: ofSelectable flag
+- `is_down(&self) -> bool` - Whether the button is currently drawn pushed in: held down with the mouse, or pressed from the keyboard less than [`press_animation`] ago.
+- `struct ButtonBuilder` - Builder for creating buttons with a fluent API.
 
-#### ButtonBuilder Struct
-**Public Methods:**
-- `new() -> Self` - Create builder
-- `bounds(mut self, bounds: Rect) -> Self` - Set bounds
-- `title(mut self, title: impl Into<String>) -> Self` - Set title
-- `command(mut self, command: CommandId) -> Self` - Set command
-- `default(mut self, is_default: bool) -> Self` - Set as default button
-- `build(self) -> Button` - Build button
+**ButtonBuilder**
+- `new() -> Self` - Creates a new ButtonBuilder with default values.
+- `bounds(mut self, bounds: Rect) -> Self` - Sets the button bounds (required).
+- `title(mut self, title: impl Into<String>) -> Self` - Sets the button title text (required).
+- `command(mut self, command: CommandId) -> Self` - Sets the command ID to dispatch when clicked (required).
+- `default(mut self, is_default: bool) -> Self` - Sets whether this is the default button (optional, defaults to false).
+- `build(self) -> Button` - Builds the Button.
 
 ---
 
@@ -679,8 +814,8 @@ A titled single-line box drawn around related controls; it only draws (never foc
 - `remove(&mut self, index: usize)` - Remove child by index
 - `execute(&mut self, app: &mut Application) -> CommandId` - Execute as modal
 - `end_modal(&mut self, command: CommandId)` - End modal execution
-- `get_end_state(&self) -> CommandId` - Get end state
-- `set_end_state(&mut self, command: CommandId)` - Set end state
+- `end_state(&self) -> CommandId` - The command that ended the modal loop (0 while running)
+- `end_modal(&mut self, command: CommandId)` - End the modal loop with `command`
 - `broadcast(&mut self, event: &mut Event, owner_index: Option<usize>)` - Broadcast event
 - `draw_sub_views(&mut self, terminal: &mut Terminal, start_index: usize, clip: Rect)` - Draw children
 - `focused_child(&self) -> Option<&dyn View>` - Get focused child
@@ -897,40 +1032,59 @@ dragging counterpart of `Spinner`.
 
 ### Editor (`src/views/editor.rs`)
 
-#### SearchOptions Struct
-**Fields:** Various search configuration options
+EditorWindow view - advanced multi-line text editor with syntax highlighting support.
 
-**Public Methods:**
-- `new() -> Self` - Create options
+- `struct SearchOptions` - Search options flags (matching Borland's efXXX constants)
 
-#### Editor Struct
-**Public Methods:**
-- `new(bounds: Rect) -> Self` - Create editor
-- `with_scrollbars_and_indicator(mut self) -> Self` - Builder: add scrollbars and indicator
-- `set_read_only(&mut self, read_only: bool)` - Set read-only
+**SearchOptions**
+- `new() -> Self`
+
+**EditAction**
+- `enum SelectionMode` - EditorWindow - Advanced multi-line text editor with undo/redo and find/replace
+- `struct EditorWindow`
+
+**EditorWindow**
+- `new(bounds: Rect) -> Self` - Create a new editor control
+- `with_scrollbars(bounds: Rect, h_scrollbar: Option<Rc<RefCell<ScrollBar>>>, v_scrollbar: Option<Rc<RefCell<ScrollBar>>>, indicator: Option<Rc<RefCell<Indicator>>>) -> Self` - Create with scrollbars and indicator (Borland style) Matches Borland: TEditor receives pointers to scrollbars/indicator created by parent
+- `set_read_only(&mut self, read_only: bool)` - Set read-only mode
 - `set_tab_size(&mut self, tab_size: usize)` - Set tab size
-- `set_auto_indent(&mut self, auto_indent: bool)` - Set auto-indent
+- `set_auto_indent(&mut self, auto_indent: bool)` - Set auto-indent mode
 - `set_highlighter(&mut self, highlighter: Box<dyn SyntaxHighlighter>)` - Set syntax highlighter
-- `clear_highlighter(&mut self)` - Remove highlighter
-- `has_highlighter(&self) -> bool` - Check if highlighter present
+- `clear_highlighter(&mut self)` - Clear syntax highlighter (use plain text)
+- `has_highlighter(&self) -> bool` - Check if syntax highlighting is enabled
 - `toggle_insert_mode(&mut self)` - Toggle insert/overwrite mode
-- `get_text(&self) -> String` - Get all text
-- `set_text(&mut self, text: &str)` - Set all text
-- `is_modified(&self) -> bool` - Check if modified
-- `clear_modified(&mut self)` - Clear modified flag
-- `line_count(&self) -> usize` - Get line count
-- `load_file(&mut self, path: impl AsRef<Path>) -> io::Result<()>` - Load from file
-- `save_file(&mut self) -> io::Result<()>` - Save to original file
-- `save_as(&mut self, path: impl AsRef<Path>) -> io::Result<()>` - Save as new file
-- `get_filename(&self) -> Option<&str>` - Get loaded filename
-- `undo(&mut self)` - Undo last change
-- `redo(&mut self)` - Redo last undo
-- `find(&mut self, text: &str, options: SearchOptions) -> Option<Point>` - Find text
-- `find_next(&mut self) -> Option<Point>` - Find next occurrence
-- `replace_selection(&mut self, replace_text: &str) -> bool` - Replace selected text
-- `replace_next(&mut self, find_text: &str, replace_text: &str, options: SearchOptions) -> bool` - Replace next
-- `replace_all(&mut self, find_text: &str, replace_text: &str, options: SearchOptions) -> usize` - Replace all
-- Implements View trait
+- `get_text(&self) -> String` - Get the text content
+- `set_text(&mut self, text: &str)` - Set the text content
+- `is_modified(&self) -> bool` - Check if text has been modified
+- `clear_modified(&mut self)` - Clear the modified flag
+- `line_count(&self) -> usize` - Get current line count
+- `get_delta(&self) -> Point` - Get the current scroll offset (top-left visible position).
+- `cursor(&self) -> Point` - Cursor position in document coordinates (0-based line, 0-based character column).
+- `scroll_to_line(&mut self, line: usize)` - Scroll the editor so that the given 0-based line is visible, moving the cursor to the beginning of that line.
+- `max_line_width(&self) -> usize` - Get the maximum line width (length of the longest line)
+- `needs_vertical_scrollbar(&self) -> bool` - Check if vertical scrollbar is needed
+- `needs_horizontal_scrollbar(&self) -> bool` - Check if horizontal scrollbar is needed
+- `load_file(&mut self, path: impl AsRef<std::path::Path>) -> std::io::Result<()>` - Load file contents into the editor Matches Borland's TFileEditor::load()
+- `save_file(&mut self) -> std::io::Result<()>` - Save editor contents to the associated filename Matches Borland's TFileEditor::save()
+- `save_as(&mut self, path: impl AsRef<std::path::Path>) -> std::io::Result<()>` - Save editor contents to a specific filename Matches Borland's TFileEditor::saveAs()
+- `set_backup_files(&mut self, backup: bool)` - Enable or disable Borland-style .bak backups on save.
+- `get_filename(&self) -> Option<&str>` - Get the current filename, if any
+- `undo(&mut self)` - Undo the last action
+- `redo(&mut self)` - Redo the last undone action
+- `can_undo(&self) -> bool` - True when the undo stack has at least one entry.
+- `can_redo(&self) -> bool` - True when the redo stack has at least one entry.
+- `find(&mut self, text: &str, options: SearchOptions) -> Option<Point>` - Find text in the editor with options Matches Borland's TEditor::search() (teditor.cc:917-949)
+- `find_next(&mut self) -> Option<Point>` - Find next occurrence of last search Matches Borland's cmSearchAgain command
+- `replace_selection(&mut self, replace_text: &str) -> bool` - Replace current selection with new text Returns true if replacement was made
+- `replace_next(&mut self, find_text: &str, replace_text: &str, options: SearchOptions) -> bool` - Replace next occurrence of find_text with replace_text Matches Borland's TEditor::doSearchReplace() with efDoReplace
+- `replace_all(&mut self, find_text: &str, replace_text: &str, options: SearchOptions) -> usize` - Replace all occurrences of find_text with replace_text Matches Borland's TEditor::doSearchReplace() with efReplaceAll
+- `sync_from_scrollbars(&mut self)` - Sync editor cursor from scrollbar values and ensure it's visible.
+- `has_selection(&self) -> bool`
+- `select_all(&mut self)`
+- `delete_selection(&mut self)`
+- `clip_copy(&mut self) -> bool` - Copy selection to clipboard Matches Borland: TEditor::clipCopy()
+- `clip_cut(&mut self) -> bool` - Cut selection to clipboard (copy + delete) Matches Borland: TEditor::clipCut()
+- `clip_paste(&mut self) -> bool` - Paste from clipboard Matches Borland: TEditor::clipPaste()
 
 ---
 
@@ -975,8 +1129,8 @@ dragging counterpart of `Spinner`.
 - `clear_move_tracking(&mut self)` - Clear movement tracking
 - `execute(&mut self, app: &mut Application) -> CommandId` - Execute as modal
 - `end_modal(&mut self, command: CommandId)` - End modal
-- `get_end_state(&self) -> CommandId` - Get end state
-- `set_end_state(&mut self, command: CommandId)` - Set end state
+- `end_state(&self) -> CommandId` - The command that ended the modal loop (0 while running)
+- `end_modal(&mut self, command: CommandId)` - End the modal loop with `command`
 - Implements View & Group-like traits
 
 #### WindowBuilder Struct
@@ -1029,20 +1183,24 @@ dragging counterpart of `Spinner`.
 
 ### FileEditor (`src/views/file_editor.rs`)
 
-#### FileEditor Struct
-**Public Methods:**
-- `new(bounds: Rect) -> Self` - Create file editor
-- `load_file(&mut self, path: PathBuf) -> io::Result<()>` - Load file
-- `save(&mut self) -> io::Result<bool>` - Save file
-- `save_as(&mut self, path: PathBuf) -> io::Result<()>` - Save as new file
-- `filename(&self) -> Option<&PathBuf>` - Get filename
-- `get_title(&self) -> String` - Get window title
-- `is_modified(&self) -> bool` - Check if modified
-- `set_text(&mut self, text: &str)` - Set text
-- `valid(&mut self, app: &mut Application, command: CommandId) -> bool` - Validate on command
-- `editor_mut(&mut self) -> &mut Editor` - Get mutable editor
-- `editor(&self) -> &Editor` - Get editor
-- Implements View trait
+`FileEditorWindow` — `EditWindow` plus file binding (load/save) and
+
+- `struct FileEditorWindow`
+
+**FileEditorWindow**
+- `new(bounds: Rect, title: &str) -> Self`
+- `refresh_title(&mut self)` - Update the window's title bar from the current filename.
+- `set_text(&mut self, text: &str)`
+- `edit_window(&self) -> &EditWindow`
+- `edit_window_mut(&mut self) -> &mut EditWindow`
+- `struct FileEditorBuilder` - Builder for creating file editors with a fluent API.
+
+**FileEditorBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `title(mut self, title: &str) -> Self`
+- `build(self) -> FileEditorWindow`
+- `build_boxed(self) -> Box<FileEditorWindow>`
 
 ---
 
@@ -1159,14 +1317,28 @@ dragging counterpart of `Spinner`.
 
 ### PictureValidator (`src/views/picture_validator.rs`)
 
-#### PictureValidator Struct
-**Public Methods:**
-- `new(mask: &str) -> Self` - Create with format mask
-- `new_no_format(mask: &str) -> Self` - Create without auto-formatting
-- `mask(&self) -> &str` - Get mask
-- `set_auto_format(&mut self, auto_format: bool)` - Set auto-format
-- `format(&self, input: &str) -> String` - Format input according to mask
-- Implements Validator trait
+PictureValidator - validates and formats input using picture mask patterns.
+
+- `enum PicResult` - Result codes of the picture state machine.
+
+**PicMachine**
+- `struct PictureValidator` - Picture mask validator for formatted input.
+
+**PictureValidator**
+- `new(mask: &str) -> Self` - Create a new picture validator with the given mask (auto-fill on).
+- `new_no_format(mask: &str) -> Self` - Create a new picture validator without auto-fill.
+- `mask(&self) -> &str` - Get the mask string
+- `set_auto_format(&mut self, auto_format: bool)` - Set whether to auto-fill literals while typing
+- `picture(&self, input: &str, auto_fill: bool) -> (PicResult, String)` - Runs the picture machine over `input`.
+- `picture_validator(mask: &str) -> ValidatorRef` - Helper function to create a ValidatorRef for a PictureValidator
+- `struct PictureValidatorBuilder` - Builder for creating picture validators with a fluent API.
+
+**PictureValidatorBuilder**
+- `new() -> Self` - Creates a new PictureValidatorBuilder with default values.
+- `mask(mut self, mask: impl Into<String>) -> Self` - Sets the picture mask pattern (required).
+- `auto_format(mut self, auto_format: bool) -> Self` - Sets whether to auto-fill literal characters (default: true).
+- `build(self) -> PictureValidator` - Builds the PictureValidator.
+- `build_ref(self) -> ValidatorRef` - Builds the PictureValidator as a ValidatorRef.
 
 ---
 
@@ -1280,36 +1452,494 @@ dragging counterpart of `Spinner`.
 
 ---
 
+### CheckBoxes and RadioButtons (`src/views/cluster_group.rs`)
+
+CheckBoxes and RadioButtons - one focusable control holding several items.
+
+Both types (made by one macro) share:
+- `new(bounds: Rect, labels: Vec<String>) -> Self` - A cluster of the given items.
+- `set_labels(&mut self, labels: Vec<String>)`, `item_count(&self) -> usize`
+- `value(&self) -> u32`, `set_value(&mut self, value: u32)` - The items as bits (CheckBoxes) or the selected index (RadioButtons).
+- `focused_item(&self) -> usize`, `set_focused_item(&mut self, index: usize)`
+- `set_enabled(&mut self, index: usize, enabled: bool)`, `is_enabled(&self, index: usize) -> bool`
+- `set_on_change(&mut self, command: CommandId)` - Broadcast `command` to the sibling views when the value changes.
+
+**CheckBoxes**
+- `is_checked(&self, index: usize) -> bool` - Whether one box is ticked.
+- `set_checked(&mut self, index: usize, checked: bool)` - Tick or untick one box.
+- `checked_items(&self) -> Vec<usize>` - The ticked boxes, in order.
+
+**RadioButtons**
+- `selected(&self) -> Option<usize>` - Index of the selected button, or `None` when the cluster is empty.
+- `set_selected(&mut self, index: usize)` - Select one button.
+- `selected_label(&self) -> Option<&str>` - Text of the selected button.
+
+---
+
+### ComboBox (`src/views/combo_box.rs`)
+
+ComboBox view - a text field showing one choice, with a drop-down list.
+
+- `struct ComboState` - The items and current choice of one combo box.
+
+**ComboState**
+- `selected_text(&self) -> Option<&str>` - Text of the current choice, if any.
+- `lookup(id: u16) -> Option<Rc<RefCell<ComboState>>>` - Look up a registered combo state by id.
+- `struct ComboBox` - A field showing one choice, with a drop-down list of the alternatives.
+
+**ComboBox**
+- `new(bounds: Rect, id: u16) -> Self` - Create an empty combo box registered under `id`.
+- `with_items(bounds: Rect, id: u16, items: Vec<String>) -> Self` - Create a combo box already holding `items`, with the first selected.
+- `id(&self) -> u16` - Registration id, as passed to [`ComboBox::new`].
+- `state(&self) -> Rc<RefCell<ComboState>>` - Shared state, for callers that want to read the choice later without holding on to the control.
+- `set_items(&mut self, items: Vec<String>)` - Replace the item list.
+- `add_item(&mut self, item: impl Into<String>)` - Append one item.
+- `item_count(&self) -> usize` - Number of items in the list.
+- `selected(&self) -> Option<usize>` - Index of the current choice.
+- `set_selected(&mut self, index: Option<usize>)` - Set the current choice.
+- `selected_text(&self) -> Option<String>` - Text of the current choice.
+- `set_on_change(&mut self, command: CommandId)` - Command broadcast when the choice changes.
+- `struct DropdownWindow` - The modal list a combo box drops down.
+
+**DropdownWindow**
+- `new(state: Rc<RefCell<ComboState>>, screen: Rect) -> Self` - Build the popup for `state`, placed just under its field.
+- `execute(&mut self, terminal: &mut Terminal) -> Option<usize>` - Run the popup modally.
+- `struct ComboBoxBuilder` - Builder for creating combo boxes with a fluent API.
+
+**ComboBoxBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `id(mut self, id: u16) -> Self`
+- `items<I: Into<String>>(mut self, items: impl IntoIterator<Item = I>) -> Self`
+- `selected(mut self, index: usize) -> Self`
+- `on_change(mut self, command: CommandId) -> Self`
+- `build(self) -> ComboBox`
+- `build_boxed(self) -> Box<ComboBox>`
+
+---
+
+### Spinner (`src/views/spinner.rs`)
+
+Spinner view - a numeric field with up and down steppers.
+
+- `struct Spinner` - A numeric field with up and down steppers.
+
+**Spinner**
+- `new(bounds: Rect, min: i64, max: i64) -> Self` - Create a spinner over the inclusive range `min..=max`, starting at `min`.
+- `value(&self) -> i64` - Current value, always within the range.
+- `set_value(&mut self, value: i64) -> bool` - Set the value, clamped to the range.
+- `range(&self) -> (i64, i64)` - The inclusive range.
+- `set_range(&mut self, min: i64, max: i64)` - Set the range, swapping a reversed one, and re-clamp the value.
+- `set_step(&mut self, step: i64)` - Amount one Up or Down press moves the value.
+- `set_suffix(&mut self, suffix: impl Into<String>)` - Text shown after the number, such as `"%"` or `" ms"`.
+- `set_wrap(&mut self, wrap: bool)` - Whether stepping past an end continues from the other end.
+- `set_on_change(&mut self, command: CommandId)` - Command broadcast when the value changes.
+- `step_up(&mut self) -> bool` - Step up by one step.
+- `step_down(&mut self) -> bool` - Step down by one step.
+- `struct SpinnerBuilder` - Builder for creating spinners with a fluent API.
+
+**SpinnerBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `range(mut self, min: i64, max: i64) -> Self`
+- `value(mut self, value: i64) -> Self`
+- `step(mut self, step: i64) -> Self`
+- `suffix(mut self, suffix: impl Into<String>) -> Self`
+- `wrap(mut self, wrap: bool) -> Self`
+- `on_change(mut self, command: CommandId) -> Self`
+- `build(self) -> Spinner`
+- `build_boxed(self) -> Box<Spinner>`
+
+---
+
+### ProgressBar (`src/views/progress_bar.rs`)
+
+ProgressBar view - determinate and indeterminate progress indicator.
+
+- `enum ProgressMode` - Fill mode of a [`ProgressBar`].
+- `enum ProgressStyle` - Character set used to draw the track.
+
+**ProgressStyle**
+- `struct ProgressBar` - A horizontal progress indicator.
+
+**ProgressBar**
+- `new(bounds: Rect, max: u64) -> Self` - Create a determinate bar with the given upper bound.
+- `value(&self) -> u64` - Current value, always within `0..=max`.
+- `set_value(&mut self, value: u64)` - Set the current value.
+- `advance(&mut self, delta: u64)` - Add to the current value, clamping at `max` and saturating on overflow.
+- `max(&self) -> u64` - Upper bound of the bar.
+- `set_max(&mut self, max: u64)` - Set the upper bound.
+- `reset(&mut self)` - Reset the value to zero and rewind the marquee.
+- `fraction(&self) -> f64` - Completion as a fraction in `0.0..=1.0`.
+- `percent(&self) -> u32` - Completion as a whole percentage in `0..=100`, truncated.
+- `mode(&self) -> ProgressMode` - Current mode.
+- `set_mode(&mut self, mode: ProgressMode)` - Switch between determinate and marquee display.
+- `set_style(&mut self, style: ProgressStyle)` - Set the glyphs used to draw the track.
+- `show_percent(&mut self)` - Overlay the truncated percentage on the track.
+- `set_show_percent(&mut self, show: bool)` - Turn the percentage overlay on or off.
+- `is_percent_shown(&self) -> bool` - Whether the percentage overlay is currently shown.
+- `set_caption(&mut self, text: impl Into<String>)` - Overlay fixed text on the track instead of a percentage.
+- `hide_caption(&mut self)` - Draw the track with nothing overlaid.
+- `tick(&mut self)` - Advance the marquee by one cell, reversing at either end.
+- `set_tick_interval(&mut self, interval: Duration)` - Set how often the idle animation steps the marquee.
+- `struct ProgressBarBuilder` - Builder for creating progress bars with a fluent API.
+
+**ProgressBarBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `max(mut self, max: u64) -> Self`
+- `marquee(mut self) -> Self`
+- `style(mut self, style: ProgressStyle) -> Self`
+- `caption(mut self, text: impl Into<String>) -> Self`
+- `show_percent(mut self, show: bool) -> Self` - Show or hide the percentage overlay.
+- `no_caption(mut self) -> Self`
+- `build(self) -> ProgressBar`
+- `build_boxed(self) -> Box<ProgressBar>`
+
+---
+
+### TabbedPane (`src/views/tabbed_pane.rs`)
+
+TabbedPane view - a strip of tabs over a stack of pages.
+
+**Tab**
+- `struct TabbedPane` - A strip of tabs over a stack of pages.
+
+**TabbedPane**
+- `new(bounds: Rect) -> Self` - Create an empty pane.
+- `page_area(&self) -> Rect` - The rect a page occupies: everything under the tab strip.
+- `add_page(&mut self, title: &str, page: Group) -> usize` - Add a page under `title`.
+- `page_count(&self) -> usize` - Number of tabs.
+- `active(&self) -> usize` - Index of the active tab.
+- `active_title(&self) -> Option<&str>` - Title of the active tab, tildes included, or `None` when there are no tabs.
+- `set_active(&mut self, index: usize) -> bool` - Show a page.
+- `page_mut(&mut self, index: usize) -> Option<&mut Group>` - The active page, for adding controls after construction.
+- `active_page_mut(&mut self) -> Option<&mut Group>` - The active page.
+- `set_initial_focus(&mut self)` - Give the active page's first focusable control the focus.
+- `struct TabbedPaneBuilder` - Builder for creating tabbed panes with a fluent API.
+
+**TabbedPaneBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `page(mut self, title: impl Into<String>) -> Self` - Add an empty page under `title`.
+- `active(mut self, index: usize) -> Self`
+- `build(self) -> TabbedPane`
+- `build_boxed(self) -> Box<TabbedPane>`
+
+---
+
+### SplitPane (`src/views/split_pane.rs`)
+
+SplitPane view - two panes divided by a draggable splitter.
+
+- `enum Orientation` - Which way the two panes sit relative to each other.
+- `struct SplitPane` - Two panes divided by a draggable splitter.
+
+**SplitPane**
+- `new(bounds: Rect, orientation: Orientation, position: i16) -> Self` - Create a split pane with empty halves and the divider `position` cells in.
+- `set_panes(&mut self, first: Group, second: Group)` - Install both halves, moving each into place.
+- `first_mut(&mut self) -> &mut Group` - The first half: the left pane, or the top one.
+- `second_mut(&mut self) -> &mut Group` - The second half: the right pane, or the bottom one.
+- `orientation(&self) -> Orientation` - Which way the panes sit.
+- `position(&self) -> i16` - Cells currently given to the first pane.
+- `set_position(&mut self, position: i16) -> bool` - Move the divider, clamped so neither half falls below its minimum.
+- `set_minimums(&mut self, first: i16, second: i16)` - Set the smallest size each half may be squeezed to, then re-clamp the divider.
+- `grow_first(&mut self) -> bool` - Give the first pane one more cell.
+- `shrink_first(&mut self) -> bool` - Give the first pane one fewer cell.
+- `second_focused(&self) -> bool` - Whether the second half currently holds the focus.
+- `focus_other(&mut self)` - Move the focus to the other half.
+- `set_initial_focus(&mut self)` - Give the focused half's first control the focus.
+- `first_area(&self) -> Rect` - The rect the first half occupies.
+- `second_area(&self) -> Rect` - The rect the second half occupies.
+- `divider_area(&self) -> Rect` - The divider's own rect: one cell thick, spanning the pane.
+- `struct SplitPaneBuilder` - Builder for creating split panes with a fluent API.
+
+**SplitPaneBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `orientation(mut self, orientation: Orientation) -> Self`
+- `position(mut self, position: i16) -> Self` - Cells given to the first pane.
+- `minimums(mut self, first: i16, second: i16) -> Self`
+- `build(self) -> SplitPane`
+- `build_boxed(self) -> Box<SplitPane>`
+
+---
+
+### Tooltip (`src/views/tooltip.rs`)
+
+Tooltip view - hover hints for the controls of a dialog.
+
+- `struct Tooltip` - Hover hints for the controls of a dialog.
+
+**Tooltip**
+- `new(bounds: Rect) -> Self` - Create an empty tooltip that may draw anywhere within `bounds`.
+- `add_hint(&mut self, target: Rect, text: impl Into<String>)` - Register a hint for the control occupying `target`.
+- `hint_count(&self) -> usize` - Number of registered hints.
+- `clear_hints(&mut self)` - Drop every hint and hide anything showing.
+- `set_delay(&mut self, delay: Duration)` - How long the pointer must rest before a hint appears.
+- `is_showing(&self) -> bool` - Whether a hint is on screen.
+- `shown_text(&self) -> Option<&str>` - The text currently on screen, if any.
+- `hide(&mut self)` - Hide whatever is showing and forget the hover.
+- `struct TooltipBuilder` - Builder for creating tooltips with a fluent API.
+
+**TooltipBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `hint(mut self, target: Rect, text: impl Into<String>) -> Self`
+- `delay(mut self, delay: Duration) -> Self`
+- `build(self) -> Tooltip`
+- `build_boxed(self) -> Box<Tooltip>`
+
+---
+
+### Outline (`src/views/outline.rs`)
+
+Outline view - generic hierarchical tree control for displaying expandable/collapsible data.
+
+- `struct Node` - A node in the tree Matches Borland: TNode
+
+**Node**
+- `new(data: T) -> Self` - Create a new leaf node (no children)
+- `with_children(data: T, children: Vec<Rc<RefCell<Node<T>>>>) -> Self` - Create a new node with children
+- `add_child(&mut self, child: Rc<RefCell<Node<T>>>)` - Add a child node
+- `has_children(&self) -> bool` - Check if this node has children
+- `toggle(&mut self)` - Toggle expanded state
+
+**DisplayNode**
+- `struct OutlineViewer` - OutlineViewer - displays a hierarchical tree of nodes Matches Borland: TOutlineViewer
+
+**OutlineViewer**
+- `new<F>(bounds: Rect, format_fn: F) -> Self where F: Fn(&T) -> String + 'static,` - Create a new outline viewer format_fn converts node data to display string
+- `set_roots(&mut self, roots: Vec<Rc<RefCell<Node<T>>>>)` - Set the root nodes of the tree
+- `add_root(&mut self, root: Rc<RefCell<Node<T>>>)` - Add a root node
+- `selected_node(&self) -> Option<Rc<RefCell<Node<T>>>>` - Get the currently selected node
+
+---
+
+### Message boxes (`src/views/msgbox.rs`)
+
+MsgBox - message box utilities for displaying alerts and confirmations.
+
+- `message_box(app: &mut Application, message: &str, options: MsgBox) -> CommandId` - Display a message box with the given message and options.
+- `message_box_rect(app: &mut Application, bounds: Rect, message: &str, options: MsgBox) -> CommandId` - Display a message box at a specific location
+- `message_box_ok(app: &mut Application, message: &str) -> CommandId` - Display a simple message box with OK button
+- `message_box_error(app: &mut Application, message: &str) -> CommandId` - Display an error message box with OK button
+- `message_box_warning(app: &mut Application, message: &str) -> CommandId` - Display a warning message box with OK button
+- `confirmation_box(app: &mut Application, message: &str) -> CommandId` - Display a confirmation dialog with Yes/No/Cancel buttons
+- `confirmation_box_yes_no(app: &mut Application, message: &str) -> CommandId` - Display a confirmation dialog with Yes/No buttons
+- `confirmation_box_ok_cancel(app: &mut Application, message: &str) -> CommandId` - Display a confirmation dialog with OK/Cancel buttons
+- `input_box(app: &mut Application, title: &str, label: &str, initial: &str, max_length: usize) -> Option<String>` - Display an input box that prompts the user for a string
+- `input_box_rect(app: &mut Application, bounds: Rect, title: &str, label: &str, initial: &str, max_length: usize) -> Option<String>` - Display an input box at a specific location
+- `search_box(app: &mut Application, title: &str) -> Option<String>` - Display a search dialog that prompts the user for search text
+- `search_replace_box(app: &mut Application, title: &str) -> Option<(String, String)>` - Display a search and replace dialog that prompts for find and replace text
+- `goto_line_box(app: &mut Application, title: &str) -> Option<usize>` - Display a goto line dialog that prompts for a line number
+
+---
+
+### ColorDialog (`src/views/color_dialog.rs`)
+
+Color Dialog - dialog for selecting foreground and background colors
+
+- `struct ColorDialog` - Color Dialog Matches Borland: TColorDialog (simplified implementation)
+
+**ColorDialog**
+- `new(bounds: Rect, title: &str, initial_attr: Attr) -> Self` - Create a new color dialog
+- `execute(&mut self, app: &mut crate::app::Application) -> Option<Attr>` - Execute the dialog modally
+- `get_selected_attr(&self) -> Option<Attr>` - Get the selected color attribute
+- `struct ColorDialogBuilder` - Builder for creating color dialogs with a fluent API.
+
+**ColorDialogBuilder**
+- `new() -> Self` - Creates a new ColorDialogBuilder with default values.
+- `bounds(mut self, bounds: Rect) -> Self` - Sets the color dialog bounds (required).
+- `title(mut self, title: impl Into<String>) -> Self` - Sets the dialog title (required).
+- `initial_attr(mut self, attr: Attr) -> Self` - Sets the initial color attribute (default: White on Black).
+- `build(self) -> ColorDialog` - Builds the ColorDialog.
+- `build_boxed(self) -> Box<ColorDialog>` - Builds the ColorDialog as a Box.
+
+---
+
+### ColorSelector (`src/views/color_selector.rs`)
+
+Color Selector - interactive color picker control
+
+- `struct ColorSelector` - Color Selector - interactive color picker Matches Borland: TColorSelector
+
+**ColorSelector**
+- `new(bounds: Rect) -> Self` - Create a new color selector
+- `with_shared(bounds: Rect, selected: Rc<RefCell<u8>>) -> Self` - Create a color selector whose selection is shared with the caller
+- `get_selected_color(&self) -> u8` - Get the selected color
+- `set_selected_color(&mut self, color: u8)` - Set the selected color
+- `struct ColorSelectorBuilder` - Builder for creating color selectors with a fluent API.
+
+**ColorSelectorBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `selected_color(mut self, color: u8) -> Self`
+- `build(self) -> ColorSelector`
+- `build_boxed(self) -> Box<ColorSelector>`
+
+---
+
+### ChDirDialog (`src/views/chdir_dialog.rs`)
+
+Change Directory Dialog - specialized dialog for directory selection
+
+**SharedDirListBox**
+- `struct ChDirDialog` - Change Directory Dialog
+
+**ChDirDialog**
+- `new(history_id: Option<u16>) -> Self` - Create a new change directory dialog
+- `execute(&mut self, app: &mut Application) -> Option<PathBuf>` - History is automatically updated on success
+- `get_directory(&self) -> Option<PathBuf>` - Get the selected directory
+- `end_state(&self) -> CommandId` - The command that closed the dialog (0 while it runs)
+- `struct ChDirDialogBuilder` - Builder for creating change directory dialogs with a fluent API.
+
+**ChDirDialogBuilder**
+- `new() -> Self` - Creates a new ChDirDialogBuilder
+- `history_id(mut self, history_id: u16) -> Self` - Sets a custom history ID for directory history
+- `build(self) -> ChDirDialog` - Builds the ChDirDialog with Borland standard layout
+- `build_boxed(self) -> Box<ChDirDialog>` - Builds the ChDirDialog as a Box
+
+---
+
+### HelpIndex (`src/views/help_index.rs`)
+
+Help Index - searchable index of help topics
+
+- `struct HelpIndex` - Help Index - searchable topic list Matches Borland: THelpIndex
+
+**HelpIndex**
+- `new(bounds: Rect, title: &str, help_file: Rc<RefCell<HelpFile>>) -> Self` - Create a new help index dialog
+- `execute(&mut self, app: &mut crate::app::Application) -> Option<String>` - Execute the dialog modally Returns the selected topic ID if View was pressed, None if closed
+- `get_selected_topic(&self) -> Option<String>` - Get the selected topic ID
+- `struct HelpIndexBuilder` - Builder for creating help index dialogs with a fluent API.
+
+**HelpIndexBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `title(mut self, title: impl Into<String>) -> Self`
+- `help_file(mut self, help_file: Rc<RefCell<HelpFile>>) -> Self`
+- `build(self) -> HelpIndex`
+- `build_boxed(self) -> Box<HelpIndex>`
+
+---
+
+### HelpToc (`src/views/help_toc.rs`)
+
+Help Table of Contents - hierarchical topic browser
+
+- `struct HelpToc` - Help Table of Contents Matches Borland: THelpToc
+
+**HelpToc**
+- `new(bounds: Rect, title: &str, help_file: Rc<RefCell<HelpFile>>) -> Self` - Create a new help table of contents dialog
+- `execute(&mut self, app: &mut crate::app::Application) -> Option<String>` - Execute the dialog modally Returns the selected topic title if View was pressed, None if closed
+- `get_selected_topic(&self) -> Option<String>` - Get the selected topic
+- `struct HelpTocBuilder` - Builder for creating help TOC dialogs with a fluent API.
+
+**HelpTocBuilder**
+- `new() -> Self`
+- `bounds(mut self, bounds: Rect) -> Self`
+- `title(mut self, title: impl Into<String>) -> Self`
+- `help_file(mut self, help_file: Rc<RefCell<HelpFile>>) -> Self`
+- `build(self) -> HelpToc`
+- `build_boxed(self) -> Box<HelpToc>`
+
+---
+
+### Editor and FileEditor traits (`src/views/editor_traits.rs`)
+
+Window-level editor contracts that mirror Borland's TEditor / TFileEditor
+
+- `enum ExternalState` - Result of probing the on-disk file behind a [`FileEditor`].
+
+**trait Editor** - Window-level editor contract.
+- `valid_close(&mut self, _app: &mut Application, _command: CommandId) -> bool` - Called by the event loop when this editor's frame requests a close.
+- `undo(&mut self)` - Pop the most recent edit from the undo stack and revert it.
+- `redo(&mut self)` - Re-apply the most recent undone edit.
+- `can_undo(&self) -> bool` - True when the undo stack has at least one entry.
+- `can_redo(&self) -> bool` - True when the redo stack has at least one entry.
+- `cut(&mut self) -> bool` - Cut the current selection to the clipboard.
+- `copy(&mut self) -> bool` - Copy the current selection to the clipboard.
+- `paste(&mut self) -> bool` - Insert the clipboard contents at the cursor (replacing any active selection).
+- `select_all(&mut self)` - Select the entire buffer.
+- `clear_selection(&mut self)` - Delete the current selection without copying it to the clipboard.
+- `has_selection(&self) -> bool` - True when there's a non-empty selection.
+
+**trait FileEditor** - Editor that is backed by an on-disk file.
+- `file_path(&self) -> Option<PathBuf>` - Current file path.
+- `set_file_path(&mut self, path: Option<PathBuf>)`
+- `is_dirty(&self) -> bool` - True when in-memory contents differ from the on-disk file (or no file yet).
+- `save(&mut self) -> std::io::Result<()>`
+- `save_as(&mut self, path: PathBuf) -> std::io::Result<()>`
+- `load(&mut self, path: PathBuf) -> std::io::Result<()>`
+- `new_buffer(&mut self)` - Reset to an empty Untitled buffer (no file path, no breakpoints, clean).
+- `last_known_mtime(&self) -> Option<SystemTime>` - mtime recorded the last time the editor read or wrote the file.
+- `poll_external_changes(&self) -> ExternalState` - Probe the on-disk file and report whether it has changed since the last load/save.
+- `reload(&mut self) -> std::io::Result<()>` - Re-read the file from disk into the buffer and refresh the last-known mtime.
+- `display_name(&self) -> String` - Friendly name used in dialogs and titles.
+- `prompt_save_as(&mut self, app: &mut Application) -> bool` - Show a Save As dialog and persist the buffer to the chosen path.
+- `confirm_save_on_close<E: FileEditor + ?Sized>(editor: &mut E, app: &mut Application, command: CommandId) -> bool` - Standard "do you want to save?" dialog used by [`FileEditor`] implementors from their [`Editor::valid_close`] override.
+
+---
+
 ## APPLICATION MODULE
 
-### Application Struct (`src/app/application.rs`)
+### Application (`src/app/application.rs`)
 
-**Public Methods:**
+Application structure and event loop implementation.
 
-**Initialization:**
-- `new() -> Result<Self>` - Create application with initialized terminal
+- `struct Application` - public fields: `terminal: Terminal`, `menu_bar: Option<MenuBar>`, `status_line: Option<StatusLine>`, `desktop: Desktop`, `running: bool`
 
-**Menu & Status:**
-- `set_menu_bar(&mut self, menu_bar: MenuBar)` - Set menu bar
-- `set_status_line(&mut self, status_line: StatusLine)` - Set status line
+**trait AppHandler** - Application-level hooks for [`Application::run_with`].
+- `pre_event(&mut self, _app: &mut Application, _event: &mut Event)` - Called before the menu bar, status line and desktop see the event.
+- `handle_command(&mut self, _app: &mut Application, _command: CommandId, _event: &Event) -> bool` - Called after the desktop has seen the event and only if it is still a `Command`.
+- `idle(&mut self, _app: &mut Application)` - Called on each idle tick, after [`Application::idle`].
+- `window_closed(&mut self, _app: &mut Application, _id: ViewId)` - Called once for every window the desktop removed after `State::CLOSED`.
+- `enum ModalTick` - What a modal loop's per-tick hook wants to happen next; see [`Application::execute_modal`].
 
-**Desktop Management:**
-- `add_window(&mut self, window: Box<dyn View>)` - Add window to desktop
-- `execute_window(&mut self, window: &mut dyn View) -> CommandId` - Execute window as modal
-
-**Event Loop:**
-- `run(&mut self) -> Result<()>` - Main event loop
-- `quit(&mut self)` - Signal application to quit
-
-**Shutdown:**
-- `shutdown(mut self) -> Result<()>` - Clean shutdown and restore terminal
-
-**Fields:**
-- `pub terminal: Terminal` - Terminal instance
-- `pub menu_bar: Option<MenuBar>` - Optional menu bar
-- `pub status_line: Option<StatusLine>` - Optional status line
-- `pub desktop: Desktop` - Main desktop
-- `pub running: bool` - Running flag
+**Application**
+- `new() -> Result<Self>` - Creates a new application instance and initializes the terminal.
+- `with_terminal(terminal: Terminal) -> Self` - Creates an application on an already-built terminal, e.g.
+- `is_host_driven(&self) -> bool` - Whether an embedder steps this application with [`step`](Self::step) instead of it owning a terminal and an event loop, as its backend's [`is_host_driven`](crate::terminal::Backend::is_host_driven) said when the application was built.
+- `menu_is_open(&self) -> bool` - Whether the menu bar has a submenu dropped down.
+- `set_menu_bar(&mut self, menu_bar: MenuBar)`
+- `set_status_line(&mut self, status_line: StatusLine)`
+- `add_overlay_widget<V: View + 'static>(&mut self, widget: V)` - Add an overlay widget that needs idle processing and is drawn on top of everything These widgets continue to animate even during modal dialogs Matches Borland: TProgram::idle() continues running during execView()
+- `needs_redraw(&mut self)` - Request a full redraw on the next frame Call this after changing the palette or other global settings
+- `handle_redraw(&mut self)` - Handle a full screen redraw (terminal resize, palette change, etc.).
+- `set_palette(&mut self, palette: Option<Vec<u8>>)` - Set a custom application palette and automatically trigger redraw if changed Pass None to reset to the default Borland palette
+- `put_event(&mut self, event: Event)` - Queue an event to be returned before the next terminal poll.
+- `poll_event_or_quit(&mut self) -> Option<Event>` - The next event: the one queued by [`put_event`](Self::put_event) if there is one, otherwise whatever the terminal's backend returns within 20 ms.
+- `get_event(&mut self) -> Option<Event>` - Get an event (with drawing) Matches Borland/Magiblot: TProgram::getEvent() (tprogram.cc:105-174) This is called by modal views' execute() methods.
+- `exec_view<V: View + 'static>(&mut self, view: V) -> CommandId` - Execute a view (modal or modeless) Matches Borland: TProgram::execView() (tprogram.cc:177-197)
+- `execute_modal<V, F>(&mut self, view: &mut V, tick: F) -> CommandId where V: WindowLike + ?Sized, F: FnMut(&mut Application, &mut V) -> ModalTick,` - Run `view` modally: the single modal loop behind `Dialog::execute`, `FileDialog::execute` and `HelpWindow::execute` (Borland: `TGroup::execute`, with `TProgram::getEvent` drawing the screen).
+- `run(&mut self)` - Run the event loop with no application hooks; see [`run_with`](Self::run_with).
+- `run_with<H: AppHandler>(&mut self, handler: &mut H)` - Run the event loop, giving `handler` a chance before and after each event, on idle, and when a window closes.
+- `step<H: AppHandler>(&mut self, handler: &mut H, event: Option<Event>)` - One pass of the event loop around an event the caller already has, for an embedder that steps the application itself instead of calling [`run_with`](Self::run_with).
+- `draw(&mut self)`
+- `handle_event(&mut self, event: &mut Event)`
+- `take_screenshot(&mut self)` - Save a PNG screenshot of the current screen (bound to Ctrl+F12).
+- `dump_screen_ansi(&mut self)` - Save an ASCII (ANSI-colored) dump of the whole screen (bound to F12).
+- `set_help_file(&mut self, path: &str) -> std::io::Result<()>` - Set the help file for F1 context-sensitive help Matches Borland: TApplication::helpFile initialization
+- `set_help(&mut self, help_file: HelpFile)` - Set a pre-built help file for F1 context-sensitive help
+- `register_help_context(&mut self, context_id: u16, topic_id: &str)` - Register a help context mapping (context ID to topic ID) This allows views to have help_context set, and F1 will open the corresponding topic
+- `show_help_topic(&mut self, topic_id: &str)` - Show help for a specific topic Opens the help window and displays the given topic
+- `show_help(&mut self)` - Show context-sensitive help Looks up the focused view's help context and opens the appropriate topic Matches Borland: TProgram::getEvent() F1 handling
+- `tile(&mut self)` - Tile all tileable windows in a grid pattern Matches Borland: TApplication::tile() (tapplica.cpp:123-127)
+- `cascade(&mut self)` - Cascade all tileable windows in a staircase pattern Matches Borland: TApplication::cascade() (tapplica.cpp:75-79)
+- `get_tile_rect(&self) -> Rect` - Get the rectangle to use for tiling/cascading operations Matches Borland: TApplication::getTileRect() (tapplica.cpp:94-97) Default implementation returns the full desktop extent Can be overridden to customize the tile area
+- `command_enabled(&self, command: CommandId) -> bool` - Check if a command is currently enabled Matches Borland: TView::commandEnabled(ushort command) (tview.cc:142-147)
+- `enable_command(&mut self, command: CommandId)` - Enable a single command Matches Borland: TView::enableCommand(ushort command) (tview.cc:384-389)
+- `disable_command(&mut self, command: CommandId)` - Disable a single command Matches Borland: TView::disableCommand(ushort command) (tview.cc:161-166)
+- `block_edit_mode(&self) -> bool` - Is block-edit mode on? Editors start rectangular selections while it is.
+- `set_block_edit_mode(&mut self, on: bool)` - Turn block-edit mode on or off.
+- `toggle_block_edit_mode(&mut self) -> bool` - Flip block-edit mode and return the new value.
+- `beep(&mut self)` - Emit a beep sound Matches Borland: TScreen::makeBeep() - provides audio feedback for errors/alerts Commonly used in dialog validation failures and error messages
+- `set_esc_timeout(&mut self, timeout_ms: u64) -> Result<()>` - Set the ESC timeout in milliseconds
+- `set_help_context(&mut self, help_ctx: u16)` - Idle processing - broadcasts command set changes and updates command states Matches Borland: TProgram::idle() (tprogram.cc:248-257) Set the current help context.
+- `idle(&mut self)`
+- `suspend(&mut self) -> crate::core::error::Result<()>` - Suspend the application (for Ctrl+Z handling) Matches Borland: TProgram::suspend() - temporarily exits TUI mode Restores terminal to normal mode, allowing user to return to shell Call resume() to return to TUI mode
+- `resume(&mut self) -> crate::core::error::Result<()>` - Resume the application after suspension (for Ctrl+Z handling) Matches Borland: TProgram::resume() - returns to TUI mode and redraws Re-enters raw mode and forces a complete screen redraw
 
 ---
 
@@ -1344,11 +1974,11 @@ All UI components implement the `View` trait, which provides:
    - `dump_to_file()` - ANSI dump for debugging
 
 7. **Special Behaviors:**
-   - `is_default_button()` - For dialog enter key handling
-   - `button_command()` - For button-specific logic
-   - `set_list_selection()` / `get_list_selection()` - For listbox integration
+   - `label_link()` - The view a label focuses
    - `get_redraw_union()` / `clear_move_tracking()` - For window movement
-   - `get_end_state()` / `set_end_state()` - For modal execution
+   - `end_state()` / `end_modal()` - For modal execution (`GroupLike`)
+   - `idle()` - Periodic work for overlay widgets
+   - `valid(command)` - Veto a close (Borland `valid`)
 
 ### Container Patterns
 

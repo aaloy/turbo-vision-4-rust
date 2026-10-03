@@ -98,6 +98,7 @@ nav:
   - Start here:
       - whats-new.md
       - getting-started.md
+      - reference/agents.md
   - User guide:
       - guide/index.md
       - Building an application:

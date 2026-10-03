@@ -35,6 +35,7 @@ COPIES: dict[str, str] = {
     "docs/SERIALIZATION-QUICK-REFERENCE.md": "reference/serialization-quick.md",
     "docs/MORE-CONTROLS.md": "reference/more-controls.md",
     "docs/FORMS.md": "tutorials/forms.md",
+    "AGENTS.md": "reference/agents.md",
     "docs/BIORHYTHM-CALCULATOR-TUTORIAL.md": "tutorials/biorhythm.md",
     "docs/CUSTOM-APPLICATION-RUST-EXAMPLE.md": "compare/custom-application-rust.md",
     "docs/CUSTOM-PROGRAM-CPP-EXAMPLE.md": "compare/custom-program-cpp.md",
@@ -53,6 +54,14 @@ LINK_REWRITES = [
     (r"\]\(\.\./CLASS-DIAGRAM\.md", "](../reference/class-diagram.md"),
     # Chapter 5 points at the forms guide, which lives under tutorials/ on the site.
     (r"\]\(\.\./FORMS\.md", "](../tutorials/forms.md"),
+    # AGENTS.md (reference/agents.md on the site) points at repository paths.
+    (r"\]\(docs/FORMS\.md", "](../tutorials/forms.md"),
+    (r"\]\(docs/user-guide/\)", "](../guide/index.md)"),
+    (r"\]\(examples/\)", "](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples)"),
+    # The API catalog points back at AGENTS.md, its neighbour under reference/.
+    (r"\]\(\.\./AGENTS\.md", "](agents.md"),
+    # Doctest fence attributes mean nothing to the site's highlighter.
+    (r"```rust,(?:no_run|ignore)", "```rust"),
     # The class diagram points back at chapter 7 from reference/.
     (r"\]\(user-guide/Chapter-(\d\d)[^)]*\.md\)", r"](../guide/chapter-\1.md)"),
     (r"\]\(docs/user-guide/Chapter-(\d\d)[^)]*\.md\)", r"](guide/chapter-\1.md)"),

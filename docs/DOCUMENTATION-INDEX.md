@@ -4,17 +4,17 @@ This directory contains comprehensive documentation analyzing the Rust implement
 
 ## Quick Navigation
 
+### For Writing Code (people and AI assistants)
+Start with **[AGENTS.md](../AGENTS.md)** - the Turbo Vision way of working, the application skeleton, a component index, recipes and rules; then **[FORMS.md](FORMS.md)** for dialogs and record editors. Both have compiled examples.
+
 ### For Quick Answers
-Start with **[QUICK_REFERENCE.txt](QUICK_REFERENCE.txt)** - contains code snippets and patterns for common tasks
+Start with **[quick-reference.txt](quick-reference.txt)** - contains code snippets and patterns for common tasks
 
 ### For Complete Understanding
-Read **[RUST_IMPLEMENTATION_REFERENCE.md](RUST_IMPLEMENTATION_REFERENCE.md)** - comprehensive guide with all features explained
+Read **[RUST-IMPLEMENTATION-REFERENCE.md](RUST-IMPLEMENTATION-REFERENCE.md)** - comprehensive guide with all features explained
 
 ### For File Organization
-Check **[KEY_FILES_SUMMARY.txt](KEY_FILES_SUMMARY.txt)** - find where each feature is implemented
-
-### For Overview
-See **[FINDINGS_SUMMARY.md](FINDINGS_SUMMARY.md)** - executive summary of all findings
+Check **[key-files-summary.txt](key-files-summary.txt)** - find where each feature is implemented
 
 ### For the Type Structure
 See **[CLASS-DIAGRAM.md](CLASS-DIAGRAM.md)** - Mermaid class diagram of the core traits and structs
@@ -25,21 +25,6 @@ See **[HOW-TO-BUILD-AND-DEPLOY-WEBSITE.md](HOW-TO-BUILD-AND-DEPLOY-WEBSITE.md)**
 ---
 
 ## Documentation Files
-
-### 1. FINDINGS_SUMMARY.md (11 KB)
-**Overview of the entire analysis**
-
-Contains:
-- Executive summary
-- 7 key components analyzed
-- Architecture patterns
-- Key differences from Borland
-- Implementation summary by component
-- How to use the documentation
-
-**Use when**: You want a high-level overview or are new to Turbo Vision
-
----
 
 ### 2. RUST_IMPLEMENTATION_REFERENCE.md (23 KB)
 **Comprehensive implementation guide with code examples**
@@ -137,7 +122,7 @@ Contains ready-to-use code for:
 ## Reading Guide
 
 ### For Complete Learning (Recommended)
-1. **Day 1**: Read FINDINGS_SUMMARY.md (15 min)
+1. **Day 1**: Read ../AGENTS.md (15 min)
 2. **Day 2**: Study examples/menu.rs (30 min)
 3. **Day 3**: Read relevant sections of RUST_IMPLEMENTATION_REFERENCE.md (1 hour)
 4. **Day 4**: Keep QUICK_REFERENCE.txt handy and try examples (ongoing)
@@ -149,7 +134,7 @@ Contains ready-to-use code for:
 4. Reference RUST_IMPLEMENTATION_REFERENCE.md if you need more details
 
 ### For Converting Documentation
-1. Read FINDINGS_SUMMARY.md (understand Rust vs Pascal differences)
+1. Read ../AGENTS.md (the Rust way of working, and how it differs from Pascal)
 2. Use KEY_FILES_SUMMARY.txt (find implementation details)
 3. Reference RUST_IMPLEMENTATION_REFERENCE.md (check architecture and examples)
 4. Use examples in QUICK_REFERENCE.txt for code samples
@@ -308,7 +293,7 @@ A: Functions that create dialogs and run modal loops: `message_box_ok()`, `confi
 
 ## Getting Started
 
-1. **First Time?** Read FINDINGS_SUMMARY.md
+1. **First Time?** Read ../AGENTS.md
 2. **Need Code?** Check QUICK_REFERENCE.txt
 3. **Full Details?** Read RUST_IMPLEMENTATION_REFERENCE.md
 4. **Find Files?** Use KEY_FILES_SUMMARY.txt

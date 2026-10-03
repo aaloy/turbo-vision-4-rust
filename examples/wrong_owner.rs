@@ -8,7 +8,7 @@ use turbo_vision::views::button::ButtonBuilder;
 use turbo_vision::views::status_line::StatusLine;
 use turbo_vision::views::window::WindowBuilder;
 
-const CMD_TEST: u16 = 100;
+const CMD_TEST: u16 = turbo_vision::core::command::CM_USER;
 
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;

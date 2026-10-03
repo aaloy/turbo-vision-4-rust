@@ -1,0 +1,20 @@
+# Turbo Vision for Rust
+
+> A Rust port of Borland Turbo Vision: text-mode applications with windows, dialogs, menus, a status line and controls, driven by keyboard and mouse in a terminal. Crate `turbo-vision`, imported as `turbo_vision`, Rust edition 2024.
+
+Start with the guide for AI assistants: it explains the Turbo Vision way of working (views, owner-relative coordinates, commands, the application-owned event loop, modal dialogs), gives the idiomatic application skeleton, indexes every component with how to create and use it, and lists the rules and pitfalls. Its code examples are compiled as tests.
+
+## Docs
+
+- [Guide for AI assistants and new developers](https://tv.enzolombardi.net/reference/agents/): the model, the application skeleton, the component index, recipes, rules and pitfalls
+- [Building forms with Form](https://tv.enzolombardi.net/tutorials/forms/): dialogs from labelled fields with no coordinates; record editors with typed fields, validation and a save step for databases
+- [API catalog](https://tv.enzolombardi.net/reference/api-catalog/): every public type and method, by module
+- [User guide](https://tv.enzolombardi.net/guide/): the 18-chapter guide to applications, events, views, windows, dialogs, controls, validation, editors, help and palettes
+
+## Optional
+
+- [Owner-relative coordinates](https://tv.enzolombardi.net/reference/owner-coordinates/): how view positions work
+- [Palette system](https://tv.enzolombardi.net/reference/palette-system/): how colours are looked up by role
+- [More controls and roadmap](https://tv.enzolombardi.net/reference/more-controls/): what was added beyond Borland, and what is planned
+- [Changelog](https://tv.enzolombardi.net/reference/changelog/)
+- [Source and examples](https://github.com/aovestdipaperino/turbo-vision-4-rust)

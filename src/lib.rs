@@ -21,59 +21,47 @@
 //!
 //! # Quick Start
 //!
+//! The application owns the event loop: put your state in a struct that
+//! implements [`AppHandler`](app::AppHandler), react to commands there, and
+//! call [`run_with`](app::Application::run_with).
+//!
 //! ```rust,no_run
 //! use turbo_vision::prelude::*;
+//! use turbo_vision::views::button::Button;
+//! use turbo_vision::views::msgbox::message_box_ok;
+//! use turbo_vision::views::window::Window;
+//!
+//! // Your own commands start at CM_USER.
+//! const CM_HELLO: CommandId = CM_USER;
+//!
+//! struct App;
+//!
+//! impl AppHandler for App {
+//!     fn handle_command(&mut self, app: &mut Application, command: CommandId, _: &Event) -> bool {
+//!         if command == CM_HELLO {
+//!             message_box_ok(app, "Hello!");
+//!             return true;
+//!         }
+//!         false
+//!     }
+//! }
 //!
 //! fn main() -> turbo_vision::core::error::Result<()> {
-//!     // Create application with terminal
 //!     let mut app = Application::new()?;
 //!
-//!     // Create a simple window
-//!     let mut window = turbo_vision::views::window::Window::new(
-//!         Rect::new(10, 5, 50, 15),
-//!         "My First Window"
-//!     );
-//!
-//!     // Add a button
-//!     let button = turbo_vision::views::button::Button::new(
-//!         Rect::new(15, 5, 25, 7),
-//!         "Click Me",
-//!         turbo_vision::core::command::CM_OK,
-//!         false
-//!     );
-//!     window.add(button);
-//!
-//!     // Add window to desktop
+//!     // A window on the desktop with a button; the button sends CM_HELLO.
+//!     let mut window = Window::new(Rect::new(10, 5, 50, 15), "My First Window");
+//!     window.add(Button::new(Rect::new(13, 3, 25, 5), "~H~ello", CM_HELLO, true));
 //!     app.desktop.add(window);
 //!
-//!     // Run event loop
-//!     app.running = true;
-//!     while app.running {
-//!         app.desktop.draw(&mut app.terminal);
-//!         app.terminal.flush()?;
-//!
-//!         if let Ok(Some(mut event)) = app.terminal.poll_event(
-//!             std::time::Duration::from_millis(50)
-//!         ) {
-//!             app.desktop.handle_event(&mut event);
-//!
-//!             if event.what == EventType::Command {
-//!                 match event.command {
-//!                     CM_QUIT => app.running = false,
-//!                     CM_OK => {
-//!                         // Handle button click
-//!                         app.running = false;
-//!                     }
-//!                     _ => {}
-//!                 }
-//!             }
-//!         }
-//!     }
-//!
-//!     app.terminal.shutdown()?;
+//!     app.run_with(&mut App); // Alt+X quits
 //!     Ok(())
 //! }
 //! ```
+//!
+//! For the Turbo Vision way of working, a component index and recipes, read
+//! `AGENTS.md` in the repository; dialogs and record editors are covered in
+//! `docs/FORMS.md`.
 //!
 //! # Architecture
 //!
@@ -230,6 +218,12 @@ pub mod views;
 // crates, behind the `test-util` feature)
 #[cfg(any(test, feature = "test-util"))]
 pub mod test_util;
+
+// The guides' code blocks are compiled as doctests, so they cannot drift
+// from the API they describe.
+#[cfg(doctest)]
+#[doc = include_str!("../AGENTS.md")]
+pub struct AgentsGuide;
 
 // Re-export commonly used types
 pub mod prelude {
