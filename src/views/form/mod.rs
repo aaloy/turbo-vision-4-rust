@@ -68,6 +68,13 @@
 //! - **The dialog** is sized to fit its contents and its title, and centred
 //!   on the desktop when it is executed or added to the desktop.
 //!
+//! # Editing records
+//!
+//! [`Form::for_record`] makes a form for a struct of yours, such as a database
+//! row: each field is bound to one of its members, the values are converted
+//! and validated, errors are shown in the dialog, and an [`Editor`] returns
+//! the edited struct. See the [`data`] module.
+//!
 //! Every view keeps its own behaviour: validators, history lists, colours.
 //! The form only sets each view's position and size, through
 //! [`View::set_bounds`], once [`build`](Form::build) is called.
@@ -83,6 +90,9 @@ use super::view::{View, ViewId};
 use crate::core::command::{CM_CANCEL, CM_OK, CommandId};
 use crate::core::geometry::Rect;
 use crate::core::state::{Grow, Options};
+
+pub mod data;
+pub use data::{Editor, Field, FieldError, FieldId, TextValue, ValidationErrors};
 
 /// Columns between the dialog's frame and the form's contents, each side.
 const MARGIN_X: i16 = 1;
@@ -217,7 +227,11 @@ struct Style {
 /// then call [`build`](Self::build) for the finished dialog. The methods that
 /// add a view return its typed [`Handle`]: keep it to read the view back from
 /// the dialog with [`GroupLike::get`] after the dialog has run.
-pub struct Form {
+///
+/// `Form` (that is, `Form<()>`) only lays views out. A form for a record type,
+/// [`Form::for_record`], also binds fields to the record's members and
+/// validates them: see the [`data`] module.
+pub struct Form<R = ()> {
     dialog: Dialog,
     title_width: i16,
     items: Vec<Item>,
@@ -227,11 +241,35 @@ pub struct Form {
     style: Style,
     button_align: ButtonAlign,
     resizable: bool,
+    /// Fields bound to the record's members, in the order they were added.
+    bindings: Vec<Box<dyn data::Binding<R>>>,
+    /// Rules over the whole record, run once every field is valid.
+    record_rules: Vec<data::RecordRule<R>>,
+    /// The row that shows validation errors, in an editor.
+    error_line: Option<ViewId>,
 }
 
 impl Form {
     /// Start a form for a dialog titled `title`.
     pub fn new(title: &str) -> Self {
+        Self::with_title(title)
+    }
+
+    /// Lay the form out and return the finished dialog: sized to fit,
+    /// centred when it is executed or added to the desktop, with the first
+    /// field focused.
+    ///
+    /// The handles returned while building stay valid: use them with
+    /// [`GroupLike::get`] / [`GroupLike::get_mut`] on the returned dialog.
+    pub fn build(mut self) -> Dialog {
+        self.lay_out();
+        self.dialog
+    }
+}
+
+impl<R> Form<R> {
+    /// An empty form for a dialog titled `title`.
+    fn with_title(title: &str) -> Self {
         Self {
             // A placeholder size; `build` gives the dialog its real one.
             dialog: Dialog::new(size(4, 4), title),
@@ -247,6 +285,9 @@ impl Form {
             },
             button_align: ButtonAlign::Center,
             resizable: false,
+            bindings: Vec::new(),
+            record_rules: Vec::new(),
+            error_line: None,
         }
     }
 
@@ -318,7 +359,7 @@ impl Form {
     /// The line ends when the next row is added. The first field's label goes
     /// in the label column; the others' labels sit just before their fields.
     /// Stretched fields share the width the sized ones leave.
-    pub fn line(&mut self) -> Line<'_> {
+    pub fn line(&mut self) -> Line<'_, R> {
         self.items_mut().push(Item::Line(Vec::new()));
         Line { form: self }
     }
@@ -430,13 +471,9 @@ impl Form {
         }
     }
 
-    /// Lay the form out and return the finished dialog: sized to fit,
-    /// centred when it is executed or added to the desktop, with the first
-    /// field focused.
-    ///
-    /// The handles returned while building stay valid: use them with
-    /// [`GroupLike::get`] / [`GroupLike::get_mut`] on the returned dialog.
-    pub fn build(mut self) -> Dialog {
+    /// Close any open group, place every view, size the dialog and focus its
+    /// first field.
+    fn lay_out(&mut self) {
         while !self.open.is_empty() {
             self.end_group();
         }
@@ -459,7 +496,6 @@ impl Form {
             .set_options(self.dialog.options() | Options::CENTERED);
         self.dialog.set_resizable(self.resizable);
         self.dialog.set_initial_focus();
-        self.dialog
     }
 
     /// Work out every view's place, and the size of the dialog's interior.
@@ -478,12 +514,22 @@ impl Form {
             y: MARGIN_TOP,
             width: content,
         };
-        let rows_end = place(&self.items, area, style, &mut places);
-        // A blank row under the rows, and the buttons below it if any.
+        let mut rows_end = place(&self.items, area, style, &mut places);
+        // An editor's error line: after a blank row, just above the buttons.
+        if let Some(line) = self.error_line {
+            let y = rows_end + 1;
+            let r = Rect::new(MARGIN_X, y, MARGIN_X + content, y + 1);
+            places.push((line, r, Grow::HI_X | Grow::LO_Y | Grow::HI_Y));
+            rows_end = y;
+        }
+        // A blank row under the rows (the error line is one), and the
+        // buttons below it if any.
         let height = if self.buttons.is_empty() {
             rows_end + 1
         } else {
-            let top = if rows_end == MARGIN_TOP {
+            let top = if self.error_line.is_some() {
+                rows_end + 1
+            } else if rows_end == MARGIN_TOP {
                 MARGIN_TOP
             } else {
                 rows_end + 1
@@ -514,11 +560,11 @@ impl Form {
 }
 
 /// Adds fields to a line started with [`Form::line`].
-pub struct Line<'a> {
-    form: &'a mut Form,
+pub struct Line<'a, R = ()> {
+    form: &'a mut Form<R>,
 }
 
-impl Line<'_> {
+impl<R> Line<'_, R> {
     /// Add a labelled field to the right of the line's previous ones. The
     /// rules are those of [`Form::field`]; an empty label leaves no gap.
     pub fn field<T: View + 'static>(&mut self, label: &str, view: T) -> Handle<T> {

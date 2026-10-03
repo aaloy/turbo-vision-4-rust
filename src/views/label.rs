@@ -15,6 +15,8 @@ pub struct Label {
     core: ViewCore,
     text: String,
     link: Option<ViewId>, // ID of linked control
+    /// Drawn in the error colour: its field holds an invalid value.
+    error: bool,
 }
 
 impl Label {
@@ -29,6 +31,7 @@ impl Label {
             },
             text: text.to_string(),
             link: None,
+            error: false,
         }
     }
 
@@ -47,6 +50,17 @@ impl Label {
     /// Replace the label text.
     pub fn set_text(&mut self, text: &str) {
         self.text = text.to_string();
+    }
+
+    /// Mark the label as naming a field with an invalid value: it is drawn in
+    /// red until cleared. `Form` editors set it while showing errors.
+    pub fn set_error(&mut self, error: bool) {
+        self.error = error;
+    }
+
+    /// Whether the label is marked as naming an invalid field.
+    pub fn is_error(&self) -> bool {
+        self.error
     }
 
     /// Extract the hotkey character from the label text
@@ -81,8 +95,13 @@ impl View for Label {
 
         // Label palette indices:
         // 1: Normal, 2: Selected, 3: Shortcut
-        let normal_attr = self.map_color(LABEL_NORMAL);
-        let shortcut_attr = self.map_color(LABEL_SHORTCUT);
+        let mut normal_attr = self.map_color(LABEL_NORMAL);
+        let mut shortcut_attr = self.map_color(LABEL_SHORTCUT);
+        if self.error {
+            // Keep the background, so the label still sits on its dialog.
+            normal_attr.fg = crate::core::palette::TvColor::Red;
+            shortcut_attr.fg = crate::core::palette::TvColor::Red;
+        }
 
         buf.move_char(0, ' ', normal_attr, width);
         buf.move_str_with_shortcut(0, &self.text, normal_attr, shortcut_attr);

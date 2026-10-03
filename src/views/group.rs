@@ -144,6 +144,11 @@ impl Group {
         }
     }
 
+    /// The `ViewId` of the focused child, if any.
+    pub fn focused_view_id(&self) -> Option<ViewId> {
+        self.view_ids.get(self.focused).copied()
+    }
+
     /// Focus a child view by its ViewId
     /// Returns true if the view was found and focused, false otherwise
     pub fn focus_by_view_id(&mut self, view_id: ViewId) -> bool {
