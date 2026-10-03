@@ -202,6 +202,9 @@ closed by `build()`. The box itself never takes the focus; it is a
 
 ### Where labels go
 
+Two settings choose where labels go. Both apply to the whole form, groups
+included, and can be called at any point before `build()`:
+
 ```rust
 use turbo_vision::views::form::{LabelAlign, LabelPosition};
 
@@ -209,15 +212,105 @@ form.label_position(LabelPosition::Above); // label on the row above its field
 form.label_align(LabelAlign::Right);       // labels on the left, ending at their fields
 ```
 
-| Setting | Looks like | Good for |
-|---------|------------|----------|
-| default (left, left-aligned) | `Name     ________` | most forms; Borland's own style |
-| `label_align(LabelAlign::Right)` | `    Name ________` | labels of very different lengths |
-| `label_position(LabelPosition::Above)` | `Name` then `________` below | narrow dialogs, long labels, many fields on a line |
+`cargo run --example form_labels` opens one contact form in each style, so you
+can compare them; only these calls differ. Here is that form (fields shown as
+`____`): a line with two fields, two fields of their own, and an address group
+with another line.
 
-Both settings apply to the whole form, groups included, and can be called at
-any point before `build()`. `label_align` only matters when labels are on the
-left.
+**Labels on the left** (the default; Borland's own style). One label column,
+labels against its left edge:
+
+```text
+╔═[■]═══════════════ Contact ═════════════════╗
+║                                             ║
+║ First name __________  Last name __________ ║
+║                                             ║
+║ Email      ________________________________ ║
+║                                             ║
+║ Phone      _______________                  ║
+║                                             ║
+║ ┌─ Address ───────────────────────────────┐ ║
+║ │ Street ________________________________ │ ║
+║ │                                         │ ║
+║ │ City   __________________  ZIP ________ │ ║
+║ └─────────────────────────────────────────┘ ║
+║                                             ║
+║              OK    ▀   Cancel  ▀            ║
+║            ▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄            ║
+╚═════════════════════════════════════════════╝
+```
+
+**Labels on the left, right-aligned**: `form.label_align(LabelAlign::Right)`.
+The same column, but each label ends against its field, so short labels stay
+next to what they name:
+
+```text
+╔═[■]═══════════════ Contact ═════════════════╗
+║                                             ║
+║ First name __________  Last name __________ ║
+║                                             ║
+║      Email ________________________________ ║
+║                                             ║
+║      Phone _______________                  ║
+║                                             ║
+║ ┌─ Address ───────────────────────────────┐ ║
+║ │ Street ________________________________ │ ║
+║ │                                         │ ║
+║ │   City __________________  ZIP ________ │ ║
+║ └─────────────────────────────────────────┘ ║
+║                                             ║
+║              OK    ▀   Cancel  ▀            ║
+║            ▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄            ║
+╚═════════════════════════════════════════════╝
+```
+
+**Labels above**: `form.label_position(LabelPosition::Above)`. Each label on
+the row above its field; there is no label column, so the form is narrower and
+taller:
+
+```text
+╔═[■]═════ Contact ════════╗
+║                          ║
+║ First name   Last name   ║
+║ ___________  ___________ ║
+║                          ║
+║ Email                    ║
+║ ________________________ ║
+║                          ║
+║ Phone                    ║
+║ _______________          ║
+║                          ║
+║ ┌─ Address ────────────┐ ║
+║ │ Street               │ ║
+║ │ ____________________ │ ║
+║ │                      │ ║
+║ │ City        ZIP      │ ║
+║ │ __________  ________ │ ║
+║ └──────────────────────┘ ║
+║                          ║
+║     OK    ▀   Cancel  ▀  ║
+║   ▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄  ║
+╚══════════════════════════╝
+```
+
+Things to notice in all three:
+
+- In a line, only the first field's label is in the label column; the others
+  (`Last name`, `ZIP`) sit just before their own fields.
+- A group lines up its own labels: `Street` and `City` form their own column,
+  narrower than `First name`'s.
+- A field built with a size (`Phone`, `ZIP`) keeps it in every style; the
+  stretched ones adapt.
+
+Which one to pick:
+
+| Style | Good for |
+|-------|----------|
+| left (default) | most forms; labels of similar length |
+| left, right-aligned | labels of very different lengths, so short ones stay next to their fields |
+| above | narrow dialogs, long labels, several fields on a line |
+
+`label_align` only matters when labels are on the left.
 
 ### Validate input
 
@@ -382,7 +475,8 @@ Follow these and the result needs no coordinates and no adjustment:
 
 ## See also
 
-- `examples/form_layout.rs`: the complete form shown above.
+- `examples/form_layout.rs`: the complete form shown at the top.
+- `examples/form_labels.rs`: one form in each label style.
 - [Chapter 5 – Creating Data-Entry Forms](user-guide/Chapter-05-Creating-Data-Entry-Forms.md):
   the same controls placed by hand, and how dialogs work underneath.
 - [Chapter 13 – Data Validation](user-guide/Chapter-13-Data-Validation.md):

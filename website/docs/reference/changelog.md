@@ -17,8 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Labels go on the left (`label_align` left or right) or above their fields
   (`label_position`). `field`, `line().field`, `row` and the button methods
   return typed handles to read the values back with `dialog.get(handle)`.
-  Guide: `docs/FORMS.md`; example: `form_layout` (`-- --above` for labels
-  above).
+  Guide: `docs/FORMS.md`; examples: `form_layout` (`-- --above` for labels
+  above) and `form_labels` (one form in each label style).
 - `GroupBox` (`views::group_box`), a titled single-line box drawn around
   related controls; `Form::group` uses it.
 - A modal `Dialog` with `Options::CENTERED` (or `CENTER_X` / `CENTER_Y`) is
