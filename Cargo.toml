@@ -56,6 +56,12 @@ required-features = ["native", "screenshot"]
 name = "glyph_sample"
 required-features = ["screenshot"]
 
+# The component gallery's tests (every demo builds and fits) run with
+# `cargo test`.
+[[example]]
+name = "gallery"
+test = true
+
 [dependencies]
 crossterm = { version = "0.29", optional = true }
 unicode-width = "0.1"
