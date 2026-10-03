@@ -145,13 +145,75 @@ progress bar, the second is a table.
 
 ## What is left
 
-Nothing on this list. Two things worth knowing about what shipped:
+Nothing on this list; the next round is under
+[Next controls](#next-controls-2026-10-review). Two things worth knowing about what shipped:
 
 - `CM_IDLE_TICK`, added for the tooltip's hover delay, is a general timer any
   view can use. `Application::idle` broadcasts it whenever the event poll times
   out. Views must not consume it, since a broadcast stops travelling once it is.
 - The clusters take their colours from `CP_CLUSTER`, so they look exactly like
   the existing one-label `CheckBox` and `RadioButton`.
+
+## Next controls (2026-10 review)
+
+What a data-entry or business application still has to build by hand. Ordered
+by benefit; the first five are what a Django-admin-like layer (list window,
+generated edit dialog, model menu) would need, so they come first.
+
+### Forms and data
+
+- [ ] **Form layout helper** — every view is placed with an absolute `Rect`,
+      the main source of effort and of off-by-one bugs in hand-built dialogs.
+      A helper that stacks label/field rows in two columns (and pages long
+      forms with `TabbedPane`) would shrink dialogs to a list of fields and
+      let them follow a resize through the grow modes.
+- [ ] **Form data transfer** — Borland's `TView::getData` / `setData` /
+      `dataSize` filled a whole dialog from a record and read it back in one
+      call; the port has no equivalent, so every field is wired by hand
+      through its own `Rc<RefCell<…>>`. A per-control value trait, a dialog
+      that gathers them, and dirty tracking ("discard changes?") would
+      replace that wiring.
+- [ ] **Date and time input** — a field with a drop-down calendar. A calendar
+      exists only inside `examples/showcase.rs`; `chrono` is already a
+      dependency, and the drop-down can reuse `ComboBox`'s two-step popup
+      command.
+- [ ] **Editable `ComboBox` / autocomplete** — the open item above: the field
+      is a real `InputLine` and the list narrows to the matches as one types.
+      Needed to pick from long lists such as a related record.
+- [ ] **`Table` sorting and filtering** — sort by clicking a column header
+      (with an indicator), an optional filter row, and resizable columns.
+      Sorting a `RowProvider` table means asking the provider, so the trait
+      needs an optional sort hook.
+
+### Navigation and feedback
+
+- [ ] **Command palette** — Ctrl+P, type part of a name, run any menu
+      command. The menu data is already structured (`menu_data`), so it is
+      mostly a filtered `ListBox` in a popup that skips disabled commands.
+- [ ] **Toast notifications** — short, non-modal messages that go away on
+      their own ("Saved", "3 rows deleted"). `core::timed_event` (added for
+      the button press animation) or `CM_IDLE_TICK` drives the timeout.
+- [ ] **Wizard dialog** — steps with Back / Next / Finish and validation
+      before each step, built on `TabbedPane` with the tab strip hidden.
+- [ ] **Tree with columns** — `Outline` with `Table`'s columns, for
+      hierarchical data: folders with sizes and dates, accounts with balances.
+
+### Smaller
+
+- [ ] **Status-line progress bar** — the compact variant still open under
+      ProgressBar above.
+- [ ] **Toolbar** — a row of buttons under the menu bar. Less usual in text
+      UIs, so optional.
+
+### Not controls, but as important
+
+- [ ] **Scripted UI tests** — a supported way to drive a running application
+      with keys and mouse events and assert on the screen. The showcase's
+      mouse routing broke silently when views moved to owner-relative
+      coordinates; such a test would have caught it. `test_util` and the
+      remote-input listener in `tv-extensions` are the starting points.
+- [ ] **Wide characters** — CJK and emoji cannot be typed or shown yet, since
+      a screen cell holds one character, one column wide.
 
 ## Notes
 
