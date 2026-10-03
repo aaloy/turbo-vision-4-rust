@@ -77,6 +77,23 @@ impl InputLine {
         self.validator = Some(validator);
     }
 
+    /// Whether the text passes the validator (true with none), without the
+    /// validator's error message box that [`validate`](Self::validate) shows.
+    pub fn is_valid(&self) -> bool {
+        self.validator
+            .as_ref()
+            .is_none_or(|v| v.borrow().is_valid(&self.text))
+    }
+
+    /// The most characters the line accepts. Text already longer is cut.
+    pub fn set_max_length(&mut self, max_length: usize) {
+        self.max_length = max_length;
+        if char_len(&self.text) > max_length {
+            let text: String = self.text.chars().take(max_length).collect();
+            self.set_text(text);
+        }
+    }
+
     /// Validate the current input
     /// Returns true if valid or no validator is set
     pub fn validate(&self) -> bool {

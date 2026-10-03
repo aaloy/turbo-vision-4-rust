@@ -162,17 +162,22 @@ generated edit dialog, model menu) would need, so they come first.
 
 ### Forms and data
 
-- [ ] **Form layout helper** — every view is placed with an absolute `Rect`,
-      the main source of effort and of off-by-one bugs in hand-built dialogs.
-      A helper that stacks label/field rows in two columns (and pages long
-      forms with `TabbedPane`) would shrink dialogs to a list of fields and
-      let them follow a resize through the grow modes.
-- [ ] **Form data transfer** — Borland's `TView::getData` / `setData` /
-      `dataSize` filled a whole dialog from a record and read it back in one
-      call; the port has no equivalent, so every field is wired by hand
-      through its own `Rc<RefCell<…>>`. A per-control value trait, a dialog
-      that gathers them, and dirty tracking ("discard changes?") would
-      replace that wiring.
+- [x] **Form layout helper** — done as `Form`, `src/views/form.rs`, guide in
+      `docs/FORMS.md`, example `form_layout`. Label and field columns,
+      full-width rows, sections, a button row, the dialog sized to fit and
+      centred; stretched fields follow a resize through the grow modes.
+      Lines of several fields, titled groups (`GroupBox`, nestable), and
+      labels on the left (left- or right-aligned) or above. Still open:
+      paging long forms with `TabbedPane`, groups side by side, label
+      settings per group.
+- [x] **Form data transfer** — done as record forms, `src/views/form/data.rs`:
+      in place of Borland's untyped `getData` / `setData` buffers, each field
+      is bound to a struct member through a lens and keeps its Rust type
+      (`TextValue` for input lines; check boxes, memos, choices, any control
+      through `bind`). Required fields, per-field and cross-field rules,
+      errors shown in the dialog, and a save closure whose errors keep it
+      open. Example `form_record`. Still open: dirty tracking ("discard
+      changes?"), live checks while typing.
 - [ ] **Date and time input** — a field with a drop-down calendar. A calendar
       exists only inside `examples/showcase.rs`; `chrono` is already a
       dependency, and the drop-down can reuse `ComboBox`'s two-step popup

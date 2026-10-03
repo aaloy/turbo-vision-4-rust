@@ -43,6 +43,8 @@
 //! - [`StatusLine`](status_line::StatusLine) - Bottom status line with key hints
 //!
 //! ## Dialogs and Utilities
+//! - [`Form`] - Lays out a dialog from labelled fields, with no coordinates
+//! - [`GroupBox`] - Titled frame drawn around related controls
 //! - [`FileDialog`](file_dialog::FileDialog) - File selection dialog
 //! - [`msgbox`] - Message boxes and confirmation dialogs
 //! - [`HelpWindow`](help_window::HelpWindow) - Context-sensitive help system
@@ -81,8 +83,10 @@ pub mod editor_traits;
 pub mod file_dialog;
 pub mod file_editor;
 pub mod file_list;
+pub mod form;
 pub mod frame;
 pub mod group;
+pub mod group_box;
 pub mod handle;
 pub mod help_context;
 pub mod help_file;
@@ -135,7 +139,11 @@ pub use cluster_group::{CheckBoxes, RadioButtons};
 pub use combo_box::{ComboBox, ComboState};
 #[doc(inline)]
 pub use dialog::CloseOn;
+#[doc(inline)]
+pub use form::Form;
 pub use group::GroupLike;
+#[doc(inline)]
+pub use group_box::GroupBox;
 pub use handle::Handle;
 pub use label::Label;
 #[doc(inline)]

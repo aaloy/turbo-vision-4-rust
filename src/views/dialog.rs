@@ -11,7 +11,7 @@ use crate::app::ModalTick;
 use crate::core::command::{CM_CANCEL, CommandId};
 use crate::core::event::{Event, EventType, KB_ENTER, KB_ESC_ESC};
 use crate::core::geometry::Rect;
-use crate::core::state::State;
+use crate::core::state::{Options, State};
 use crate::terminal::Terminal;
 use std::time::{Duration, Instant};
 
@@ -150,6 +150,7 @@ impl Dialog {
         // This allows modal dialogs to be constrained even though they're not added to desktop
         // Matches Borland: TView::dragView() uses owner's bounds as limits
         let desktop_bounds = app.desktop.get_bounds();
+        self.center_in(desktop_bounds);
         self.window.set_drag_limits(desktop_bounds);
 
         // Constrain dialog position to desktop bounds (including shadow)
@@ -159,6 +160,30 @@ impl Dialog {
         // Set initial focus to the first focusable child
         // Matches Borland: TView::setState(sfVisible) calls owner->resetCurrent()
         self.set_initial_focus();
+    }
+
+    /// Center the dialog in `area` along the axes its `Options::CENTER_X` /
+    /// `Options::CENTER_Y` flags ask for (`Options::CENTERED` is both).
+    /// Matches Borland: a view with ofCentered is centered in its owner when
+    /// inserted, which `execView` does for a modal dialog; `Desktop::add` does
+    /// the same for one added to the desktop.
+    fn center_in(&mut self, area: Rect) {
+        let options = self.options();
+        let current = self.bounds();
+        let (width, height) = (current.width(), current.height());
+        let left = if options.contains(Options::CENTER_X) {
+            area.a.x + (area.width() - width) / 2
+        } else {
+            current.a.x
+        };
+        let top = if options.contains(Options::CENTER_Y) {
+            area.a.y + (area.height() - height) / 2
+        } else {
+            current.a.y
+        };
+        if (left, top) != (current.a.x, current.a.y) {
+            self.set_bounds(Rect::new(left, top, left + width, top + height));
+        }
     }
 
     pub fn execute(&mut self, app: &mut crate::app::Application) -> CommandId {
@@ -390,7 +415,11 @@ impl Dialog {
         }) else {
             return false;
         };
-        match self.child_at_mut(index).as_any_mut().downcast_mut::<Button>() {
+        match self
+            .child_at_mut(index)
+            .as_any_mut()
+            .downcast_mut::<Button>()
+        {
             Some(button) if button.can_focus() => {
                 button.press_from_key(event);
                 true
@@ -871,7 +900,13 @@ mod tests {
 
         let mut event = Event::keyboard(KB_ENTER);
         dialog.handle_event(&mut event);
-        let default = |d: &Dialog| d.child_at(1).as_any().downcast_ref::<Button>().unwrap().is_down();
+        let default = |d: &Dialog| {
+            d.child_at(1)
+                .as_any()
+                .downcast_ref::<Button>()
+                .unwrap()
+                .is_down()
+        };
         assert!(default(&dialog), "the default button is shown pushed in");
         assert_eq!(dialog.end_state(), 0, "its command waits for the animation");
         deliver_queued_press(&mut dialog);
@@ -905,7 +940,10 @@ mod tests {
         let mut event = Event::keyboard(KB_ENTER);
         dialog.handle_event(&mut event);
         assert_eq!(dialog.end_state(), CM_OK);
-        assert!(crate::core::timed_event::next_due().is_none(), "nothing queued");
+        assert!(
+            crate::core::timed_event::next_due().is_none(),
+            "nothing queued"
+        );
     }
 
     /// Hand the dialog the command a key-pressed button queued, as the event

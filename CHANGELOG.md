@@ -8,6 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Record forms: `Form::<R>::for_record` binds fields to the members of a
+  struct of yours (a database row, say) through lenses, `|c| &mut c.name`.
+  `input` takes any `TextValue` member (text, numbers, `NaiveDate`,
+  `NaiveTime`, `Option` of them, or a type of your own), and `check`,
+  `memo`, `choice` (a drop-down list of values: enums, foreign keys) and
+  `bind` (any control) cover the rest. Fields take rules (`required`,
+  `validate`, custom messages); `validate_record` checks across fields.
+  `build_editor()` gives an `Editor` whose `edit` / `edit_with` fill the
+  dialog from a record and return the edited one once valid, saving it in
+  `edit_with`'s closure: its errors (a duplicate key) show like the others.
+  Invalid fields' labels turn red, an error line shows the message, and the
+  focus moves to the first invalid field. Members without a field are kept.
+  Example: `form_record`.
+- `Label::set_error` draws a label in red; `InputLine::is_valid` checks the
+  validator without its message box, and `InputLine::set_max_length`;
+  `Group::focused_view_id`.
+- `Form` (`views::form`) builds a data-entry dialog from a list of labelled
+  fields, with no coordinates: labels in one column, fields in the next,
+  buttons along the bottom, the dialog sized to fit and centred. Views built
+  with `Rect::default()` stretch to their column; `form::size(w, h)` keeps a
+  size. `line()` puts several fields on one row; `group(title)` ...
+  `end_group()` draws a titled box around related rows, and groups nest.
+  Labels go on the left (`label_align` left or right) or above their fields
+  (`label_position`). `field`, `line().field`, `row` and the button methods
+  return typed handles to read the values back with `dialog.get(handle)`.
+  Guide: `docs/FORMS.md`; examples: `form_layout` (`-- --above` for labels
+  above) and `form_labels` (one form in each label style).
+- `GroupBox` (`views::group_box`), a titled single-line box drawn around
+  related controls; `Form::group` uses it.
+- A modal `Dialog` with `Options::CENTERED` (or `CENTER_X` / `CENTER_Y`) is
+  centred on the desktop when executed, as Borland centres a view with
+  `ofCentered` on insert; `Desktop::add` already did this.
 - Buttons give press feedback, like Borland's `TButton::drawState`.
   Held down with the mouse, a button is drawn pushed in: the face moves one
   column right onto its shadow and the shadow disappears. It follows the
@@ -52,6 +84,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- A button answers Alt plus its `~` letter, as Borland's does, not only the
+  letter alone. In a dialog whose focus is in an input line the plain letter
+  is typed into the field, so Alt+O was the only way to press **~O~K** from
+  the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
+  `getAltCode`) gives the key code; `Label` uses it too.
 - `showcase` and `sorted_listbox` examples: mouse clicks missed their
   views. Their hand-written event routing handed the menu bar, status line,
   desktop and list box screen coordinates, while views take events in their
