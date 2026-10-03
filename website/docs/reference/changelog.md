@@ -68,6 +68,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- A button answers Alt plus its `~` letter, as Borland's does, not only the
+  letter alone. In a dialog whose focus is in an input line the plain letter
+  is typed into the field, so Alt+O was the only way to press **~O~K** from
+  the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
+  `getAltCode`) gives the key code; `Label` uses it too.
 - `showcase` and `sorted_listbox` examples: mouse clicks missed their
   views. Their hand-written event routing handed the menu bar, status line,
   desktop and list box screen coordinates, while views take events in their

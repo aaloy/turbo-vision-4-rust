@@ -96,51 +96,15 @@ impl View for Label {
         if event.what == EventType::Keyboard {
             // Check if we have a linked control and a hotkey
             if let (Some(link_id), Some(hotkey)) = (self.link, self.get_hotkey()) {
-                // Check if the pressed key matches our Alt+letter shortcut
-                // The key code for Alt+letter is stored in the high byte (scan code)
-                // We need to check if it matches KB_ALT_{LETTER}
-                use crate::core::event::*;
-
-                let alt_code = match hotkey {
-                    'A' => Some(KB_ALT_A),
-                    'B' => Some(KB_ALT_B),
-                    'C' => Some(KB_ALT_C),
-                    'D' => Some(KB_ALT_D),
-                    'E' => Some(KB_ALT_E),
-                    'F' => Some(KB_ALT_F),
-                    'G' => Some(KB_ALT_G),
-                    'H' => Some(KB_ALT_H),
-                    'I' => Some(KB_ALT_I),
-                    'J' => Some(KB_ALT_J),
-                    'K' => Some(KB_ALT_K),
-                    'L' => Some(KB_ALT_L),
-                    'M' => Some(KB_ALT_M),
-                    'N' => Some(KB_ALT_N),
-                    'O' => Some(KB_ALT_O),
-                    'P' => Some(KB_ALT_P),
-                    'Q' => Some(KB_ALT_Q),
-                    'R' => Some(KB_ALT_R),
-                    'S' => Some(KB_ALT_S),
-                    'T' => Some(KB_ALT_T),
-                    'U' => Some(KB_ALT_U),
-                    'V' => Some(KB_ALT_V),
-                    'W' => Some(KB_ALT_W),
-                    'X' => Some(KB_ALT_X),
-                    'Y' => Some(KB_ALT_Y),
-                    'Z' => Some(KB_ALT_Z),
-                    _ => None,
-                };
-
-                if let Some(expected_code) = alt_code {
-                    if event.key_code == expected_code {
-                        // Hotkey matched! Transform event to a broadcast with the
-                        // label's linked ViewId. Group::handle_event processes
-                        // FocusLink broadcasts by calling focus_by_view_id().
-                        // This safely replaces the old unsafe owner cast to &mut Group.
-                        event.what = crate::core::event::EventType::Broadcast;
-                        event.command = crate::core::command::CM_FOCUS_LINK;
-                        event.key_code = link_id.as_u16();
-                    }
+                // Alt plus the `~` letter (Borland: getAltCode)
+                if crate::core::event::alt_code(hotkey) == Some(event.key_code) {
+                    // Hotkey matched! Transform event to a broadcast with the
+                    // label's linked ViewId. Group::handle_event processes
+                    // FocusLink broadcasts by calling focus_by_view_id().
+                    // This safely replaces the old unsafe owner cast to &mut Group.
+                    event.what = crate::core::event::EventType::Broadcast;
+                    event.command = crate::core::command::CM_FOCUS_LINK;
+                    event.key_code = link_id.as_u16();
                 }
             }
         }

@@ -382,6 +382,10 @@ The default button is the one Enter presses when the focused control is not a
 button. `form.ok_cancel()` adds **OK** (`CM_OK`, default) and **Cancel**
 (`CM_CANCEL`).
 
+Alt plus a button's `~` letter presses it from anywhere in the form (Alt+O for
+**~O~K**). The letter alone works too, but only when the focused control does
+not take typed text: in an input line it is typed instead.
+
 ### Resizable forms
 
 ```rust

@@ -377,16 +377,20 @@ impl View for Button {
 
         match event.what {
             EventType::Keyboard => {
-                // Handle hotkey (works even without focus, matches Borland PostProcess)
-                // Check if the key pressed matches this button's hotkey
+                // Handle hotkey (works even without focus, matches Borland PostProcess):
+                // Alt plus the letter, or the letter alone. Matches Borland:
+                // TButton::handleEvent tests getAltCode(c) as well as the
+                // typed character. Alt matters in a form: there the plain
+                // letter is typed into the focused input line first.
                 // The typed character, not the key code's low byte: past
                 // Latin-1 that byte is unrelated to the character (`ł`,
                 // U+0142, would read as `B`).
-                if let (Some(hotkey), Some(key_char)) = (self.get_hotkey(), event.typed_char()) {
-                    let key_char_upper = key_char.to_uppercase().next().unwrap_or(key_char);
-
-                    if key_char_upper == hotkey {
-                        // Hotkey matched! Activate button
+                if let Some(hotkey) = self.get_hotkey() {
+                    let by_alt = crate::core::event::alt_code(hotkey) == Some(event.key_code);
+                    let by_char = event
+                        .typed_char()
+                        .is_some_and(|c| c.to_uppercase().next().unwrap_or(c) == hotkey);
+                    if by_alt || by_char {
                         self.press_from_key(event);
                         return;
                     }
@@ -1075,6 +1079,22 @@ mod tests {
         assert_eq!((e.what, e.command), (EventType::Command, CMD));
         assert!(!button.is_down());
         assert!(timed_event::next_due().is_none());
+    }
+
+    #[test]
+    fn alt_and_the_hot_key_letter_presses_the_button() {
+        const CMD: u16 = 541;
+        command_set::enable_command(CMD);
+        set_press_animation(Duration::ZERO);
+        let mut button = Button::new(Rect::new(0, 0, 10, 2), "~O~K", CMD, false);
+        // Not focused: the hot key works from the post-process phase.
+        let mut e = Event::keyboard(crate::core::event::KB_ALT_O);
+        button.handle_event(&mut e);
+        assert_eq!((e.what, e.command), (EventType::Command, CMD));
+
+        let mut other = Event::keyboard(crate::core::event::KB_ALT_X);
+        button.handle_event(&mut other);
+        assert_eq!(other.what, EventType::Keyboard, "another letter is left alone");
     }
 
     #[test]

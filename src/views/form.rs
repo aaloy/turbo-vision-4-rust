@@ -1264,4 +1264,25 @@ mod tests {
             "the box follows"
         );
     }
+
+    #[test]
+    fn alt_and_a_button_letter_presses_it_while_a_field_has_the_focus() {
+        crate::views::button::set_press_animation(std::time::Duration::ZERO);
+        let mut form = Form::new("T");
+        let name = form.field("~N~ame", input());
+        form.ok_cancel();
+        let mut d = form.build();
+        d.set_state(d.state() | crate::core::state::State::MODAL);
+
+        // A plain letter is typed into the focused field...
+        let mut o = Event::text('o');
+        d.handle_event(&mut o);
+        assert_eq!(d.get(name).map(InputLine::text), Some("o"));
+        assert_eq!(d.end_state(), 0);
+
+        // ...Alt and the letter presses OK.
+        let mut alt_o = Event::keyboard(crate::core::event::KB_ALT_O);
+        d.handle_event(&mut alt_o);
+        assert_eq!(d.end_state(), CM_OK);
+    }
 }

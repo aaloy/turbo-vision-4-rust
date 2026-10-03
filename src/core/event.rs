@@ -74,6 +74,24 @@ pub const KB_ALT_W: KeyCode = 0x1100;
 pub const KB_ALT_X: KeyCode = 0x2D00;
 pub const KB_ALT_Y: KeyCode = 0x1500;
 pub const KB_ALT_Z: KeyCode = 0x2C00;
+
+/// The Alt+letter key codes, A to Z.
+const ALT_LETTERS: [KeyCode; 26] = [
+    KB_ALT_A, KB_ALT_B, KB_ALT_C, KB_ALT_D, KB_ALT_E, KB_ALT_F, KB_ALT_G, KB_ALT_H, KB_ALT_I,
+    KB_ALT_J, KB_ALT_K, KB_ALT_L, KB_ALT_M, KB_ALT_N, KB_ALT_O, KB_ALT_P, KB_ALT_Q, KB_ALT_R,
+    KB_ALT_S, KB_ALT_T, KB_ALT_U, KB_ALT_V, KB_ALT_W, KB_ALT_X, KB_ALT_Y, KB_ALT_Z,
+];
+
+/// The key code of Alt plus `letter`, either case: `alt_code('o')` is
+/// `Some(KB_ALT_O)`. `None` for anything but an ASCII letter. Matches
+/// Borland's `getAltCode`, which a control uses to answer its `~` hot key
+/// with Alt held. (`MenuBar` keeps its own table for the reverse lookup.)
+pub fn alt_code(letter: char) -> Option<KeyCode> {
+    let upper = letter.to_ascii_uppercase();
+    upper
+        .is_ascii_uppercase()
+        .then(|| ALT_LETTERS[usize::from(upper as u8 - b'A')])
+}
 // Alt + digit (BIOS scan codes) — window selection (Borland cmSelectWindowNum)
 pub const KB_ALT_1: KeyCode = 0x7800;
 pub const KB_ALT_2: KeyCode = 0x7900;
@@ -745,6 +763,15 @@ fn crossterm_to_keycode(key: KeyEvent) -> KeyCode {
 #[cfg(test)]
 mod chord_tests {
     use super::*;
+
+    #[test]
+    fn alt_code_maps_letters_in_either_case() {
+        assert_eq!(alt_code('a'), Some(KB_ALT_A));
+        assert_eq!(alt_code('O'), Some(KB_ALT_O));
+        assert_eq!(alt_code('z'), Some(KB_ALT_Z));
+        assert_eq!(alt_code('1'), None);
+        assert_eq!(alt_code('ñ'), None);
+    }
 
     #[test]
     fn parses_ctrl_f12() {
