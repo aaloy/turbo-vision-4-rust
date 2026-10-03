@@ -453,6 +453,26 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 
 ---
 
+### Form Layout (`src/views/form.rs`)
+
+Builds a `Dialog` from labelled fields, with no coordinates. Guide: `docs/FORMS.md`.
+- `Form::new(title: &str) -> Self` - Start a form
+- `field<T: View>(&mut self, label: &str, view: T) -> Handle<T>` - Labelled row; `""` for no label; `~` marks the label's hot key
+- `row<T: View>(&mut self, view: T) -> Handle<T>` - Row spanning the form, no label
+- `section(&mut self, title: &str) -> &mut Self` - Heading with a blank row above
+- `gap(&mut self, rows: i16) -> &mut Self` - Extra blank rows
+- `button(&mut self, title: &str, command: CommandId) -> Handle<Button>` - Button on the bottom row
+- `default_button(&mut self, title: &str, command: CommandId) -> Handle<Button>` - The button Enter presses
+- `ok_cancel(&mut self) -> &mut Self` - OK (`CM_OK`, default) and Cancel (`CM_CANCEL`)
+- `spacing(&mut self, rows: i16) -> &mut Self` - Blank rows between rows (default 1)
+- `field_width(&mut self, width: i16) -> &mut Self` - Narrowest field column (default 20)
+- `button_align(&mut self, align: ButtonAlign) -> &mut Self` - `ButtonAlign::Center` (default) or `ButtonAlign::Right`
+- `resizable(&mut self, resizable: bool) -> &mut Self` - Let the user resize the dialog
+- `build(self) -> Dialog` - Lay out; the dialog is sized to fit, `Options::CENTERED`, first field focused
+- `size(width: i16, height: i16) -> Rect` - A size for a view that keeps it; `Rect::default()` stretches
+
+---
+
 ### Application Hooks (`src/app/application.rs`)
 - `AppHandler` trait: `pre_event(&mut self, app, event)`, `handle_command(&mut self, app, command, event) -> bool`, `idle(&mut self, app)`, `window_closed(&mut self, app, id)`; `Application::run_with(&mut handler)`; `run()` is `run_with(&mut ())`
 - `Application::execute_modal(&mut view: impl WindowLike, tick: FnMut(&mut Application, &mut V) -> ModalTick) -> CommandId` - The single modal loop; `ModalTick::Continue` / `ModalTick::End(CommandId)`

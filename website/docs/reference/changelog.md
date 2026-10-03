@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `Form` (`views::form`) builds a data-entry dialog from a list of labelled
+  fields, with no coordinates: labels in one column, fields in the next,
+  buttons along the bottom, the dialog sized to fit and centred. Views built
+  with `Rect::default()` stretch to their column; `form::size(w, h)` keeps a
+  size. `field`, `row` and the button methods return typed handles to read
+  the values back with `dialog.get(handle)`. Guide: `docs/FORMS.md`;
+  example: `form_layout`.
+- A modal `Dialog` with `Options::CENTERED` (or `CENTER_X` / `CENTER_Y`) is
+  centred on the desktop when executed, as Borland centres a view with
+  `ofCentered` on insert; `Desktop::add` already did this.
 - Buttons give press feedback, like Borland's `TButton::drawState`.
   Held down with the mouse, a button is drawn pushed in: the face moves one
   column right onto its shadow and the shadow disappears. It follows the

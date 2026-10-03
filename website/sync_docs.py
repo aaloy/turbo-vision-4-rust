@@ -34,6 +34,7 @@ COPIES: dict[str, str] = {
     "docs/SERIALIZATION-PERSISTENCE.md": "reference/serialization.md",
     "docs/SERIALIZATION-QUICK-REFERENCE.md": "reference/serialization-quick.md",
     "docs/MORE-CONTROLS.md": "reference/more-controls.md",
+    "docs/FORMS.md": "tutorials/forms.md",
     "docs/BIORHYTHM-CALCULATOR-TUTORIAL.md": "tutorials/biorhythm.md",
     "docs/CUSTOM-APPLICATION-RUST-EXAMPLE.md": "compare/custom-application-rust.md",
     "docs/CUSTOM-PROGRAM-CPP-EXAMPLE.md": "compare/custom-program-cpp.md",
@@ -50,6 +51,8 @@ LINK_REWRITES = [
     (r"\]\(\.\./UPGRADING-TO-4\.0\.md", "](../reference/upgrading-4.0.md"),
     # Chapter 7 points at the class diagram, which lives under reference/ on the site.
     (r"\]\(\.\./CLASS-DIAGRAM\.md", "](../reference/class-diagram.md"),
+    # Chapter 5 points at the forms guide, which lives under tutorials/ on the site.
+    (r"\]\(\.\./FORMS\.md", "](../tutorials/forms.md"),
     # The class diagram points back at chapter 7 from reference/.
     (r"\]\(user-guide/Chapter-(\d\d)[^)]*\.md\)", r"](../guide/chapter-\1.md)"),
     (r"\]\(docs/user-guide/Chapter-(\d\d)[^)]*\.md\)", r"](guide/chapter-\1.md)"),

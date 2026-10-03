@@ -11,6 +11,11 @@ per chapter, a tutorial carries a single program from an empty `main` to somethi
     status line, a menu bar, real commands and finally global keyboard shortcuts. About twenty
     minutes.
 
+-   :material-form-select: **[Building forms with `Form`](forms.md)**
+
+    A data-entry dialog from a list of labelled fields, with no coordinates: the form places the
+    labels, fields and buttons, sizes the dialog and centres it. Ten minutes.
+
 -   :material-chart-line: **[The biorhythm calculator](biorhythm.md)**
 
     A full application: a data-entry dialog with a validated date field, a custom view that draws

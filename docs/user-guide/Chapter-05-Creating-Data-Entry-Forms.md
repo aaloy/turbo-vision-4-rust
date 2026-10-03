@@ -146,6 +146,11 @@ fn open_order_window(app: &mut Application) {
 
 In order to use the data-entry dialog you've created, you need to give it data-entry fields. These fields are made up of various kinds of Turbo Vision controls. Controls are the specialized views that enable users to enter or manipulate data in a dialog box, such as buttons, check boxes, and input lines.
 
+> **Shortcut:** the [`Form` helper](../FORMS.md) does the placing for you: you
+> list the labels and fields in order, and it computes every position and the
+> dialog's size. This chapter places controls by hand, which shows what `Form`
+> does underneath and is still the way to build a layout `Form` cannot express.
+
 Adding a control to a dialog takes these steps:
 
 1. Creating shared data storage (for input fields)

@@ -124,6 +124,7 @@ nav:
   - Tutorials:
       - tutorials/index.md
       - tutorials/quick-start.md
+      - tutorials/forms.md
       - tutorials/biorhythm.md
   - Examples:
       - examples/index.md

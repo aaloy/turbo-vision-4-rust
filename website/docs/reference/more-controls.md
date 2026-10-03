@@ -162,11 +162,12 @@ generated edit dialog, model menu) would need, so they come first.
 
 ### Forms and data
 
-- [ ] **Form layout helper** — every view is placed with an absolute `Rect`,
-      the main source of effort and of off-by-one bugs in hand-built dialogs.
-      A helper that stacks label/field rows in two columns (and pages long
-      forms with `TabbedPane`) would shrink dialogs to a list of fields and
-      let them follow a resize through the grow modes.
+- [x] **Form layout helper** — done as `Form`, `src/views/form.rs`, guide in
+      `docs/FORMS.md`, example `form_layout`. Label and field columns,
+      full-width rows, sections, a button row, the dialog sized to fit and
+      centred; stretched fields follow a resize through the grow modes.
+      Still open: paging long forms with `TabbedPane`, two fields on a row,
+      labels above their fields.
 - [ ] **Form data transfer** — Borland's `TView::getData` / `setData` /
       `dataSize` filled a whole dialog from a record and read it back in one
       call; the port has no equivalent, so every field is wired by hand
