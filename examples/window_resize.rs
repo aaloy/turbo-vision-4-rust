@@ -33,8 +33,8 @@ use turbo_vision::views::status_line::StatusLine;
 use turbo_vision::views::text_viewer::TextViewer;
 use turbo_vision::views::window::WindowBuilder;
 
-const CMD_ABOUT: u16 = 100;
-const CMD_HELP: u16 = 101;
+const CMD_ABOUT: u16 = turbo_vision::core::command::CM_USER;
+const CMD_HELP: u16 = turbo_vision::core::command::CM_USER + 1;
 
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;

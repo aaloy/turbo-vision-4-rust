@@ -12,7 +12,7 @@ use turbo_vision::views::dialog::DialogBuilder;
 use turbo_vision::views::msgbox::{MsgBox, message_box};
 use turbo_vision::views::static_text::StaticTextBuilder;
 
-const CMD_SUSPEND: u16 = 100;
+const CMD_SUSPEND: u16 = turbo_vision::core::command::CM_USER;
 
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;

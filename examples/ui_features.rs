@@ -11,10 +11,10 @@ use turbo_vision::views::dialog::DialogBuilder;
 use turbo_vision::views::msgbox::{input_box, message_box};
 use turbo_vision::views::static_text::StaticTextBuilder;
 
-const CMD_BEEP: u16 = 100;
-const CMD_MSGBOX: u16 = 101;
-const CMD_INPUT: u16 = 102;
-const CMD_TITLE: u16 = 103;
+const CMD_BEEP: u16 = turbo_vision::core::command::CM_USER;
+const CMD_MSGBOX: u16 = turbo_vision::core::command::CM_USER + 1;
+const CMD_INPUT: u16 = turbo_vision::core::command::CM_USER + 2;
+const CMD_TITLE: u16 = turbo_vision::core::command::CM_USER + 3;
 
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut dialog = DialogBuilder::new()

@@ -49,15 +49,15 @@ const CM_PAUSE_CRAB: u16 = 208;
 
 // Calculator button commands
 #[allow(dead_code)]
-const CM_CALC_BUTTON: u16 = 200;
+const CM_CALC_BUTTON: u16 = 300;
 #[allow(dead_code)]
-const CM_CALC_CLEAR: u16 = 200;
+const CM_CALC_CLEAR: u16 = 300;
 #[allow(dead_code)]
-const CM_CALC_DELETE: u16 = 201;
+const CM_CALC_DELETE: u16 = 301;
 #[allow(dead_code)]
-const CM_CALC_PERCENT: u16 = 202;
+const CM_CALC_PERCENT: u16 = 302;
 #[allow(dead_code)]
-const CM_CALC_PLUSMIN: u16 = 203;
+const CM_CALC_PLUSMIN: u16 = 303;
 #[allow(dead_code)]
 const CM_CALC_7: u16 = 204;
 #[allow(dead_code)]
@@ -65,7 +65,7 @@ const CM_CALC_8: u16 = 205;
 #[allow(dead_code)]
 const CM_CALC_9: u16 = 206;
 #[allow(dead_code)]
-const CM_CALC_DIV: u16 = 207;
+const CM_CALC_DIV: u16 = 307;
 #[allow(dead_code)]
 const CM_CALC_4: u16 = 208;
 #[allow(dead_code)]
@@ -73,7 +73,7 @@ const CM_CALC_5: u16 = 209;
 #[allow(dead_code)]
 const CM_CALC_6: u16 = 210;
 #[allow(dead_code)]
-const CM_CALC_MUL: u16 = 211;
+const CM_CALC_MUL: u16 = 311;
 #[allow(dead_code)]
 const CM_CALC_1: u16 = 212;
 #[allow(dead_code)]
@@ -81,15 +81,15 @@ const CM_CALC_2: u16 = 213;
 #[allow(dead_code)]
 const CM_CALC_3: u16 = 214;
 #[allow(dead_code)]
-const CM_CALC_MINUS: u16 = 215;
+const CM_CALC_MINUS: u16 = 315;
 #[allow(dead_code)]
 const CM_CALC_0: u16 = 216;
 #[allow(dead_code)]
-const CM_CALC_DECIMAL: u16 = 217;
+const CM_CALC_DECIMAL: u16 = 317;
 #[allow(dead_code)]
-const CM_CALC_EQUAL: u16 = 218;
+const CM_CALC_EQUAL: u16 = 318;
 #[allow(dead_code)]
-const CM_CALC_PLUS: u16 = 219;
+const CM_CALC_PLUS: u16 = 319;
 
 // ClockView - displays live time on menu bar
 struct ClockView {

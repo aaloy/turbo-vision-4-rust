@@ -10,7 +10,7 @@ use turbo_vision::views::dialog::DialogBuilder;
 use turbo_vision::views::static_text::StaticTextBuilder;
 
 // Custom command IDs for this example
-const CMD_BEEP: u16 = 100;
+const CMD_BEEP: u16 = turbo_vision::core::command::CM_USER;
 
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;
