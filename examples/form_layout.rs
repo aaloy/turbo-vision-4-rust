@@ -1,16 +1,17 @@
 // (C) 2025 - Enzo Lombardi
 // Form Layout Demo - a data-entry dialog built with `Form`, with no coordinates.
 //
-// The form places the labels, fields and buttons and sizes the dialog; the
-// handles it returns read the values back once the dialog has closed.
+// The form places the labels, fields, group box and buttons and sizes the
+// dialog; the handles it returns read the values back once it has closed.
 // Run with: cargo run --example form_layout
+// Labels above their fields instead: cargo run --example form_layout -- --above
 
 use turbo_vision::app::Application;
 use turbo_vision::core::command::CM_OK;
 use turbo_vision::core::geometry::Rect;
 use turbo_vision::views::GroupLike;
 use turbo_vision::views::checkbox::CheckBox;
-use turbo_vision::views::form::{Form, size};
+use turbo_vision::views::form::{Form, LabelAlign, LabelPosition, size};
 use turbo_vision::views::input_line::InputLine;
 use turbo_vision::views::memo::Memo;
 use turbo_vision::views::msgbox::{MsgBox, message_box};
@@ -19,12 +20,27 @@ fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;
 
     let mut form = Form::new("New Customer");
+    if std::env::args().any(|a| a == "--above") {
+        form.label_position(LabelPosition::Above);
+    } else {
+        // Labels on the left, ending against their fields.
+        form.label_align(LabelAlign::Right);
+    }
 
     // `Rect::default()`: no size, so the field stretches to the field column.
     let name = form.field("~N~ame", InputLine::new(Rect::default(), 40));
     let email = form.field("~E~mail", InputLine::new(Rect::default(), 60));
-    // `size(w, h)`: the field keeps that size.
-    let zip = form.field("~Z~IP code", InputLine::new(size(8, 1), 8));
+
+    // A titled box around the rows up to `end_group`.
+    form.group("Address");
+    let street = form.field("~S~treet", InputLine::new(Rect::default(), 60));
+    // Two fields on one line; `size(w, h)` keeps ZIP at 8 columns and the
+    // city takes the rest.
+    let mut line = form.line();
+    let city = line.field("~C~ity", InputLine::new(Rect::default(), 40));
+    let zip = line.field("~Z~IP", InputLine::new(size(8, 1), 8));
+    form.end_group();
+
     // An empty label: no label, but aligned with the fields above.
     let vip = form.field("", CheckBox::new(Rect::default(), "VIP customer"));
 
@@ -36,12 +52,19 @@ fn main() -> turbo_vision::core::error::Result<()> {
     let mut dialog = form.build();
 
     if dialog.execute(&mut app) == CM_OK {
-        let text = |h| dialog.get(h).map(|f: &InputLine| f.text().to_string());
+        let text = |h| {
+            dialog
+                .get(h)
+                .map(|f: &InputLine| f.text().to_string())
+                .unwrap_or_default()
+        };
         let summary = format!(
-            "Name: {}\nEmail: {}\nZIP: {}\nVIP: {}\nNotes: {} characters",
-            text(name).unwrap_or_default(),
-            text(email).unwrap_or_default(),
-            text(zip).unwrap_or_default(),
+            "Name: {}\nEmail: {}\nAddress: {}, {} {}\nVIP: {}\nNotes: {} characters",
+            text(name),
+            text(email),
+            text(street),
+            text(zip),
+            text(city),
             if dialog.get(vip).is_some_and(CheckBox::is_checked) {
                 "yes"
             } else {

@@ -17,8 +17,16 @@
 //! let mut form = Form::new("Customer");
 //! // No size: the field stretches to the width of the field column.
 //! let name = form.field("~N~ame", InputLine::new(Rect::default(), 40));
-//! // A size: the field keeps it (8 columns, 1 row).
-//! let zip = form.field("~Z~IP code", InputLine::new(size(8, 1), 8));
+//!
+//! // A titled box around the rows up to `end_group`.
+//! form.group("Address");
+//! let street = form.field("~S~treet", InputLine::new(Rect::default(), 60));
+//! // Several fields on one line; a size keeps it (8 columns, 1 row).
+//! let mut line = form.line();
+//! let city = line.field("~C~ity", InputLine::new(Rect::default(), 40));
+//! let zip = line.field("~Z~IP", InputLine::new(size(8, 1), 8));
+//! form.end_group();
+//!
 //! // A row with no label, aligned with the fields.
 //! let vip = form.field("", CheckBox::new(Rect::default(), "VIP customer"));
 //! form.ok_cancel();
@@ -28,24 +36,33 @@
 //! // through the handles the form returned:
 //! let name_text = dialog.get(name).map(|f| f.text().to_string());
 //! # assert_eq!(name_text.as_deref(), Some(""));
-//! # let _ = (zip, vip);
+//! # let _ = (street, city, zip, vip);
 //! ```
 //!
 //! # Layout rules
 //!
 //! - **Rows** go top to bottom in the order they are added, with
 //!   [`spacing`](Form::spacing) blank rows between them (1 by default).
-//! - **Labels** ([`field`](Form::field)) are left-aligned in a column as wide
-//!   as the longest label. A label is linked to its field: clicking it, or
-//!   pressing Alt and its `~`-marked letter, focuses the field. An empty label
-//!   leaves the label column blank, so the view still lines up with the fields.
+//! - **Labels** ([`field`](Form::field)) sit to the left of their field, in
+//!   a column as wide as the longest label, or above it with
+//!   [`label_position`](Form::label_position). The column can be
+//!   right-aligned with [`label_align`](Form::label_align). A label is linked
+//!   to its field: clicking it, or pressing Alt and its `~`-marked letter,
+//!   focuses the field. An empty label leaves its place blank, so the view
+//!   still lines up with the fields.
 //! - **Sizes** come from the view: build it with `size(width, height)` to fix
-//!   its size, or with `Rect::default()` to let it stretch to the width of its
-//!   column, one row high. Stretched views also follow the dialog's width when
+//!   its size, or with `Rect::default()` to let it stretch to the width it is
+//!   given, one row high. Stretched views also follow the dialog's width when
 //!   it is resized.
+//! - **Lines** ([`line`](Form::line)) put several fields side by side. The
+//!   first field's label is in the label column; the others' labels sit just
+//!   before their fields. Stretched fields in a line share the width left.
+//! - **Groups** ([`group`](Form::group) ... [`end_group`](Form::end_group))
+//!   draw a titled box around their rows, as wide as the form. A group lines
+//!   up its own labels, and groups can nest.
 //! - **Full-width rows** ([`row`](Form::row)) start at the label column and
-//!   span the whole form; [`section`](Form::section) adds a heading with a
-//!   blank row above it.
+//!   span the whole form or group; [`section`](Form::section) adds a heading
+//!   with a blank row above it.
 //! - **Buttons** sit on one row at the bottom, centred (or right-aligned with
 //!   [`button_align`](Form::button_align)), each at least 10 columns wide.
 //! - **The dialog** is sized to fit its contents and its title, and centred
@@ -58,6 +75,7 @@
 use super::button::Button;
 use super::dialog::Dialog;
 use super::group::GroupLike;
+use super::group_box::GroupBox;
 use super::handle::Handle;
 use super::label::Label;
 use super::static_text::StaticText;
@@ -72,6 +90,14 @@ const MARGIN_X: i16 = 1;
 const MARGIN_TOP: i16 = 1;
 /// Columns between a label and its field.
 const LABEL_GAP: i16 = 1;
+/// Columns between two fields on one line.
+const CELL_GAP: i16 = 2;
+/// Narrowest a stretched field gets when it shares a line with others.
+const MIN_LINE_FIELD: i16 = 10;
+/// Columns between a group's frame and its contents: the border and a space.
+const GROUP_PAD_X: i16 = 2;
+/// Columns a group's frame needs besides its title: corners and padding.
+const GROUP_TITLE_CHROME: i16 = 6;
 /// Columns between two buttons.
 const BUTTON_GAP: i16 = 2;
 /// Narrowest button, as in Borland's standard dialogs.
@@ -100,6 +126,27 @@ pub enum ButtonAlign {
     Right,
 }
 
+/// Where a [`Form`] puts each field's label.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LabelPosition {
+    /// To the left of the field, in a column of its own (the default).
+    #[default]
+    Left,
+    /// On the row above the field, starting at the field's left edge. Takes
+    /// more rows and fewer columns: good for narrow forms and long labels.
+    Above,
+}
+
+/// How a [`Form`] aligns the label column when labels are on the left.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LabelAlign {
+    /// Labels start at the left edge of the column (the default).
+    #[default]
+    Left,
+    /// Labels end against their fields, as in many business forms.
+    Right,
+}
+
 /// A view's size as the form sees it: `None` for a width that stretches.
 #[derive(Debug, Clone, Copy)]
 struct Extent {
@@ -117,19 +164,31 @@ impl Extent {
     }
 }
 
-enum Row {
-    /// A label (if any) in the label column and a view in the field column.
-    Field {
-        label: Option<(ViewId, i16)>,
-        view: ViewId,
-        extent: Extent,
-    },
-    /// A view spanning the whole form.
+/// One field of a line, with its label if it has one.
+struct Cell {
+    label: Option<(ViewId, i16)>,
+    view: ViewId,
+    extent: Extent,
+}
+
+enum Item {
+    /// Fields side by side; a plain labelled field is a line of one.
+    Line(Vec<Cell>),
+    /// A view spanning the whole form or group.
     Full { view: ViewId, extent: Extent },
     /// A heading over the rows that follow.
     Section { view: ViewId, width: i16 },
     /// Extra blank rows.
     Gap(i16),
+    /// A titled box around rows of its own.
+    Group(Group),
+}
+
+/// A group: its frame, its title's width and its rows.
+struct Group {
+    frame: ViewId,
+    title_width: i16,
+    items: Vec<Item>,
 }
 
 struct FormButton {
@@ -137,24 +196,35 @@ struct FormButton {
     width: i16,
 }
 
+/// The settings the layout reads.
+#[derive(Clone, Copy)]
+struct Style {
+    spacing: i16,
+    min_field_width: i16,
+    label_position: LabelPosition,
+    label_align: LabelAlign,
+}
+
 /// Lays out a [`Dialog`] from a list of labelled fields, with no
 /// coordinates. See the [module documentation](self) for the rules and an
 /// example.
 ///
-/// Add rows in order with [`field`](Self::field), [`row`](Self::row),
-/// [`section`](Self::section) and [`gap`](Self::gap), buttons with
-/// [`button`](Self::button), [`default_button`](Self::default_button) or
-/// [`ok_cancel`](Self::ok_cancel), then call [`build`](Self::build) for the
-/// finished dialog. The methods that add a view return its typed
-/// [`Handle`]: keep it to read the view back from the dialog with
-/// [`GroupLike::get`] after the dialog has run.
+/// Add rows in order with [`field`](Self::field), [`line`](Self::line),
+/// [`row`](Self::row), [`section`](Self::section) and [`gap`](Self::gap),
+/// wrap some in [`group`](Self::group) ... [`end_group`](Self::end_group),
+/// add buttons with [`button`](Self::button),
+/// [`default_button`](Self::default_button) or [`ok_cancel`](Self::ok_cancel),
+/// then call [`build`](Self::build) for the finished dialog. The methods that
+/// add a view return its typed [`Handle`]: keep it to read the view back from
+/// the dialog with [`GroupLike::get`] after the dialog has run.
 pub struct Form {
     dialog: Dialog,
     title_width: i16,
-    rows: Vec<Row>,
+    items: Vec<Item>,
+    /// Groups started and not yet ended, innermost last.
+    open: Vec<Group>,
     buttons: Vec<FormButton>,
-    spacing: i16,
-    min_field_width: i16,
+    style: Style,
     button_align: ButtonAlign,
     resizable: bool,
 }
@@ -166,10 +236,15 @@ impl Form {
             // A placeholder size; `build` gives the dialog its real one.
             dialog: Dialog::new(size(4, 4), title),
             title_width: display_width(title),
-            rows: Vec::new(),
+            items: Vec::new(),
+            open: Vec::new(),
             buttons: Vec::new(),
-            spacing: 1,
-            min_field_width: 20,
+            style: Style {
+                spacing: 1,
+                min_field_width: 20,
+                label_position: LabelPosition::Left,
+                label_align: LabelAlign::Left,
+            },
             button_align: ButtonAlign::Center,
             resizable: false,
         }
@@ -177,14 +252,28 @@ impl Form {
 
     /// Blank rows between two rows of the form (default 1; 0 packs them).
     pub fn spacing(&mut self, rows: i16) -> &mut Self {
-        self.spacing = rows.max(0);
+        self.style.spacing = rows.max(0);
         self
     }
 
-    /// The narrowest the field column may be (default 20). Stretched fields
-    /// are at least this wide; a wider sized field widens the column.
+    /// The narrowest a stretched field on a line of its own may be (default
+    /// 20). A wider sized field widens the column for the others.
     pub fn field_width(&mut self, width: i16) -> &mut Self {
-        self.min_field_width = width.max(1);
+        self.style.min_field_width = width.max(1);
+        self
+    }
+
+    /// Where labels go: to the left of their fields (the default) or above.
+    /// Applies to the whole form.
+    pub fn label_position(&mut self, position: LabelPosition) -> &mut Self {
+        self.style.label_position = position;
+        self
+    }
+
+    /// How the label column is aligned when labels are on the left: left
+    /// (the default) or right, against the fields. Applies to the whole form.
+    pub fn label_align(&mut self, align: LabelAlign) -> &mut Self {
+        self.style.label_align = align;
         self
     }
 
@@ -194,42 +283,53 @@ impl Form {
         self
     }
 
-    /// Let the user resize the dialog (default off). Stretched fields and
-    /// full-width rows follow its width; the buttons stay on the bottom row.
+    /// Let the user resize the dialog (default off). Stretched fields,
+    /// full-width rows and groups follow its width; the buttons stay on the
+    /// bottom row.
     pub fn resizable(&mut self, resizable: bool) -> &mut Self {
         self.resizable = resizable;
         self
     }
 
-    /// Add a labelled field: `label` in the label column, `view` beside it.
+    /// Add a labelled field on a row of its own.
     ///
     /// Mark the label's hot key with `~`, as in `"~N~ame"`: Alt+N then
-    /// focuses the field. An empty label leaves the label column blank.
+    /// focuses the field. An empty label leaves the label's place blank.
     /// `view` keeps the size it was built with, or stretches to the field
     /// column if it was built with no width (`Rect::default()`).
     pub fn field<T: View + 'static>(&mut self, label: &str, view: T) -> Handle<T> {
-        let extent = Extent::of(&view);
-        let handle = self.dialog.add_typed(view);
-        let label = (!label.is_empty()).then(|| {
-            let mut l = Label::new(Rect::default(), label);
-            l.set_link(handle.id());
-            (self.dialog.add(l), display_width(label))
-        });
-        self.rows.push(Row::Field {
-            label,
-            view: handle.id(),
-            extent,
-        });
+        let (handle, cell) = self.cell(label, view);
+        self.items_mut().push(Item::Line(vec![cell]));
         handle
     }
 
-    /// Add a view spanning the whole form, with no label: a check box with
-    /// a long caption, a note, a list. It keeps its size, or stretches to
-    /// the form's width if it was built with no width.
+    /// Start a line of fields side by side; add them with [`Line::field`].
+    ///
+    /// ```
+    /// # use turbo_vision::core::geometry::Rect;
+    /// # use turbo_vision::views::form::{Form, size};
+    /// # use turbo_vision::views::input_line::InputLine;
+    /// # let mut form = Form::new("T");
+    /// let mut line = form.line();
+    /// let city = line.field("~C~ity", InputLine::new(Rect::default(), 40));
+    /// let zip = line.field("~Z~IP", InputLine::new(size(8, 1), 8));
+    /// ```
+    ///
+    /// The line ends when the next row is added. The first field's label goes
+    /// in the label column; the others' labels sit just before their fields.
+    /// Stretched fields share the width the sized ones leave.
+    pub fn line(&mut self) -> Line<'_> {
+        self.items_mut().push(Item::Line(Vec::new()));
+        Line { form: self }
+    }
+
+    /// Add a view spanning the whole form (or group), with no label: a check
+    /// box with a long caption, a note, a list. It keeps its size, or
+    /// stretches to the full width if it was built with no width.
     pub fn row<T: View + 'static>(&mut self, view: T) -> Handle<T> {
         let extent = Extent::of(&view);
         let handle = self.dialog.add_typed(view);
-        self.rows.push(Row::Full {
+        self.items_mut().push(Item::Full {
             view: handle.id(),
             extent,
         });
@@ -240,16 +340,36 @@ impl Form {
     /// (unless it is the first row).
     pub fn section(&mut self, title: &str) -> &mut Self {
         let view = self.dialog.add(StaticText::new(Rect::default(), title));
-        self.rows.push(Row::Section {
-            view,
-            width: display_width(title),
-        });
+        let width = display_width(title);
+        self.items_mut().push(Item::Section { view, width });
         self
     }
 
     /// Add `rows` blank rows (on top of the usual spacing).
     pub fn gap(&mut self, rows: i16) -> &mut Self {
-        self.rows.push(Row::Gap(rows.max(0)));
+        self.items_mut().push(Item::Gap(rows.max(0)));
+        self
+    }
+
+    /// Start a group: the rows added until [`end_group`](Self::end_group)
+    /// are drawn inside a box titled `title` (empty for none), as wide as the
+    /// form. The group lines up its own labels. Groups can nest; `build`
+    /// closes any group left open.
+    pub fn group(&mut self, title: &str) -> &mut Self {
+        let frame = self.dialog.add(GroupBox::new(Rect::default(), title));
+        self.open.push(Group {
+            frame,
+            title_width: display_width(title),
+            items: Vec::new(),
+        });
+        self
+    }
+
+    /// End the group started last. Does nothing when no group is open.
+    pub fn end_group(&mut self) -> &mut Self {
+        if let Some(group) = self.open.pop() {
+            self.items_mut().push(Item::Group(group));
+        }
         self
     }
 
@@ -285,6 +405,31 @@ impl Form {
         handle
     }
 
+    /// Add `view` to the dialog with its label, linked to it.
+    fn cell<T: View + 'static>(&mut self, label: &str, view: T) -> (Handle<T>, Cell) {
+        let extent = Extent::of(&view);
+        let handle = self.dialog.add_typed(view);
+        let label = (!label.is_empty()).then(|| {
+            let mut l = Label::new(Rect::default(), label);
+            l.set_link(handle.id());
+            (self.dialog.add(l), display_width(label))
+        });
+        let cell = Cell {
+            label,
+            view: handle.id(),
+            extent,
+        };
+        (handle, cell)
+    }
+
+    /// Where new rows go: the innermost open group, or the form itself.
+    fn items_mut(&mut self) -> &mut Vec<Item> {
+        match self.open.last_mut() {
+            Some(group) => &mut group.items,
+            None => &mut self.items,
+        }
+    }
+
     /// Lay the form out and return the finished dialog: sized to fit,
     /// centred when it is executed or added to the desktop, with the first
     /// field focused.
@@ -292,6 +437,9 @@ impl Form {
     /// The handles returned while building stay valid: use them with
     /// [`GroupLike::get`] / [`GroupLike::get_mut`] on the returned dialog.
     pub fn build(mut self) -> Dialog {
+        while !self.open.is_empty() {
+            self.end_group();
+        }
         let layout = self.measure();
 
         // Size the dialog first. Its children carry no grow bits yet, so the
@@ -316,130 +464,45 @@ impl Form {
 
     /// Work out every view's place, and the size of the dialog's interior.
     fn measure(&self) -> Layout {
-        let columns = self.columns();
+        let style = self.style;
+        let gaps = i16::try_from(self.buttons.len().saturating_sub(1)).unwrap_or(0);
+        let buttons = self.buttons.iter().map(|b| b.width).sum::<i16>() + BUTTON_GAP * gaps;
+        let content = min_width(&self.items, style)
+            .max(buttons)
+            .max(self.title_width + TITLE_CHROME - 2 - 2 * MARGIN_X)
+            .max(1);
+
         let mut places = Vec::new();
-        let rows_end = self.place_rows(&columns, &mut places);
+        let area = Area {
+            x: MARGIN_X,
+            y: MARGIN_TOP,
+            width: content,
+        };
+        let rows_end = place(&self.items, area, style, &mut places);
         // A blank row under the rows, and the buttons below it if any.
         let height = if self.buttons.is_empty() {
             rows_end + 1
         } else {
-            let top = if self.rows.is_empty() {
+            let top = if rows_end == MARGIN_TOP {
                 MARGIN_TOP
             } else {
                 rows_end + 1
             };
-            self.place_buttons(&columns, top, &mut places);
+            self.place_buttons(content, buttons, top, &mut places);
             top + BUTTON_HEIGHT
         };
         Layout {
-            width: columns.content + 2 * MARGIN_X,
+            width: content + 2 * MARGIN_X,
             height,
             places,
         }
     }
 
-    /// The column widths: the narrowest content that fits every row, the
-    /// buttons and the title.
-    fn columns(&self) -> Columns {
-        let label_width = self
-            .rows
-            .iter()
-            .filter_map(|row| match row {
-                Row::Field {
-                    label: Some((_, w)),
-                    ..
-                } => Some(*w),
-                _ => None,
-            })
-            .max();
-        // The field column starts after the labels, if there are any.
-        let field_x = MARGIN_X + label_width.map_or(0, |w| w + LABEL_GAP);
-        let label_column = field_x - MARGIN_X;
-
-        let mut content = 0;
-        let mut widest_field = None;
-        for row in &self.rows {
-            match row {
-                Row::Field { extent, .. } => {
-                    let w = extent.width.unwrap_or(0).max(self.min_field_width);
-                    widest_field = widest_field.max(Some(w));
-                }
-                Row::Full { extent, .. } => content = content.max(extent.width.unwrap_or(0)),
-                Row::Section { width, .. } => content = content.max(*width),
-                Row::Gap(_) => {}
-            }
-        }
-        if let Some(w) = widest_field {
-            content = content.max(label_column + w);
-        }
-
-        let gaps = i16::try_from(self.buttons.len().saturating_sub(1)).unwrap_or(0);
-        let buttons = self.buttons.iter().map(|b| b.width).sum::<i16>() + BUTTON_GAP * gaps;
-        let content = content
-            .max(buttons)
-            .max(self.title_width + TITLE_CHROME - 2 - 2 * MARGIN_X)
-            .max(1);
-        Columns {
-            field_x,
-            field_width: content - label_column,
-            content,
-            buttons,
-        }
-    }
-
-    /// Place the rows top to bottom; returns the first row below them.
-    fn place_rows(&self, c: &Columns, places: &mut Vec<(ViewId, Rect, Grow)>) -> i16 {
-        let mut bottom = MARGIN_TOP; // the first free row after the last row
-        for (i, row) in self.rows.iter().enumerate() {
-            let mut y = if i == 0 {
-                MARGIN_TOP
-            } else {
-                bottom + self.spacing
-            };
-            match row {
-                Row::Field {
-                    label,
-                    view,
-                    extent,
-                } => {
-                    if let Some((label, w)) = label {
-                        let r = Rect::new(MARGIN_X, y, MARGIN_X + w, y + 1);
-                        places.push((*label, r, Grow::empty()));
-                    }
-                    let (w, grow) = stretch(extent.width, c.field_width);
-                    let r = Rect::new(c.field_x, y, c.field_x + w, y + extent.height);
-                    places.push((*view, r, grow));
-                    bottom = y + extent.height;
-                }
-                Row::Full { view, extent } => {
-                    let (w, grow) = stretch(extent.width, c.content);
-                    let r = Rect::new(MARGIN_X, y, MARGIN_X + w, y + extent.height);
-                    places.push((*view, r, grow));
-                    bottom = y + extent.height;
-                }
-                Row::Section { view, width } => {
-                    if i > 0 {
-                        y += 1; // the blank row above a heading
-                    }
-                    let r = Rect::new(MARGIN_X, y, MARGIN_X + width, y + 1);
-                    places.push((*view, r, Grow::empty()));
-                    bottom = y + 1;
-                }
-                Row::Gap(rows) => {
-                    // Blank rows on top of the spacing on either side of it:
-                    // the next row adds its own spacing after them.
-                    bottom += rows;
-                }
-            }
-        }
-        bottom
-    }
-
     /// Place the buttons on one row starting at `top`.
-    fn place_buttons(&self, c: &Columns, top: i16, places: &mut Vec<(ViewId, Rect, Grow)>) {
+    fn place_buttons(&self, content: i16, buttons: i16, top: i16, places: &mut Vec<Place>) {
         let (offset, grow) = match self.button_align {
-            ButtonAlign::Center => ((c.content - c.buttons) / 2, Grow::LO_Y | Grow::HI_Y),
-            ButtonAlign::Right => (c.content - c.buttons, Grow::ALL),
+            ButtonAlign::Center => ((content - buttons) / 2, Grow::LO_Y | Grow::HI_Y),
+            ButtonAlign::Right => (content - buttons, Grow::ALL),
         };
         let mut x = MARGIN_X + offset;
         for b in &self.buttons {
@@ -450,24 +513,254 @@ impl Form {
     }
 }
 
-/// The form's column widths, in the dialog's interior.
-struct Columns {
-    /// Where the field column starts.
-    field_x: i16,
-    /// How wide the field column is: what a stretched field gets.
-    field_width: i16,
-    /// How wide the whole form is, labels included.
-    content: i16,
-    /// How wide the row of buttons is.
-    buttons: i16,
+/// Adds fields to a line started with [`Form::line`].
+pub struct Line<'a> {
+    form: &'a mut Form,
 }
 
-/// The finished layout: the interior's size and each view's place in it,
-/// with the grow bits it takes when the dialog is resizable.
+impl Line<'_> {
+    /// Add a labelled field to the right of the line's previous ones. The
+    /// rules are those of [`Form::field`]; an empty label leaves no gap.
+    pub fn field<T: View + 'static>(&mut self, label: &str, view: T) -> Handle<T> {
+        let (handle, cell) = self.form.cell(label, view);
+        if let Some(Item::Line(cells)) = self.form.items_mut().last_mut() {
+            cells.push(cell);
+        }
+        handle
+    }
+}
+
+/// A view, its place in the dialog's interior, and the grow bits it takes
+/// when the dialog is resizable.
+type Place = (ViewId, Rect, Grow);
+
+/// The finished layout: the interior's size and each view's place in it.
 struct Layout {
     width: i16,
     height: i16,
-    places: Vec<(ViewId, Rect, Grow)>,
+    places: Vec<Place>,
+}
+
+/// The space a list of rows is laid out in: its left edge, its first row
+/// and its width.
+#[derive(Clone, Copy)]
+struct Area {
+    x: i16,
+    y: i16,
+    width: i16,
+}
+
+/// The width of the label column of a list of rows, gap included: the
+/// longest first-field label, or 0 when labels go above their fields.
+fn label_column(items: &[Item], style: Style) -> i16 {
+    if style.label_position == LabelPosition::Above {
+        return 0;
+    }
+    items
+        .iter()
+        .filter_map(|item| match item {
+            Item::Line(cells) => cells.first()?.label.map(|(_, w)| w),
+            _ => None,
+        })
+        .max()
+        .map_or(0, |w| w + LABEL_GAP)
+}
+
+/// How narrow a field can be: its own width, or a stretched field's minimum.
+fn field_min(cell: &Cell, alone: bool, style: Style) -> i16 {
+    cell.extent.width.unwrap_or(if alone {
+        style.min_field_width
+    } else {
+        MIN_LINE_FIELD
+    })
+}
+
+/// A label's width, or 0 for a cell with none.
+fn label_width(cell: &Cell) -> i16 {
+    cell.label.map_or(0, |(_, w)| w)
+}
+
+/// The columns a cell needs besides its field when labels are on the left:
+/// its label, unless it is the first cell (whose label is in the column).
+fn inline_label(cell: &Cell, first: bool) -> i16 {
+    match (first, cell.label) {
+        (false, Some((_, w))) => w + LABEL_GAP,
+        _ => 0,
+    }
+}
+
+/// The narrowest width that fits every row of `items`.
+fn min_width(items: &[Item], style: Style) -> i16 {
+    let column = label_column(items, style);
+    items
+        .iter()
+        .map(|item| match item {
+            Item::Line(cells) => {
+                let alone = cells.len() == 1;
+                let fields: i16 = cells
+                    .iter()
+                    .enumerate()
+                    .map(|(i, c)| match style.label_position {
+                        LabelPosition::Left => inline_label(c, i == 0) + field_min(c, alone, style),
+                        LabelPosition::Above => field_min(c, alone, style).max(label_width(c)),
+                    })
+                    .sum();
+                column + fields + CELL_GAP * gaps(cells.len())
+            }
+            Item::Full { extent, .. } => extent.width.unwrap_or(1),
+            Item::Section { width, .. } => *width,
+            Item::Gap(_) => 0,
+            Item::Group(group) => (min_width(&group.items, style) + 2 * GROUP_PAD_X)
+                .max(group.title_width + GROUP_TITLE_CHROME),
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+/// The gaps between `n` things side by side.
+fn gaps(n: usize) -> i16 {
+    i16::try_from(n.saturating_sub(1)).unwrap_or(0)
+}
+
+/// Place `items` top to bottom in `area`; returns the first row below them,
+/// or `area.y` if nothing was placed.
+fn place(items: &[Item], area: Area, style: Style, places: &mut Vec<Place>) -> i16 {
+    let column = label_column(items, style);
+    let mut bottom = area.y; // the first free row after the last row
+    let mut first = true;
+    for item in items {
+        if matches!(item, Item::Line(cells) if cells.is_empty()) {
+            continue; // a line nobody added a field to
+        }
+        let mut y = if first {
+            area.y
+        } else {
+            bottom + style.spacing
+        };
+        match item {
+            Item::Line(cells) => {
+                bottom = place_line(cells, Area { y, ..area }, column, style, places);
+            }
+            Item::Full { view, extent } => {
+                let (w, grow) = stretch(extent.width, area.width);
+                let r = Rect::new(area.x, y, area.x + w, y + extent.height);
+                places.push((*view, r, grow));
+                bottom = y + extent.height;
+            }
+            Item::Section { view, width } => {
+                if !first {
+                    y += 1; // the blank row above a heading
+                }
+                let r = Rect::new(area.x, y, area.x + width, y + 1);
+                places.push((*view, r, Grow::empty()));
+                bottom = y + 1;
+            }
+            Item::Gap(rows) => {
+                // Blank rows on top of the spacing on either side of it:
+                // the next row adds its own spacing after them.
+                bottom += rows;
+            }
+            Item::Group(group) => {
+                let inside = Area {
+                    x: area.x + GROUP_PAD_X,
+                    y: y + 1,
+                    width: area.width - 2 * GROUP_PAD_X,
+                };
+                // The bottom border goes on the first row below the contents.
+                bottom = place(&group.items, inside, style, places).max(inside.y) + 1;
+                let r = Rect::new(area.x, y, area.x + area.width, bottom);
+                places.push((group.frame, r, Grow::HI_X));
+            }
+        }
+        first = false;
+    }
+    bottom
+}
+
+/// Place one line of cells at `area.y`, its fields starting after the label
+/// column `column`; returns the first row below the line.
+fn place_line(
+    cells: &[Cell],
+    area: Area,
+    column: i16,
+    style: Style,
+    places: &mut Vec<Place>,
+) -> i16 {
+    let above = style.label_position == LabelPosition::Above;
+
+    // The columns taken by labels, sized fields and gaps; the stretched
+    // fields share what is left.
+    let fixed: i16 = cells
+        .iter()
+        .enumerate()
+        .map(|(i, c)| match (above, c.extent.width) {
+            (false, w) => inline_label(c, i == 0) + w.unwrap_or(0),
+            (true, Some(w)) => w.max(label_width(c)),
+            (true, None) => 0,
+        })
+        .sum();
+    let stretched = cells.iter().filter(|c| c.extent.width.is_none()).count();
+    let mut shares = shares(
+        area.width - column - fixed - CELL_GAP * gaps(cells.len()),
+        stretched,
+    );
+    // The last stretched field takes a resize; what is right of it moves.
+    let growing = cells.iter().rposition(|c| c.extent.width.is_none());
+
+    let field_y = area.y + i16::from(above && cells.iter().any(|c| c.label.is_some()));
+    let mut x = area.x + column;
+    let mut bottom = field_y + 1;
+    for (i, cell) in cells.iter().enumerate() {
+        let (field_grow, label_grow) = match growing {
+            Some(k) if i == k => (Grow::HI_X, Grow::empty()),
+            Some(k) if i > k => (Grow::LO_X | Grow::HI_X, Grow::LO_X | Grow::HI_X),
+            _ => (Grow::empty(), Grow::empty()),
+        };
+        let width = match cell.extent.width {
+            Some(w) => w,
+            // Above its field, a label is never cut by a narrow share.
+            None if above => shares.next().unwrap_or(1).max(label_width(cell)),
+            None => shares.next().unwrap_or(1),
+        }
+        .max(1);
+
+        if let Some((label, w)) = cell.label {
+            let r = if above {
+                Rect::new(x, area.y, x + w, area.y + 1)
+            } else if i == 0 {
+                // In the label column, against its left or right edge.
+                let left = match style.label_align {
+                    LabelAlign::Left => area.x,
+                    LabelAlign::Right => area.x + column - LABEL_GAP - w,
+                };
+                Rect::new(left, area.y, left + w, area.y + 1)
+            } else {
+                let r = Rect::new(x, area.y, x + w, area.y + 1);
+                x += w + LABEL_GAP;
+                r
+            };
+            places.push((label, r, label_grow));
+        }
+        let r = Rect::new(x, field_y, x + width, field_y + cell.extent.height);
+        places.push((cell.view, r, field_grow));
+        bottom = bottom.max(field_y + cell.extent.height);
+        let cell_width = if above {
+            width.max(label_width(cell))
+        } else {
+            width
+        };
+        x += cell_width + CELL_GAP;
+    }
+    bottom
+}
+
+/// `spare` columns split between `n` stretched fields: equal shares, the
+/// remainder to the last.
+fn shares(spare: i16, n: usize) -> impl Iterator<Item = i16> {
+    let count = i16::try_from(n).unwrap_or(1).max(1);
+    let each = spare / count;
+    let last = spare - each * (count - 1);
+    (0..n).map(move |i| if i + 1 == n { last } else { each })
 }
 
 /// A view's width in a column `column` wide: its own, or the column's (and
@@ -726,6 +1019,249 @@ mod tests {
         assert!(
             (b.a.y - desk.a.y - (desk.b.y - b.b.y)).abs() <= 1,
             "centred down"
+        );
+    }
+
+    // ---- lines: several fields side by side ----
+
+    #[test]
+    fn a_line_puts_fields_side_by_side_with_their_labels_between() {
+        let mut form = Form::new("T");
+        let street = form.field("~S~treet", input());
+        let mut line = form.line();
+        let city = line.field("~C~ity", input());
+        let zip = line.field("~Z~IP", InputLine::new(size(8, 1), 8));
+        let d = form.build();
+
+        let (s, c, z) = (bounds(&d, street), bounds(&d, city), bounds(&d, zip));
+        assert_eq!(c.a.y, z.a.y, "one row");
+        assert_eq!(c.a.x, s.a.x, "the first field is in the field column");
+        assert_eq!(z.width(), 8, "a sized field keeps its size");
+        // City, a gap, the ZIP label, a gap, then the ZIP field.
+        assert_eq!(z.a.x, c.b.x + CELL_GAP + 3 + LABEL_GAP);
+        assert_eq!(z.b.x, s.b.x, "the line ends where the form does");
+
+        let zip_label = labels(&d).into_iter().find(|(t, ..)| t == "~Z~IP").unwrap();
+        assert_eq!(zip_label.1.a.x, c.b.x + CELL_GAP);
+        assert_eq!(zip_label.2, Some(zip.id()), "linked to its field");
+    }
+
+    #[test]
+    fn stretched_fields_in_a_line_share_the_width() {
+        let mut form = Form::new("T");
+        form.field("~A~ddress", InputLine::new(size(40, 1), 40));
+        let mut line = form.line();
+        let first = line.field("~F~irst", input());
+        let last = line.field("~L~ast", input());
+        let d = form.build();
+        let (f, l) = (bounds(&d, first), bounds(&d, last));
+        assert!(
+            (f.width() - l.width()).abs() <= 1,
+            "{} and {}",
+            f.width(),
+            l.width()
+        );
+        assert!(f.width() >= MIN_LINE_FIELD);
+    }
+
+    #[test]
+    fn a_line_with_no_fields_takes_no_room() {
+        let mut form = Form::new("T");
+        let a = form.field("A", input());
+        let _ = form.line();
+        let b = form.field("B", input());
+        let d = form.build();
+        assert_eq!(bounds(&d, b).a.y, bounds(&d, a).a.y + 2);
+    }
+
+    #[test]
+    fn tab_goes_through_a_line_left_to_right() {
+        let mut form = Form::new("T");
+        let mut line = form.line();
+        let city = line.field("~C~ity", input());
+        let zip = line.field("~Z~IP", InputLine::new(size(8, 1), 8));
+        let mut d = form.build();
+        assert!(d.get(city).is_some_and(View::is_focused));
+        d.handle_event(&mut Event::keyboard(crate::core::event::KB_TAB));
+        assert!(d.get(zip).is_some_and(View::is_focused));
+    }
+
+    // ---- groups ----
+
+    fn group_boxes(d: &Dialog) -> Vec<(String, Rect)> {
+        (0..d.child_count())
+            .filter_map(|i| d.child_at(i).as_any().downcast_ref::<GroupBox>())
+            .map(|g| (g.title().to_string(), g.bounds()))
+            .collect()
+    }
+
+    #[test]
+    fn a_group_draws_a_box_around_its_rows() {
+        let mut form = Form::new("T");
+        let name = form.field("~N~ame", input());
+        form.group("Address");
+        let street = form.field("~S~treet", input());
+        let city = form.field("~C~ity", input());
+        form.end_group();
+        let after = form.field("~P~hone", input());
+        let d = form.build();
+
+        let boxes = group_boxes(&d);
+        let [(title, frame)] = boxes.as_slice() else {
+            panic!("one group box")
+        };
+        assert_eq!(title, "Address");
+        let (name, street, city, after) = (
+            bounds(&d, name),
+            bounds(&d, street),
+            bounds(&d, city),
+            bounds(&d, after),
+        );
+        assert_eq!(frame.a.y, name.b.y + 1, "one blank row above the box");
+        assert_eq!(
+            street.a.y,
+            frame.a.y + 1,
+            "the first row is under the top edge"
+        );
+        assert_eq!(
+            frame.b.y,
+            city.b.y + 1,
+            "the bottom edge is under the last row"
+        );
+        assert_eq!(after.a.y, frame.b.y + 1, "one blank row below the box");
+        assert_eq!(
+            (frame.a.x, frame.b.x),
+            (MARGIN_X, name.b.x),
+            "as wide as the form"
+        );
+        assert!(
+            street.a.x > frame.a.x && street.b.x < frame.b.x,
+            "inside the box"
+        );
+    }
+
+    #[test]
+    fn a_group_lines_up_its_own_labels() {
+        let mut form = Form::new("T");
+        let outside = form.field("~L~ong outside label", input());
+        form.group("G");
+        let inside = form.field("~X~", input());
+        form.end_group();
+        let d = form.build();
+        // The group's label column fits "X", not the long label outside.
+        assert_eq!(
+            bounds(&d, inside).a.x,
+            MARGIN_X + GROUP_PAD_X + 1 + LABEL_GAP
+        );
+        assert!(bounds(&d, outside).a.x > bounds(&d, inside).a.x);
+    }
+
+    #[test]
+    fn groups_nest_and_build_closes_any_left_open() {
+        let mut form = Form::new("T");
+        form.group("Outer");
+        form.group("Inner");
+        let deep = form.field("~D~eep", input());
+        form.end_group();
+        form.group("Unclosed");
+        form.field("~U~", input());
+        form.end_group().end_group(); // the second closes "Outer"
+        form.end_group(); // nothing open: ignored
+        form.group("Left open");
+        let last = form.field("~L~ast", input());
+        let d = form.build();
+
+        let boxes = group_boxes(&d);
+        let frame = |t: &str| boxes.iter().find(|(title, _)| title == t).unwrap().1;
+        let (outer, inner) = (frame("Outer"), frame("Inner"));
+        assert!(
+            inner.a.x > outer.a.x && inner.b.x < outer.b.x,
+            "nested inside"
+        );
+        assert!(inner.a.y > outer.a.y && inner.b.y < outer.b.y);
+        assert!(bounds(&d, deep).a.x > inner.a.x);
+        let open = frame("Left open");
+        assert!(open.a.y > outer.b.y, "after the outer group");
+        assert_eq!(open.b.y, bounds(&d, last).b.y + 1, "closed by build");
+    }
+
+    #[test]
+    fn a_long_group_title_widens_the_form() {
+        let mut form = Form::new("T");
+        form.group("A very long group title indeed");
+        form.field("A", InputLine::new(size(5, 1), 5));
+        let d = form.build();
+        let (_, frame) = &group_boxes(&d)[0];
+        assert!(
+            frame.width() >= display_width("A very long group title indeed") + GROUP_TITLE_CHROME
+        );
+    }
+
+    // ---- label position and alignment ----
+
+    #[test]
+    fn labels_above_sit_on_the_row_over_their_fields() {
+        let mut form = Form::new("T");
+        form.label_position(LabelPosition::Above);
+        let name = form.field("~N~ame", input());
+        let mut line = form.line();
+        let first = line.field("~F~irst", input());
+        let last = line.field("~L~ast", input());
+        let d = form.build();
+
+        let labels = labels(&d);
+        for (text, rect, link) in &labels {
+            let field = d.child_by_id(link.unwrap()).unwrap().bounds();
+            assert_eq!(
+                (rect.a.x, rect.a.y),
+                (field.a.x, field.a.y - 1),
+                "{text} above"
+            );
+        }
+        let (n, f, l) = (bounds(&d, name), bounds(&d, first), bounds(&d, last));
+        assert_eq!(n.a.x, MARGIN_X, "no label column");
+        assert_eq!(f.a.y, l.a.y);
+        assert_eq!(
+            f.a.y,
+            n.b.y + 2,
+            "label row, then field row, after one blank"
+        );
+    }
+
+    #[test]
+    fn right_aligned_labels_end_against_their_fields() {
+        let mut form = Form::new("T");
+        form.label_align(LabelAlign::Right);
+        let name = form.field("~N~ame", input());
+        let email = form.field("~E~mail address", input());
+        let d = form.build();
+        for (text, rect, link) in labels(&d) {
+            let field = d.child_by_id(link.unwrap()).unwrap().bounds();
+            assert_eq!(rect.b.x, field.a.x - LABEL_GAP, "{text} ends at its field");
+        }
+        assert_eq!(bounds(&d, name).a.x, bounds(&d, email).a.x);
+    }
+
+    #[test]
+    fn resizing_widens_the_last_stretched_field_of_a_line_and_moves_the_rest() {
+        let mut form = Form::new("T");
+        form.resizable(true);
+        form.group("G");
+        let mut line = form.line();
+        let city = line.field("~C~ity", input());
+        let zip = line.field("~Z~IP", InputLine::new(size(8, 1), 8));
+        let mut d = form.build();
+
+        let (c0, z0, g0) = (bounds(&d, city), bounds(&d, zip), group_boxes(&d)[0].1);
+        let b = d.bounds();
+        d.set_bounds(Rect::new(b.a.x, b.a.y, b.b.x + 6, b.b.y));
+        assert_eq!(bounds(&d, city).width(), c0.width() + 6);
+        assert_eq!(bounds(&d, zip).a.x, z0.a.x + 6, "moved, same size");
+        assert_eq!(bounds(&d, zip).width(), 8);
+        assert_eq!(
+            group_boxes(&d)[0].1.width(),
+            g0.width() + 6,
+            "the box follows"
         );
     }
 }
