@@ -47,6 +47,11 @@ Three steps, always the same:
    button that closed it; `dialog.get(handle)` gives back each view, with its
    own type, to read its value.
 
+**Editing a struct, such as a database row?** Use a record form instead:
+`Form::<Customer>::for_record(...)` binds each field to a member of your
+struct, converts and validates the values, shows errors in the dialog and
+gives you back the edited struct. See [Editing records](#editing-records).
+
 ## What the layout looks like
 
 `cargo run --example form_layout` builds this form: a few fields, an address
@@ -402,6 +407,315 @@ built with a fixed size keep it.
 window instead of running modally: `app.desktop.add(dialog)`. It is centred
 there too.
 
+## Editing records
+
+A record form edits a struct of yours, such as a row loaded from a database.
+Each field is bound to one member of the struct through a *lens*, a closure
+that leads from the record to the member: `|c| &mut c.name`. The form uses it
+both ways: to show the member when the dialog opens, and to write the edited
+value back. Values keep their Rust types: a `u32` member gets a `u32`, an
+`Option<NaiveDate>` member an optional date.
+
+### A complete record editor
+
+```rust
+use turbo_vision::app::Application;
+use turbo_vision::views::form::Form;
+
+#[derive(Clone, Default)]
+struct Customer {
+    id: i64,               // no field for it: kept as it was
+    name: String,
+    email: Option<String>, // an empty field is None
+    age: u32,              // must be a whole number
+    vip: bool,
+}
+
+fn main() -> turbo_vision::core::error::Result<()> {
+    let mut app = Application::new()?;
+
+    let mut form = Form::<Customer>::for_record("Customer");
+    form.input("~N~ame", |c| &mut c.name).required();
+    form.input("~E~mail", |c| &mut c.email);
+    form.input("~A~ge", |c| &mut c.age);
+    form.check("~V~IP customer", |c| &mut c.vip);
+    form.ok_cancel();
+    let mut editor = form.build_editor();
+
+    // Some(edited) once every field is valid and OK was pressed; None on Cancel.
+    if let Some(customer) = editor.edit(&mut app, Customer::default()) {
+        println!("{} is {}", customer.name, customer.age);
+    }
+    Ok(())
+}
+```
+
+It is the same `Form` as before, so lines, groups, sections, label positions
+and buttons all work as described above. Three things differ:
+
+1. **Start** with `Form::<YourStruct>::for_record(title)`.
+2. **Bind** fields with `input`, `check`, `memo`, `choice` or `bind` (below)
+   instead of `field`. Each one takes a label and a lens, and its result takes
+   rules such as `.required()`.
+3. **Finish** with `form.build_editor()`. The `Editor` it returns opens the
+   dialog with `edit(&mut app, record)`, and can be used again for the next
+   record.
+
+`edit` returns `Some(record)` built from a copy of the record you passed in,
+so members without a field (an `id`, timestamps) keep their values.
+
+### Binding fields
+
+| Method | Control | Member type |
+|--------|---------|-------------|
+| `form.input(label, lens)` | input line | any `TextValue`: `String`, integers, floats, `NaiveDate`, `NaiveTime`, and `Option` of any of them |
+| `form.check(caption, lens)` | check box, lined up with the fields | `bool` |
+| `form.memo(label, rows, lens)` | multi-line text box, `rows` high | `String` |
+| `form.choice(label, options, lens)` | drop-down list | any `T: Clone + PartialEq` (an enum, a foreign key) |
+| `form.bind(label, view, lens, read, write)` | any control you build | any `T` |
+
+Inside a line, `line.input`, `line.check`, `line.choice` and `line.bind` do the
+same thing side by side:
+
+```rust
+let mut line = form.line();
+line.input("~P~hone", |c| &mut c.phone);
+line.input("~B~irthday", |c| &mut c.birthday);
+```
+
+`choice` takes `(caption, value)` pairs and starts on the option equal to the
+member's value:
+
+```rust
+#[derive(Clone, Copy, PartialEq)]
+enum Plan { Free, Pro, Team }
+
+form.choice(
+    "P~l~an",
+    [("Free", Plan::Free), ("Pro", Plan::Pro), ("Team", Plan::Team)],
+    |c| &mut c.plan,
+);
+```
+
+For a foreign key, build the pairs from the other table:
+`customers.iter().map(|c| (c.name.clone(), c.id))`.
+
+### How field types are read
+
+`input` converts the text to the member's type and back. On bad text the
+message says what was expected:
+
+| Member type | Field width | Empty field | Bad text says |
+|-------------|-------------|-------------|---------------|
+| `String` | stretches | `""` | (anything is accepted) |
+| `i8` … `u128`, `isize`, `usize` | 12 | "… is required" | "Age must be a whole number" |
+| `f32`, `f64` | 14 | "… is required" | "Price must be a number" |
+| `NaiveDate` | 12, `2026-12-31` | "… is required" | "Since must be a date like 2026-12-31" |
+| `NaiveTime` | 10, `14:30` or `14:30:05` | "… is required" | "Start must be a time like 14:30" |
+| `Option<T>` | as `T` | `None` | as `T` |
+
+Spaces around numbers are ignored. `.width(n)` changes a field's width. If
+the input line has a validator (a picture, a range), it is checked too: "Code
+is not valid".
+
+### Rules
+
+Chain rules onto the field when you bind it:
+
+```rust
+form.input("~N~ame", |c| &mut c.name).required();
+form.input("~E~mail", |c| &mut c.email)
+    .required_with("We need an email to send the invoice")
+    .validate(|e| if e.contains('@') { Ok(()) } else { Err("Email must contain @".into()) });
+form.input("~S~eats", |c| &mut c.seats)
+    .width(6)
+    .invalid_with("Seats is a number of people")
+    .validate(|s| if (1..=500).contains(s) { Ok(()) } else { Err("Seats must be between 1 and 500".into()) });
+form.check("I ~a~ccept the terms", |c| &mut c.accepted).required(); // must be checked
+```
+
+| Rule | Meaning |
+|------|---------|
+| `.required()` | Must not be empty; a check box must be checked; a choice must be made. Message: "Name is required" ("… must be checked" for a check box). |
+| `.required_with(msg)` | Same, with your message. |
+| `.invalid_with(msg)` | Your message when the text does not convert to the type. |
+| `.validate(\|value\| ...)` | Your check on the converted value: `Err(message)` rejects it. Several run in order. |
+| `.width(n)` / `.max_len(n)` | The field's width / the most characters it accepts. |
+
+The form writes its own messages from the field's label, leaving out the `~`,
+a trailing `:` and `*`. Your rules return complete sentences, shown as they
+are.
+
+**Rules across fields** see the whole record, once every field is valid. Keep
+the id of the field the error belongs to:
+
+```rust
+use turbo_vision::views::form::ValidationErrors;
+
+let seats = form.input("~S~eats", |c| &mut c.seats).id();
+form.validate_record(move |c, errors: &mut ValidationErrors| {
+    if c.plan == Plan::Team && c.seats < 2 {
+        errors.add(seats, "A Team plan needs at least 2 seats");
+    }
+    if c.name == "root" {
+        errors.add_form("That name is reserved"); // about the form, not one field
+    }
+});
+```
+
+### What the user sees
+
+When a button other than Cancel closes the dialog, the editor reads every
+field and runs every rule. If anything fails, the dialog stays open:
+
+```text
+╔═[■]════════════ New Customer ═══════════════╗
+║                                             ║
+║ ┌─ Contact ───────────────────────────────┐ ║
+║ │ Name                                    │ ║   <- label in red: invalid
+║ │                                         │ ║
+║ │ Email                                   │ ║   <- red too
+║ │                                         │ ║
+║ │ Phone             Birthday              │ ║
+║ └─────────────────────────────────────────┘ ║
+║                   ...                       ║
+║ Name is required (+1 more)                  ║   <- the error line, in red
+║              OK    ▀   Cancel  ▀            ║
+║            ▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄            ║
+╚═════════════════════════════════════════════╝
+```
+
+- The labels of the invalid fields turn red.
+- The error line, just above the buttons, shows the message for the focused
+  field (or the first one) and how many more there are.
+- The focus moves to the first invalid field.
+- From then on, every time the focus moves the form is checked again, so
+  errors disappear as they are fixed.
+
+Cancel, Esc and the close box always close the dialog, without checking.
+
+### Saving to a database
+
+`edit_with` hands the valid record to your closure before the dialog closes.
+Save it there. If the save fails, return the errors: they are shown like any
+other, and the dialog stays open so the user can fix them.
+
+```rust
+use turbo_vision::views::form::FieldError;
+
+let email = form.input("~E~mail", |c| &mut c.email).required().id();
+form.ok_cancel();
+let mut editor = form.build_editor();
+
+let saved = editor.edit_with(&mut app, customer, |c| {
+    db.save(c).map_err(|e| match e {
+        DbError::DuplicateEmail => FieldError::new(email, "That email is already registered").into(),
+        other => FieldError::form(format!("Could not save: {other}")).into(),
+    })
+});
+```
+
+The closure may borrow your connection, since it does not need to be
+`'static`. Errors about the whole form (`FieldError::form`) show on the error
+line without marking a field.
+
+**Editing an existing row** is the same call with the loaded row:
+`editor.edit_with(&mut app, row, |r| db.update(r))`. Its `id` comes back
+untouched, because the form has no field for it.
+
+**Several accepting buttons**: any button except Cancel validates and saves.
+`editor.command()` tells which one closed the dialog:
+
+```rust
+form.default_button("~S~ave", CM_OK);
+form.button("Save and ~n~ew", CM_SAVE_AND_NEW);
+form.button("Cancel", CM_CANCEL);
+// ...
+while let Some(c) = editor.edit_with(&mut app, Customer::default(), |c| db.insert(c)) {
+    if editor.command() != CM_SAVE_AND_NEW {
+        break;
+    }
+}
+```
+
+`cargo run --example form_record` runs a complete example. An in-memory table
+plays the database and rejects a duplicate email. The example covers optional
+fields, a date, an enum choice, rules within one field and across fields, and
+the save loop.
+
+### Your own field types
+
+Implement `TextValue` for a type of yours to bind it with `input`, for
+example a money amount kept in cents:
+
+```rust
+use turbo_vision::views::form::TextValue;
+
+#[derive(Clone, Copy, PartialEq)]
+struct Cents(i64);
+
+impl TextValue for Cents {
+    fn to_text(&self) -> String {
+        let sign = if self.0 < 0 { "-" } else { "" };
+        let cents = self.0.unsigned_abs();
+        format!("{sign}{}.{:02}", cents / 100, cents % 100)
+    }
+    fn from_text(text: &str) -> Result<Self, String> {
+        let amount: f64 = text.trim().parse().map_err(|_e| "must be an amount like 12.50".to_string())?;
+        Ok(Cents((amount * 100.0).round() as i64))
+    }
+    fn width() -> Option<i16> {
+        Some(12)
+    }
+}
+```
+
+`from_text` returns what the text should be, finishing the sentence that
+starts with the field's name. `Option<Cents>` works at once.
+
+### Other controls
+
+`bind` takes any control and two closures: one reads the value (or says what
+it should be), the other shows a value. For example, a `Spinner` for a `u8`:
+
+```rust
+use turbo_vision::views::spinner::Spinner;
+
+form.bind(
+    "~R~ating",
+    Spinner::new(size(8, 1), 1, 5),
+    |c| &mut c.rating,
+    |s: &Spinner| u8::try_from(s.value()).map_err(|_e| "must be 1 to 5".to_string()),
+    |s: &mut Spinner, v: &u8| {
+        s.set_value(i64::from(*v));
+    },
+);
+```
+
+### Testing a form without a terminal
+
+The editor can run without its dialog: `load` fills the fields and `read`
+checks them and returns the record or the errors. Fill fields through the
+dialog to simulate input:
+
+```rust
+let mut form = Form::<Customer>::for_record("Customer");
+let name = form.input("~N~ame", |c| &mut c.name).required().id();
+let mut editor = form.build_editor();
+
+editor.load(Customer::default());
+let errors = editor.read().err().expect("an empty name is refused");
+assert_eq!(errors.field(name), Some("Name is required"));
+
+let line = editor
+    .dialog_mut()
+    .child_by_id_mut(name.view_id())
+    .and_then(|v| v.as_any_mut().downcast_mut::<InputLine>())
+    .unwrap();
+line.set_text("Grace");
+assert_eq!(editor.read().unwrap().name, "Grace");
+```
+
 ## API reference
 
 All in `turbo_vision::views::form`.
@@ -428,6 +742,33 @@ All in `turbo_vision::views::form`.
 | `form.resizable(yes)` | Let the user resize the dialog (default off). | `&mut Form` |
 | `form.build()` | Lay out and return the dialog. | `Dialog` |
 | `size(w, h)` | A size for a view that should keep it: `Rect::new(0, 0, w, h)`. | `Rect` |
+
+Record forms (`Form::<R>::for_record`) add:
+
+| Call | What it does | Returns |
+|------|--------------|---------|
+| `Form::<R>::for_record(title)` | Start a form that edits records of type `R`. | `Form<R>` |
+| `form.input(label, lens)` | Input line bound to a `TextValue` member. | `Field` |
+| `form.check(caption, lens)` | Check box bound to a `bool`. | `Field` |
+| `form.memo(label, rows, lens)` | Multi-line text bound to a `String`. | `Field` |
+| `form.choice(label, options, lens)` | Drop-down list of `(caption, value)` pairs. | `Field` |
+| `form.bind(label, view, lens, read, write)` | Any control. | `Field` |
+| `line.input` / `line.check` / `line.choice` / `line.bind` | The same, side by side on a line. | `Field` |
+| `field.required()` / `.required_with(msg)` | Must not be empty. | `Field` |
+| `field.invalid_with(msg)` | Message for text that does not convert. | `Field` |
+| `field.validate(\|v\| ...)` | A check on the value. | `Field` |
+| `field.width(n)` / `.max_len(n)` | Width / most characters. | `Field` |
+| `field.id()` | The field's id, for errors. | `FieldId` |
+| `form.validate_record(\|r, errors\| ...)` | A rule across fields. | `&mut Form<R>` |
+| `form.build_editor()` | Lay out and return the editor (`R: Clone`). | `Editor<R>` |
+| `editor.edit(&mut app, record)` | Run it; the edited record once valid. | `Option<R>` |
+| `editor.edit_with(&mut app, record, \|r\| save(r))` | The same, saving before closing. | `Option<R>` |
+| `editor.load(record)` / `editor.read()` | Fill the fields / check and read them, without running. | `()` / `Result<R, ValidationErrors>` |
+| `editor.show_errors(errors)` / `editor.errors()` | Show errors / the errors shown. | |
+| `editor.command()` | The button that closed the dialog last. | `CommandId` |
+| `editor.dialog()` / `editor.dialog_mut()` | The dialog. | `&Dialog` |
+| `ValidationErrors::add(field, msg)` / `add_form(msg)` / `field(id)` | Collect errors / look one up. | |
+| `FieldError::new(field, msg)` / `FieldError::form(msg)` | One error; `.into()` makes `ValidationErrors`. | `FieldError` |
 
 On the built dialog (with `use turbo_vision::views::GroupLike;`):
 
@@ -463,9 +804,30 @@ Follow these and the result needs no coordinates and no adjustment:
    also comes back when the user presses Esc or closes the window.
 10. Bring `turbo_vision::views::GroupLike` into scope to use `get` / `get_mut`.
 
+For record forms:
+
+11. Derive `Clone` on the record. Start with `Form::<Record>::for_record`,
+    bind each member with the method for its type (table above), and finish
+    with `build_editor()`.
+12. Lenses are `|r| &mut r.member`, one member each. Do not compute values in
+    them.
+13. Use `Option<T>` members for fields that may be left empty; mark the rest
+    `.required()` if an empty value (`""`, unchecked) is not acceptable.
+14. Write messages as complete sentences that start with the field's name,
+    like the built-in ones: "Email must contain @".
+15. Keep the `FieldId` (`.id()`) of every field a record rule or the save
+    closure reports errors on; report errors about no single field with
+    `add_form` / `FieldError::form`.
+16. Save inside `edit_with`'s closure and turn database errors into
+    `FieldError`s there; never save after `edit` returns if the save can fail.
+
 ## Limitations
 
 - Label position and alignment apply to the whole form, not per group.
+- The form's own messages are in English. Replace them per field with
+  `required_with` and `invalid_with`, or for a type in its `TextValue::from_text`.
+- After a failed check, fields are checked again when the focus moves, not on
+  every key. Errors returned by the save closure stay until then too.
 - Groups are as wide as the form: two groups cannot sit side by side.
 - A line's fields after the first do not line up with the fields of other
   lines; only the first field of each row is in the field column.
@@ -481,6 +843,7 @@ Follow these and the result needs no coordinates and no adjustment:
 
 - `examples/form_layout.rs`: the complete form shown at the top.
 - `examples/form_labels.rs`: one form in each label style.
+- `examples/form_record.rs`: a record editor saving to an in-memory table.
 - [Chapter 5 – Creating Data-Entry Forms](../guide/chapter-05.md):
   the same controls placed by hand, and how dialogs work underneath.
 - [Chapter 13 – Data Validation](../guide/chapter-13.md):

@@ -476,6 +476,22 @@ Builds a `Dialog` from labelled fields, with no coordinates. Guide: `docs/FORMS.
 - `build(self) -> Dialog` - Lay out; the dialog is sized to fit, `Options::CENTERED`, first field focused
 - `size(width: i16, height: i16) -> Rect` - A size for a view that keeps it; `Rect::default()` stretches
 
+### Record Forms (`src/views/form/data.rs`)
+
+Bind form fields to a struct's members through lenses (`|r| &mut r.member`), validate, and edit records. Guide: `docs/FORMS.md`, "Editing records".
+- `Form::<R>::for_record(title: &str) -> Form<R>` - A form that edits records of type `R`
+- `input<T: TextValue>(&mut self, label, lens) -> Field<'_, R, T>` - Input line; `TextValue` covers `String`, integers, floats, `NaiveDate`, `NaiveTime`, `Option<_>`
+- `check(&mut self, caption, lens: bool) -> Field<'_, R, bool>`; `memo(&mut self, label, rows, lens: String)`; `choice(&mut self, label, options: (caption, value)..., lens)`; `bind(&mut self, label, view, lens, read, write)` - other controls
+- `Line::input` / `check` / `choice` / `bind` - the same, side by side
+- `Field::required()`, `required_with(msg)`, `invalid_with(msg)`, `validate(|v| -> Result<(), String>)`, `width(n)`, `max_len(n)`, `id() -> FieldId`
+- `validate_record(&mut self, |r, &mut ValidationErrors|) -> &mut Self` - Rule across fields, run once every field is valid
+- `build_editor(self) -> Editor<R>` (`R: Clone`)
+- `Editor::edit(&mut self, app, record) -> Option<R>`; `edit_with(&mut self, app, record, |r| -> Result<(), ValidationErrors>) -> Option<R>` (save before closing; errors keep it open)
+- `Editor::load(record)`, `read() -> Result<R, ValidationErrors>`, `show_errors(errors)`, `errors()`, `command()`, `dialog()`, `dialog_mut()`
+- `TextValue` trait: `to_text(&self) -> String`, `from_text(&str) -> Result<Self, String>`, `width() -> Option<i16>`, `max_len() -> usize`
+- `ValidationErrors`: `new`, `add(field, msg)`, `add_form(msg)`, `field(id) -> Option<&str>`, `iter`, `len`, `is_empty`, `into_result`; `From<FieldError>`, `Display`, `Error`
+- `FieldError { field: Option<FieldId>, message }`: `new(field, msg)`, `form(msg)`; `FieldId::view_id()`
+
 ### GroupBox (`src/views/group_box.rs`)
 
 A titled single-line box drawn around related controls; it only draws (never focused). The controls are its siblings, added after it.

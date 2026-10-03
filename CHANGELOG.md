@@ -8,6 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Record forms: `Form::<R>::for_record` binds fields to the members of a
+  struct of yours (a database row, say) through lenses, `|c| &mut c.name`.
+  `input` takes any `TextValue` member (text, numbers, `NaiveDate`,
+  `NaiveTime`, `Option` of them, or a type of your own), and `check`,
+  `memo`, `choice` (a drop-down list of values: enums, foreign keys) and
+  `bind` (any control) cover the rest. Fields take rules (`required`,
+  `validate`, custom messages); `validate_record` checks across fields.
+  `build_editor()` gives an `Editor` whose `edit` / `edit_with` fill the
+  dialog from a record and return the edited one once valid, saving it in
+  `edit_with`'s closure: its errors (a duplicate key) show like the others.
+  Invalid fields' labels turn red, an error line shows the message, and the
+  focus moves to the first invalid field. Members without a field are kept.
+  Example: `form_record`.
+- `Label::set_error` draws a label in red; `InputLine::is_valid` checks the
+  validator without its message box, and `InputLine::set_max_length`;
+  `Group::focused_view_id`.
 - `Form` (`views::form`) builds a data-entry dialog from a list of labelled
   fields, with no coordinates: labels in one column, fields in the next,
   buttons along the bottom, the dialog sized to fit and centred. Views built

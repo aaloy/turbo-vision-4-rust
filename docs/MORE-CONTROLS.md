@@ -170,12 +170,14 @@ generated edit dialog, model menu) would need, so they come first.
       labels on the left (left- or right-aligned) or above. Still open:
       paging long forms with `TabbedPane`, groups side by side, label
       settings per group.
-- [ ] **Form data transfer** — Borland's `TView::getData` / `setData` /
-      `dataSize` filled a whole dialog from a record and read it back in one
-      call; the port has no equivalent, so every field is wired by hand
-      through its own `Rc<RefCell<…>>`. A per-control value trait, a dialog
-      that gathers them, and dirty tracking ("discard changes?") would
-      replace that wiring.
+- [x] **Form data transfer** — done as record forms, `src/views/form/data.rs`:
+      in place of Borland's untyped `getData` / `setData` buffers, each field
+      is bound to a struct member through a lens and keeps its Rust type
+      (`TextValue` for input lines; check boxes, memos, choices, any control
+      through `bind`). Required fields, per-field and cross-field rules,
+      errors shown in the dialog, and a save closure whose errors keep it
+      open. Example `form_record`. Still open: dirty tracking ("discard
+      changes?"), live checks while typing.
 - [ ] **Date and time input** — a field with a drop-down calendar. A calendar
       exists only inside `examples/showcase.rs`; `chrono` is already a
       dependency, and the drop-down can reuse `ComboBox`'s two-step popup
