@@ -8,8 +8,14 @@
 
 use super::demos;
 use super::panel::Panel;
+use std::ops::RangeInclusive;
 use turbo_vision::app::Application;
-use turbo_vision::core::command::CommandId;
+use turbo_vision::core::command::{CM_USER, CommandId};
+
+/// The commands demos may use (D8). Demos share them, one at a time, so
+/// the gallery enables them all again before it shows a demo: a demo that
+/// disables one (the Button demo does) must not grey out the next demo's.
+pub const DEMO_COMMANDS: RangeInclusive<CommandId> = CM_USER + 100..=CM_USER + 199;
 
 /// The columns a demo may use: the panel's width on an 80-column terminal,
 /// inside its "Try it" box.
@@ -87,12 +93,92 @@ pub const DEMOS: &[Demo] = &[
         handle: Some(demos::list_box::handle),
     },
     Demo {
+        name: "TabbedPane",
+        module: "views::tabbed_pane",
+        source: include_str!("demos/tabbed_pane.rs"),
+        height: 7,
+        build: demos::tabbed_pane::build,
+        handle: None,
+    },
+    Demo {
+        name: "Spinner",
+        module: "views::spinner",
+        source: include_str!("demos/spinner.rs"),
+        height: 5,
+        build: demos::spinner::build,
+        handle: None,
+    },
+    Demo {
+        name: "Slider",
+        module: "views::slider",
+        source: include_str!("demos/slider.rs"),
+        height: 3,
+        build: demos::slider::build,
+        handle: None,
+    },
+    Demo {
+        name: "Memo",
+        module: "views::memo",
+        source: include_str!("demos/memo.rs"),
+        height: 6,
+        build: demos::memo::build,
+        handle: None,
+    },
+    Demo {
+        name: "StaticText, Label",
+        module: "views::static_text",
+        source: include_str!("demos/static_text.rs"),
+        height: 6,
+        build: demos::static_text::build,
+        handle: None,
+    },
+    Demo {
+        name: "SortedListBox",
+        module: "views::sorted_listbox",
+        source: include_str!("demos/sorted_list_box.rs"),
+        height: 6,
+        build: demos::sorted_list_box::build,
+        handle: None,
+    },
+    Demo {
         name: "Table",
         module: "views::table",
         source: include_str!("demos/table.rs"),
         height: 6,
         build: demos::table::build,
         handle: None,
+    },
+    Demo {
+        name: "Outline",
+        module: "views::outline",
+        source: include_str!("demos/outline.rs"),
+        height: 7,
+        build: demos::outline::build,
+        handle: None,
+    },
+    Demo {
+        name: "TextViewer",
+        module: "views::text_viewer",
+        source: include_str!("demos/text_viewer.rs"),
+        height: 6,
+        build: demos::text_viewer::build,
+        handle: None,
+    },
+    Demo {
+        name: "SplitPane",
+        module: "views::split_pane",
+        source: include_str!("demos/split_pane.rs"),
+        height: 7,
+        build: demos::split_pane::build,
+        handle: None,
+    },
+    Demo {
+        name: "ProgressBar",
+        module: "views::progress_bar",
+        source: include_str!("demos/progress_bar.rs"),
+        height: 6,
+        build: demos::progress_bar::build,
+        handle: Some(demos::progress_bar::handle),
     },
     Demo {
         name: "Form",
@@ -117,6 +203,38 @@ pub const DEMOS: &[Demo] = &[
         height: 2,
         build: demos::window::build,
         handle: Some(demos::window::handle),
+    },
+    Demo {
+        name: "Editor",
+        module: "views::editor",
+        source: include_str!("demos/editor.rs"),
+        height: 7,
+        build: demos::editor::build,
+        handle: Some(demos::editor::handle),
+    },
+    Demo {
+        name: "File dialogs",
+        module: "views::file_dialog",
+        source: include_str!("demos/file_dialogs.rs"),
+        height: 2,
+        build: demos::file_dialogs::build,
+        handle: Some(demos::file_dialogs::handle),
+    },
+    Demo {
+        name: "ColorDialog",
+        module: "views::color_dialog",
+        source: include_str!("demos/color_dialog.rs"),
+        height: 2,
+        build: demos::color_dialog::build,
+        handle: Some(demos::color_dialog::handle),
+    },
+    Demo {
+        name: "MenuBox",
+        module: "views::menu_box",
+        source: include_str!("demos/menu_box.rs"),
+        height: 2,
+        build: demos::menu_box::build,
+        handle: Some(demos::menu_box::handle),
     },
 ];
 

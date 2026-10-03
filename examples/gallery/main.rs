@@ -9,17 +9,21 @@
 // Run with: cargo run --example gallery
 // Arrows move through the list; F6 switches to the panel to try a
 // component (Tab moves between its controls); F6 again goes back.
+//
+// The gallery follows the terminal: resize it and the list keeps its width
+// and takes the new height, while the panel is laid out again for the new
+// size (the "How it works" text is re-wrapped to it).
 
 mod demos;
 mod panel;
 mod registry;
 
-use registry::{DEMOS, Demo};
+use registry::{DEMO_COMMANDS, DEMOS, Demo};
 use turbo_vision::app::{AppHandler, Application};
 use turbo_vision::core::command::{CM_QUIT, CommandId};
 use turbo_vision::core::event::Event;
 use turbo_vision::core::geometry::{Point, Rect};
-use turbo_vision::core::state::State;
+use turbo_vision::core::state::{Grow, State};
 use turbo_vision::core::status_data::StatusItemBuilder;
 use turbo_vision::views::dialog::Dialog;
 use turbo_vision::views::group_box::GroupBox;
@@ -39,6 +43,8 @@ struct Gallery {
     list: Handle<ListBox>,
     panel: Option<ViewId>,
     shown: Option<usize>,
+    /// The desktop size the panel was built for.
+    laid_out: (i16, i16),
 }
 
 impl Gallery {
@@ -46,7 +52,10 @@ impl Gallery {
         let desk = desktop_size(app);
         let mut window = Window::new(Rect::new(0, 0, LIST_WIDTH, desk.1), "Components");
         no_shadow(&mut window);
+        // A resize changes the list's height, never its width.
+        window.set_grow_mode(Grow::HI_Y);
         let mut list = ListBox::new(Rect::new(0, 0, LIST_WIDTH - 2, desk.1 - 2), 0);
+        list.set_grow_mode(Grow::HI_Y);
         list.set_items(DEMOS.iter().map(|d| d.name.to_string()).collect());
         let list = window.add_typed(list);
         let list_window = app.desktop.add_typed(window);
@@ -55,6 +64,7 @@ impl Gallery {
             list,
             panel: None,
             shown: None,
+            laid_out: desk,
         }
     }
 
@@ -71,10 +81,14 @@ impl Gallery {
         if let Some(old) = self.panel.take() {
             app.desktop.remove_child_by_id(old);
         }
+        for command in DEMO_COMMANDS {
+            app.enable_command(command);
+        }
         let (width, height) = desktop_size(app);
         let bounds = Rect::new(LIST_WIDTH, 0, width, height);
         self.panel = Some(app.desktop.add(panel(&DEMOS[index], bounds)));
         self.shown = Some(index);
+        self.laid_out = (width, height);
         app.desktop.bring_to_front(self.list_window.id());
         app.needs_redraw();
     }
@@ -82,10 +96,13 @@ impl Gallery {
 
 impl AppHandler for Gallery {
     fn idle(&mut self, app: &mut Application) {
-        // The panel follows the list (D7).
+        // The panel follows the list (D7), and the terminal: grow modes
+        // stretch it at once, but its text was wrapped to the old width, so
+        // it is built again for the new size.
         let selected = self.selected(app);
-        if selected.is_some() && selected != self.shown {
-            self.show(app, selected.unwrap_or_default());
+        let resized = desktop_size(app) != self.laid_out;
+        if let Some(index) = selected.filter(|&i| resized || Some(i) != self.shown) {
+            self.show(app, index);
         }
     }
 
@@ -145,6 +162,9 @@ fn desktop_size(app: &Application) -> (i16, i16) {
 fn panel(demo: &Demo, bounds: Rect) -> Dialog {
     let mut dialog = Dialog::new(bounds, demo.name);
     no_shadow(&mut dialog);
+    // Until it is rebuilt after a resize, the panel stretches with the
+    // desktop: its right and bottom edges follow the terminal's.
+    dialog.set_grow_mode(Grow::HI_X | Grow::HI_Y);
     let inner = bounds.width() - 2;
     let (how, code) = registry::split_source(demo.source);
     let how = wrap(&how, usize::try_from(inner - 2).unwrap_or(1));
@@ -158,10 +178,12 @@ fn panel(demo: &Demo, bounds: Rect) -> Dialog {
     // The live component, inside a box.
     let top = 1;
     let box_height = demo.height + 2;
-    dialog.add(GroupBox::new(
+    let mut try_it = GroupBox::new(
         Rect::new(1, top, inner - 1, top + box_height),
         "Try it (F6)",
-    ));
+    );
+    try_it.set_grow_mode(Grow::HI_X);
+    dialog.add(try_it);
     (demo.build)(&mut panel::Panel::new(&mut dialog, Point::new(3, top + 1)));
 
     // How it works: the demo file's `//!` header.
@@ -175,10 +197,11 @@ fn panel(demo: &Demo, bounds: Rect) -> Dialog {
     // The code: the rest of the file, as written.
     let code_top = how_top + how_lines + 1;
     let code_bottom = bounds.height() - 2;
-    if code_bottom > code_top {
+    if code_bottom - code_top >= 3 {
         let mut viewer =
             TextViewer::new(Rect::new(1, code_top, inner - 1, code_bottom)).with_scrollbars(true);
         viewer.set_text(&code);
+        viewer.set_grow_mode(Grow::HI_X | Grow::HI_Y);
         dialog.add(viewer);
     }
     dialog
@@ -275,7 +298,7 @@ mod tests {
 
     #[test]
     fn demo_commands_stay_in_their_range() {
-        // D8: CM_USER + 100 and up belongs to the demos.
+        // D8: CM_USER + 100 to CM_USER + 199 belong to the demos.
         for demo in DEMOS {
             let (_, code) = registry::split_source(demo.source);
             for line in code.lines().filter(|l| l.contains(": CommandId = CM_USER")) {
@@ -285,8 +308,8 @@ mod tests {
                     .and_then(|n| n.trim().trim_end_matches(';').parse().ok())
                     .unwrap_or_else(|| panic!("{}: `{line}`", demo.name));
                 assert!(
-                    offset >= 100,
-                    "{}: `{line}` is below CM_USER + 100",
+                    DEMO_COMMANDS.contains(&(CM_USER + offset)),
+                    "{}: `{line}` is outside {DEMO_COMMANDS:?}",
                     demo.name
                 );
             }
@@ -310,6 +333,93 @@ mod tests {
                 demo.name
             );
         }
+    }
+
+    /// A terminal whose size the test changes, as a user resizing it does.
+    struct Resizable(Arc<(AtomicU16, AtomicU16)>);
+
+    impl turbo_vision::terminal::Backend for Resizable {
+        fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            self
+        }
+        fn init(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn cleanup(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn size(&self) -> std::io::Result<(u16, u16)> {
+            Ok((
+                self.0.0.load(Ordering::SeqCst),
+                self.0.1.load(Ordering::SeqCst),
+            ))
+        }
+        fn poll_event(&mut self, _: std::time::Duration) -> std::io::Result<Option<Event>> {
+            Ok(None)
+        }
+        fn write_raw(&mut self, _: &[u8]) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn show_cursor(&mut self, _: u16, _: u16) -> std::io::Result<()> {
+            Ok(())
+        }
+        fn hide_cursor(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicU16, Ordering};
+    use turbo_vision::core::command::CM_USER;
+
+    /// An application on a [`Resizable`] terminal, and the handle that
+    /// changes its size.
+    fn app(width: u16, height: u16) -> (Application, Arc<(AtomicU16, AtomicU16)>) {
+        let size = Arc::new((AtomicU16::new(width), AtomicU16::new(height)));
+        let backend = Box::new(Resizable(Arc::clone(&size)));
+        let terminal = turbo_vision::terminal::Terminal::with_backend(backend).unwrap();
+        (Application::with_terminal(terminal), size)
+    }
+
+    #[test]
+    fn the_gallery_follows_a_terminal_resize() {
+        let (mut app, size) = app(80, 25);
+        let mut gallery = Gallery::open(&mut app);
+        gallery.show(&mut app, 0);
+
+        size.0.store(120, Ordering::SeqCst);
+        size.1.store(40, Ordering::SeqCst);
+        app.step(&mut gallery, None); // idle: the application and the gallery see the new size
+
+        let (width, height) = desktop_size(&app);
+        let list = app.desktop.get(gallery.list_window).unwrap().bounds();
+        assert_eq!((list.width(), list.height()), (LIST_WIDTH, height));
+        let panel = app
+            .desktop
+            .child_by_id(gallery.panel.unwrap())
+            .unwrap()
+            .bounds();
+        assert_eq!(panel, Rect::new(LIST_WIDTH, 0, width, height));
+        assert_eq!(gallery.shown, Some(0), "the same demo is shown again");
+    }
+
+    #[test]
+    fn a_command_one_demo_disables_is_enabled_for_the_next() {
+        // The Button demo disables a command; the MenuBox demo uses the same
+        // number for an item.
+        let (mut app, _) = app(80, 25);
+        let mut gallery = Gallery::open(&mut app);
+        let button = DEMOS.iter().position(|d| d.name == "Button").unwrap();
+        gallery.show(&mut app, button);
+        let disabled = DEMO_COMMANDS
+            .filter(|&c| !app.command_enabled(c))
+            .collect::<Vec<_>>();
+        assert!(!disabled.is_empty(), "the Button demo disables a command");
+        gallery.show(&mut app, button + 1);
+        assert!(disabled.iter().all(|&c| app.command_enabled(c)));
     }
 
     #[test]

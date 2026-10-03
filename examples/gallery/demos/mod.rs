@@ -11,11 +11,25 @@
 
 pub mod button;
 pub mod check_boxes;
+pub mod color_dialog;
 pub mod combo_box;
+pub mod editor;
+pub mod file_dialogs;
 pub mod form;
 pub mod input_line;
 pub mod list_box;
+pub mod memo;
+pub mod menu_box;
 pub mod message_boxes;
+pub mod outline;
+pub mod progress_bar;
 pub mod radio_buttons;
+pub mod slider;
+pub mod sorted_list_box;
+pub mod spinner;
+pub mod split_pane;
+pub mod static_text;
+pub mod tabbed_pane;
 pub mod table;
+pub mod text_viewer;
 pub mod window;
