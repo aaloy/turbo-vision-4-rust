@@ -11,7 +11,7 @@ use turbo_vision::views::menu_bar::{MenuBar, SubMenu};
 use turbo_vision::views::status_line::StatusLine;
 
 // Custom command IDs for this example
-const CMD_ABOUT: u16 = 100; // [100, 255] + [1_000, 65_535]
+const CMD_ABOUT: u16 = turbo_vision::core::command::CM_USER; // your commands: CM_USER (200) and up
 
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;

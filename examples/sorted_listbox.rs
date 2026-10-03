@@ -19,10 +19,10 @@ use turbo_vision::views::sorted_listbox::SortedListBox;
 use turbo_vision::views::status_line::StatusLine;
 use turbo_vision::views::view::{dispatch_to_child, write_line_to_terminal};
 
-const CMD_SEARCH_A: u16 = 100;
-const CMD_SEARCH_B: u16 = 101;
-const CMD_SEARCH_C: u16 = 102;
-const CMD_TOGGLE_CASE: u16 = 103;
+const CMD_SEARCH_A: u16 = turbo_vision::core::command::CM_USER;
+const CMD_SEARCH_B: u16 = turbo_vision::core::command::CM_USER + 1;
+const CMD_SEARCH_C: u16 = turbo_vision::core::command::CM_USER + 2;
+const CMD_TOGGLE_CASE: u16 = turbo_vision::core::command::CM_USER + 3;
 
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;
