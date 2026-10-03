@@ -49,39 +49,58 @@ Three steps, always the same:
 
 ## What the layout looks like
 
-The form above, plus a check box, a section and a notes box, comes out like
-this (`cargo run --example form_layout`):
+`cargo run --example form_layout` builds this form: a few fields, an address
+group with two fields on one line, a check box, a notes box and OK/Cancel.
 
 ```text
-╔═[■]═════ New Customer ════════╗
-║                               ║
-║ Name     ____________________ ║   <- label column | field column
-║                               ║   <- spacing: 1 blank row
-║ Email    ____________________ ║
-║                               ║
-║ ZIP code ________             ║   <- built with size(8, 1): keeps 8 columns
-║                               ║
-║          [ ] VIP customer     ║   <- empty label: lines up with the fields
-║                               ║
-║                               ║   <- a section adds one more blank row
-║ Notes                         ║   <- form.section("Notes")
-║                               ║
-║ _____________________________ ║   <- form.row(...): spans the whole form,
-║ _____________________________ ║      3 rows because built with size(0, 3)
-║ _____________________________ ║
-║                               ║
-║       OK    ▀   Cancel  ▀     ║   <- buttons: centred, on the bottom row
-║     ▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄     ║
-╚═══════════════════════════════╝
+╔═[■]════════ New Customer ═══════════╗
+║                                     ║
+║  Name ____________________________  ║   <- label column | field column
+║                                     ║   <- spacing: 1 blank row
+║ Email ____________________________  ║   <- labels right-aligned (LabelAlign::Right)
+║                                     ║
+║ ┌─ Address ───────────────────────┐ ║   <- form.group("Address")
+║ │ Street ________________________ │ ║   <- a group lines up its own labels
+║ │                                 │ ║
+║ │   City ____________  ZIP ______ │ ║   <- form.line(): two fields on one row;
+║ └─────────────────────────────────┘ ║      ZIP built with size(8, 1) keeps 8 columns,
+║                                     ║      City stretches into the rest
+║       [ ] VIP customer              ║   <- empty label: lines up with the fields
+║                                     ║
+║                                     ║   <- a section adds one more blank row
+║ Notes                               ║   <- form.section("Notes")
+║                                     ║
+║ ___________________________________ ║   <- form.row(...): spans the whole form,
+║ ___________________________________ ║      3 rows because built with size(0, 3)
+║ ___________________________________ ║
+║                                     ║
+║          OK    ▀   Cancel  ▀        ║   <- buttons: centred, on the bottom row
+║        ▄▄▄▄▄▄▄▄▄   ▄▄▄▄▄▄▄▄▄        ║
+╚═════════════════════════════════════╝
 ```
 
 (`____` marks where an input field is; on screen it is a coloured bar.)
+
+With `form.label_position(LabelPosition::Above)`
+(`cargo run --example form_layout -- --above`) each label moves to the row
+above its field, and the form gets narrower and taller:
+
+```text
+║ ┌─ Address ────────────┐ ║
+║ │ Street               │ ║
+║ │ ____________________ │ ║
+║ │                      │ ║
+║ │ City        ZIP      │ ║
+║ │ __________  ________ │ ║
+║ └──────────────────────┘ ║
+```
 
 ### The rules
 
 - **Rows** go top to bottom in the order you add them, one blank row apart
   (change it with `form.spacing(n)`).
-- **Labels** are left-aligned in a column as wide as the longest label. Each
+- **Labels** go to the left of their fields, in a column as wide as the
+  longest label (or above them, see [Where labels go](#where-labels-go)). Each
   label is linked to its field: clicking the label, or pressing Alt and the
   letter marked with `~` (`"~N~ame"` → Alt+N), focuses the field.
 - **Fields** start right after the label column, all at the same column.
@@ -89,23 +108,33 @@ this (`cargo run --example form_layout`):
 
   | Build the view with      | Width                                    | Height |
   |--------------------------|------------------------------------------|--------|
-  | `Rect::default()`        | stretches to fill its column             | 1 row  |
+  | `Rect::default()`        | stretches to fill the width it is given  | 1 row  |
   | `size(w, h)`             | exactly `w` columns                      | `h` rows |
-  | `size(0, h)`             | stretches to fill its column             | `h` rows |
+  | `size(0, h)`             | stretches to fill the width it is given  | `h` rows |
 
-  The field column is at least 20 columns wide (`form.field_width(n)` changes
-  that) and widens to fit the widest sized field. The position you give a view
-  is ignored: the form sets it.
+  A field alone on its row is at least 20 columns wide (`form.field_width(n)`
+  changes that), and the field column widens to fit the widest sized field.
+  The position you give a view is ignored: the form sets it.
+- **Lines** (`form.line()`) put several fields on one row, left to right. The
+  first field's label is in the label column; each other field has its label
+  just before it. Stretched fields on a line share the width the sized ones
+  leave, each at least 10 columns.
+- **Groups** (`form.group("Title")` … `form.end_group()`) draw a titled box,
+  as wide as the form, around the rows added in between. A group lines up its
+  own labels, independently of the rows outside it. Groups can be nested.
 - **Full-width rows** (`form.row(view)`) start at the label column and span
-  the whole form. Use them for a long check box caption, a note, a list.
-- **Sections** (`form.section("Address")`) put a heading over the rows that
-  follow, with an extra blank row above it.
+  the whole form (or group). Use them for a long check box caption, a note, a
+  list.
+- **Sections** (`form.section("Address")`) put a plain heading over the rows
+  that follow, with an extra blank row above it. Use a group instead when the
+  rows should be boxed.
 - **Buttons** go on one row at the bottom, centred, in the order added, each
   at least 10 columns wide. `form.button_align(ButtonAlign::Right)` puts them
   against the right edge.
 - **The dialog** is sized to fit everything, including its title, and is
   centred on the desktop when you `execute` it or add it to the desktop. The
-  first field has the focus; Tab moves through the fields in row order.
+  first field has the focus; Tab moves through the fields in the order they
+  were added: top to bottom, and left to right along a line.
 
 ## Recipes
 
@@ -133,15 +162,62 @@ the handle came from a different dialog.
 Set the value on the view before adding it, or through `get_mut` afterwards:
 
 ```rust
-let mut line = InputLine::new(Rect::default(), 40);
-line.set_text("Ada Lovelace");
-let name = form.field("~N~ame", line);
+let mut input = InputLine::new(Rect::default(), 40);
+input.set_text("Ada Lovelace");
+let name = form.field("~N~ame", input);
 
 let mut dialog = form.build();
 if let Some(f) = dialog.get_mut(name) {
     f.set_text("Grace Hopper");
 }
 ```
+
+### Several fields on one line
+
+```rust
+let mut line = form.line();
+let city = line.field("~C~ity", InputLine::new(Rect::default(), 40));
+let zip = line.field("~Z~IP", InputLine::new(size(8, 1), 8));
+```
+
+The line ends when you add the next row. Each `line.field(...)` returns a
+handle, like `form.field(...)`. Give the narrow fields a size and leave the
+main one stretched: it takes the rest of the row.
+
+### Group related fields in a box
+
+```rust
+form.group("Address");
+let street = form.field("~S~treet", InputLine::new(Rect::default(), 60));
+let mut line = form.line();
+let city = line.field("~C~ity", InputLine::new(Rect::default(), 40));
+let zip = line.field("~Z~IP", InputLine::new(size(8, 1), 8));
+form.end_group();
+```
+
+Everything between `group` and `end_group` goes inside the box: fields,
+lines, rows, sections, even another group. A group you forget to end is
+closed by `build()`. The box itself never takes the focus; it is a
+`GroupBox` view, which you can also use on its own in hand-built dialogs.
+
+### Where labels go
+
+```rust
+use turbo_vision::views::form::{LabelAlign, LabelPosition};
+
+form.label_position(LabelPosition::Above); // label on the row above its field
+form.label_align(LabelAlign::Right);       // labels on the left, ending at their fields
+```
+
+| Setting | Looks like | Good for |
+|---------|------------|----------|
+| default (left, left-aligned) | `Name     ________` | most forms; Borland's own style |
+| `label_align(LabelAlign::Right)` | `    Name ________` | labels of very different lengths |
+| `label_position(LabelPosition::Above)` | `Name` then `________` below | narrow dialogs, long labels, many fields on a line |
+
+Both settings apply to the whole form, groups included, and can be called at
+any point before `build()`. `label_align` only matters when labels are on the
+left.
 
 ### Validate input
 
@@ -237,7 +313,11 @@ All in `turbo_vision::views::form`.
 |------|--------------|---------|
 | `Form::new(title)` | Start a form for a dialog titled `title`. | `Form` |
 | `form.field(label, view)` | A labelled row. `label` may mark a hot key with `~`; `""` for no label. | `Handle<T>` |
-| `form.row(view)` | A row spanning the whole form, no label. | `Handle<T>` |
+| `form.line()` | Start a line of fields side by side. | `Line` |
+| `line.field(label, view)` | Add a field to the line, right of the previous one. | `Handle<T>` |
+| `form.row(view)` | A row spanning the whole form (or group), no label. | `Handle<T>` |
+| `form.group(title)` | Start a titled box around the rows that follow. | `&mut Form` |
+| `form.end_group()` | End the innermost open group. | `&mut Form` |
 | `form.section(title)` | A heading, with an extra blank row above. | `&mut Form` |
 | `form.gap(rows)` | Extra blank rows. | `&mut Form` |
 | `form.button(title, command)` | A button on the bottom row. | `Handle<Button>` |
@@ -245,6 +325,8 @@ All in `turbo_vision::views::form`.
 | `form.ok_cancel()` | **OK** (`CM_OK`, default) and **Cancel** (`CM_CANCEL`). | `&mut Form` |
 | `form.spacing(rows)` | Blank rows between rows (default 1). | `&mut Form` |
 | `form.field_width(cols)` | Narrowest field column (default 20). | `&mut Form` |
+| `form.label_position(pos)` | `LabelPosition::Left` (default) or `LabelPosition::Above`. | `&mut Form` |
+| `form.label_align(align)` | `LabelAlign::Left` (default) or `LabelAlign::Right`. | `&mut Form` |
 | `form.button_align(align)` | `ButtonAlign::Center` (default) or `ButtonAlign::Right`. | `&mut Form` |
 | `form.resizable(yes)` | Let the user resize the dialog (default off). | `&mut Form` |
 | `form.build()` | Lay out and return the dialog. | `Dialog` |
@@ -257,8 +339,9 @@ On the built dialog (with `use turbo_vision::views::GroupLike;`):
 | `dialog.execute(&mut app)` | Run it modally; returns the closing button's command. |
 | `dialog.get(handle)` / `dialog.get_mut(handle)` | The view, with its own type. |
 
-The settings (`spacing`, `field_width`, `button_align`, `resizable`) can be
-called at any point before `build()`; they apply to the whole form.
+The settings (`spacing`, `field_width`, `label_position`, `label_align`,
+`button_align`, `resizable`) can be called at any point before `build()`;
+they apply to the whole form.
 
 ## Rules at a glance (for code generators and agents)
 
@@ -273,15 +356,22 @@ Follow these and the result needs no coordinates and no adjustment:
    letter for each label in the form and each button.
 5. Use `form.field("", view)` for a view aligned with the fields,
    `form.row(view)` for one spanning the form.
-6. Exactly one `default_button` (or `ok_cancel()`) per form.
-7. Compare `execute`'s result with the button commands you added; `CM_CANCEL`
+6. For fields on one row, call `form.line()` once and add each field with
+   `line.field(...)`; add the next row with `form.*` as usual. Give every
+   field but the main one a `size(w, 1)`.
+7. Wrap related rows in `form.group("Title")` … `form.end_group()`; pair
+   every `group` with an `end_group`.
+8. Exactly one `default_button` (or `ok_cancel()`) per form.
+9. Compare `execute`'s result with the button commands you added; `CM_CANCEL`
    also comes back when the user presses Esc or closes the window.
-8. Bring `turbo_vision::views::GroupLike` into scope to use `get` / `get_mut`.
+10. Bring `turbo_vision::views::GroupLike` into scope to use `get` / `get_mut`.
 
 ## Limitations
 
-- One label column and one field column: no two fields side by side on a row.
-- Labels go to the left of their field, never above it.
+- Label position and alignment apply to the whole form, not per group.
+- Groups are as wide as the form: two groups cannot sit side by side.
+- A line's fields after the first do not line up with the fields of other
+  lines; only the first field of each row is in the field column.
 - The layout is computed once, at `build()`. Views added to the dialog
   afterwards (with `dialog.add`) are placed by hand, in the dialog's interior
   coordinates.

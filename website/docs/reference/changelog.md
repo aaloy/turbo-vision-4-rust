@@ -12,9 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   fields, with no coordinates: labels in one column, fields in the next,
   buttons along the bottom, the dialog sized to fit and centred. Views built
   with `Rect::default()` stretch to their column; `form::size(w, h)` keeps a
-  size. `field`, `row` and the button methods return typed handles to read
-  the values back with `dialog.get(handle)`. Guide: `docs/FORMS.md`;
-  example: `form_layout`.
+  size. `line()` puts several fields on one row; `group(title)` ...
+  `end_group()` draws a titled box around related rows, and groups nest.
+  Labels go on the left (`label_align` left or right) or above their fields
+  (`label_position`). `field`, `line().field`, `row` and the button methods
+  return typed handles to read the values back with `dialog.get(handle)`.
+  Guide: `docs/FORMS.md`; example: `form_layout` (`-- --above` for labels
+  above).
+- `GroupBox` (`views::group_box`), a titled single-line box drawn around
+  related controls; `Form::group` uses it.
 - A modal `Dialog` with `Options::CENTERED` (or `CENTER_X` / `CENTER_Y`) is
   centred on the desktop when executed, as Borland centres a view with
   `ofCentered` on insert; `Desktop::add` already did this.

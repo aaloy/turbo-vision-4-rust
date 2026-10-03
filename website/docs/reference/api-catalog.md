@@ -458,7 +458,9 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 Builds a `Dialog` from labelled fields, with no coordinates. Guide: `docs/FORMS.md`.
 - `Form::new(title: &str) -> Self` - Start a form
 - `field<T: View>(&mut self, label: &str, view: T) -> Handle<T>` - Labelled row; `""` for no label; `~` marks the label's hot key
-- `row<T: View>(&mut self, view: T) -> Handle<T>` - Row spanning the form, no label
+- `line(&mut self) -> Line<'_>` - Start a line of fields side by side; `Line::field(&mut self, label, view) -> Handle<T>` adds each
+- `row<T: View>(&mut self, view: T) -> Handle<T>` - Row spanning the form (or group), no label
+- `group(&mut self, title: &str) -> &mut Self` / `end_group(&mut self) -> &mut Self` - Titled box (`GroupBox`) around the rows between; nests; `build` closes any left open
 - `section(&mut self, title: &str) -> &mut Self` - Heading with a blank row above
 - `gap(&mut self, rows: i16) -> &mut Self` - Extra blank rows
 - `button(&mut self, title: &str, command: CommandId) -> Handle<Button>` - Button on the bottom row
@@ -466,10 +468,18 @@ Builds a `Dialog` from labelled fields, with no coordinates. Guide: `docs/FORMS.
 - `ok_cancel(&mut self) -> &mut Self` - OK (`CM_OK`, default) and Cancel (`CM_CANCEL`)
 - `spacing(&mut self, rows: i16) -> &mut Self` - Blank rows between rows (default 1)
 - `field_width(&mut self, width: i16) -> &mut Self` - Narrowest field column (default 20)
+- `label_position(&mut self, position: LabelPosition) -> &mut Self` - `LabelPosition::Left` (default) or `LabelPosition::Above`
+- `label_align(&mut self, align: LabelAlign) -> &mut Self` - `LabelAlign::Left` (default) or `LabelAlign::Right`
 - `button_align(&mut self, align: ButtonAlign) -> &mut Self` - `ButtonAlign::Center` (default) or `ButtonAlign::Right`
 - `resizable(&mut self, resizable: bool) -> &mut Self` - Let the user resize the dialog
 - `build(self) -> Dialog` - Lay out; the dialog is sized to fit, `Options::CENTERED`, first field focused
 - `size(width: i16, height: i16) -> Rect` - A size for a view that keeps it; `Rect::default()` stretches
+
+### GroupBox (`src/views/group_box.rs`)
+
+A titled single-line box drawn around related controls; it only draws (never focused). The controls are its siblings, added after it.
+- `GroupBox::new(bounds: Rect, title: &str) -> Self` - `~` in the title is dropped
+- `title(&self) -> &str`
 
 ---
 

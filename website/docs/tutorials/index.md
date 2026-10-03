@@ -14,7 +14,8 @@ per chapter, a tutorial carries a single program from an empty `main` to somethi
 -   :material-form-select: **[Building forms with `Form`](forms.md)**
 
     A data-entry dialog from a list of labelled fields, with no coordinates: the form places the
-    labels, fields and buttons, sizes the dialog and centres it. Ten minutes.
+    labels, fields, groups and buttons, sizes the dialog and centres it. Fields side by side,
+    titled groups, and labels on the left or above. Ten minutes.
 
 -   :material-chart-line: **[The biorhythm calculator](biorhythm.md)**
 

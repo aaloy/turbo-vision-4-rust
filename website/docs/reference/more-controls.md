@@ -166,8 +166,10 @@ generated edit dialog, model menu) would need, so they come first.
       `docs/FORMS.md`, example `form_layout`. Label and field columns,
       full-width rows, sections, a button row, the dialog sized to fit and
       centred; stretched fields follow a resize through the grow modes.
-      Still open: paging long forms with `TabbedPane`, two fields on a row,
-      labels above their fields.
+      Lines of several fields, titled groups (`GroupBox`, nestable), and
+      labels on the left (left- or right-aligned) or above. Still open:
+      paging long forms with `TabbedPane`, groups side by side, label
+      settings per group.
 - [ ] **Form data transfer** — Borland's `TView::getData` / `setData` /
       `dataSize` filled a whole dialog from a record and read it back in one
       call; the port has no equivalent, so every field is wired by hand

@@ -51,7 +51,7 @@ cargo build --examples           # build all 39
 - **`sorted_listbox`** &mdash; a sorted list with binary search and type-ahead.
 - **`tree_view`** &mdash; a hierarchical outline view.
 - **`progress_bar`** &mdash; determinate and marquee bars, animated as overlay widgets.
-- **`form_layout`** &mdash; a data-entry dialog built with `Form`: labelled fields, a check box, a notes box and OK/Cancel, with no coordinates; the values are read back through typed handles.
+- **`form_layout`** &mdash; a data-entry dialog built with `Form`, with no coordinates: right-aligned labels, an address group with two fields on one line, a check box, a notes box and OK/Cancel; the values are read back through typed handles. Run it with `-- --above` for labels above their fields.
 - **`label_link`** &mdash; labels that focus the input field they are linked to.
 - **`validator`** &mdash; every validator type in one dialog: filter, range and picture.
 
