@@ -192,11 +192,12 @@ This project includes extensive documentation for different audiences and use ca
 
 If you're new to Turbo Vision frameworks, follow this path:
 
+0. **[AGENTS.md](AGENTS.md)** - The Turbo Vision way in one page, the application skeleton, an index of every component, recipes and rules. Written for people and AI assistants alike; its examples are compiled as tests.
 1. **Quick Start** (above) - Get a minimal example running
 2. **[Examples Overview](examples/README.md)** - Browse 30+ working examples
    ```bash
    cargo run --example showcase    # Comprehensive feature showcase
-   cargo run --bin pascal_ide     # Full-featured text editor
+   cargo run --example form_record  # Record editor with validation
    ```
 3. **[User Guide - Chapter 1](docs/user-guide/Chapter-01-Stepping-into-Turbo-Vision.md)** - Learn the basics
 4. **[User Guide - Chapter 2](docs/user-guide/Chapter-02-Responding-to-Commands.md)** - Handle events and commands
@@ -211,7 +212,7 @@ For practical application development:
 1. **[Custom Application Example](docs/CUSTOM-APPLICATION-RUST-EXAMPLE.md)** - Complete walkthrough
 2. **[Biorhythm Calculator Tutorial](docs/BIORHYTHM-CALCULATOR-TUTORIAL.md)** - Build a real app step-by-step
 3. **[examples/showcase.rs](examples/showcase.rs)** - Study the comprehensive demo
-4. **[pascal_ide source](examples/pascal_ide.rs)** - See a production-ready editor
+4. **[Building Forms with `Form`](docs/FORMS.md)** - Dialogs with no coordinates, and record editors for database rows
 
 ### 🔧 Coming from Borland/C++ Turbo Vision?
 

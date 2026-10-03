@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `AGENTS.md` (with `CLAUDE.md` pointing at it): the guide for people and AI
+  assistants writing applications with the crate or working on it. The
+  Turbo Vision way of working in one page, the idiomatic application
+  skeleton (`run_with` and an `AppHandler`), an index of every component
+  with how to create and use it, recipes, and rules and pitfalls. Its code
+  blocks are compiled as doctests. Published on the site, which also gets an
+  `llms.txt`.
+- `tests/docs_index.rs` fails when a view module is missing from
+  `AGENTS.md`'s component index, or a view or core module from
+  `docs/RUST-API-CATALOG.md`.
 - Record forms: `Form::<R>::for_record` binds fields to the members of a
   struct of yours (a database row, say) through lenses, `|c| &mut c.name`.
   `input` takes any `TextValue` member (text, numbers, `NaiveDate`,
@@ -72,6 +82,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   special keys.
 
 ### Changed
+- `docs/RUST-API-CATALOG.md` covers every module (21 were missing: the
+  combo box, spinner, tabbed and split panes, tooltip, progress bar, outline,
+  message boxes, the check and radio clusters, the colour and directory
+  dialogs, help index and contents, the editor traits, and core modules), and
+  no longer lists methods and fields that do not exist (`Button`'s public
+  fields, `Application::add_window` / `execute_window` / `quit`, and others).
+  `docs/quick-reference.txt` and the crate's quick start use the current
+  idioms; the quick reference had wrong command numbers.
+- Examples number their own commands from `CM_USER`. Several used 100-103,
+  inside the crate's reserved range (`sorted_listbox` and `ui_features`
+  overlapped the file dialog's `CM_FILE_FOCUSED` and
+  `CM_FILE_DOUBLE_CLICKED`), and the showcase calculator's commands
+  overlapped the showcase menu's.
 - A button pressed from the keyboard sends its command when its press
   animation ends, through `Terminal::poll_event`, instead of in place of the
   key event: the key now comes back consumed. Code that hands a button a key
