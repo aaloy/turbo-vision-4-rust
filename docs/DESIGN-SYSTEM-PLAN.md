@@ -16,7 +16,7 @@ code, so it cannot drift from the library.
 
 | # | Deliverable | Where | Status |
 |---|-------------|-------|--------|
-| 1 | **Component gallery**: an interactive program listing every component, each live, with how it works and the code that built it. | `examples/gallery/` | 10 components (step 1 done); the rest in step 3 |
+| 1 | **Component gallery**: an interactive program listing every component, each live, with how it works and the code that built it. | `examples/gallery/` | 24 components (step 1 done, step 3 under way) |
 | 2 | **Generated reference pages**: one page and PNG per component, rendered from the gallery's demos. | `website/docs/components/` | planned (step 2) |
 | 3 | **Foundations**: colours by role, spacing, states, keyboard conventions, wording. | `docs/DESIGN-SYSTEM.md` | planned (step 4) |
 | 4 | **Sample application**: a small contacts-and-invoices program that uses the components the way a real application would. | `examples/crm/` | planned (step 5) |
@@ -65,11 +65,15 @@ code, so it cannot drift from the library.
 
 ### Step 3: every component
 
-- [ ] Demos for the remaining views: Memo, Label, StaticText, ParamText,
-      Spinner, Slider, RadioButton, Outline, SortedListBox, TextViewer,
-      ProgressBar, Tooltip, TabbedPane, SplitPane, GroupBox, history, file and
-      directory dialogs, colour dialog, editor windows, help, menus, status
-      line.
+- [x] The gallery follows a terminal resize: the list keeps its width and
+      takes the new height, the panel is rebuilt for the new size (D11).
+- [x] Fourteen more demos: TabbedPane, Spinner, Slider, Memo, StaticText
+      with ParamText and Label, SortedListBox, Outline, TextViewer,
+      SplitPane, ProgressBar (with a job run from a modal tick), Editor (and
+      EditWindow), file and folder dialogs, ColorDialog, MenuBox.
+- [ ] Demos for the remaining views: RadioButton, Tooltip, GroupBox,
+      history, help, menu bar, status line. Tooltip and History need
+      `Panel` to offset hint rects and to hand back typed handles.
 - [ ] Coverage test: every view module has a demo or is listed as internal
       (frame, scroller, base traits) with a reason.
 
@@ -110,6 +114,8 @@ decision by adding a new entry that supersedes it; do not edit old ones.
 | D8 | 2026-10-03 | Demo commands start at `CM_USER + 100`; only the shown demo's handler is asked about them. | Below `CM_USER + 100` is left to the gallery itself, and demos cannot clash because one runs at a time. | accepted |
 | D9 | 2026-10-03 | Demos build into a `Panel` (`examples/gallery/panel.rs`) that places their views straight in the gallery's dialog, offset to the "Try it" box; not into a nested `Group`. | A plain `Group` never takes the focus, so controls inside one could not be used from the keyboard (O5). `Panel::add` reads like `Group::add`. | accepted |
 | D10 | 2026-10-03 | The list and the panel have no shadow. | Side by side they fill the desktop; a window keeps room for its shadow and would be pushed over its neighbour. | accepted |
+| D11 | 2026-10-03 | The gallery follows the terminal's size. The list has `Grow::HI_Y`, the panel `HI_X \| HI_Y` so the first frame after a resize is right, and on the next idle tick the panel is rebuilt for the new size, because its "How it works" text is wrapped to the width. | A terminal can be resized at any moment; a layout computed once at start-up is the most common way a TUI breaks. `AGENTS.md` rule 14 now says so to every application. | accepted |
+| D12 | 2026-10-03 | Supersedes D8's "cannot clash": demo commands are `CM_USER + 100` to `CM_USER + 199` (`registry::DEMO_COMMANDS`), and the gallery enables the whole range again before it shows a demo. | The enabled-command set is global, so a command one demo disables (the Button demo greys out Archive) stayed disabled for the next demo using the same number: the MenuBox demo's Copy item did nothing. | accepted |
 
 ### Open questions
 
@@ -128,3 +134,4 @@ decision by adding a new entry that supersedes it; do not edit old ones.
 | 2026-10-03 | 1 | Plan written; gallery engine and the first ten demos built on branch `feat/gallery`. |
 | 2026-10-03 | 1 | Building the gallery found a library bug: `CheckBoxes` and `RadioButtons` drew at their own position instead of their corner (a leftover from before owner-relative coordinates), so away from (0, 0) they appeared doubly offset and clicks hit the wrong row. Fixed, with tests. Also found O5. |
 | 2026-10-03 | 1 | Step 1 done: `cargo run --example gallery` shows the ten components; 7 gallery tests run with `cargo test`; checked by hand in an 80x25 terminal (list browsing, F6, every demo's controls and commands, mouse). |
+| 2026-10-03 | 3 | Resizing fixed (D11), with a test that resizes a fake terminal. Fourteen demos added (24 in all); 9 gallery tests. Found and fixed two library bugs: `TextViewer` never took the focus, so its keys never reached it in a dialog (Borland's `TScroller` is selectable); `ColorDialog`'s Cancel button touched the right frame. Found the shared-command leak (D12). Checked by hand in tmux at 80x25, 110x32 and 80x22. |

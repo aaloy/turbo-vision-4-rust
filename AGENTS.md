@@ -486,6 +486,53 @@ impl AppHandler for Poller {
 }
 ```
 
+### Follow a terminal resize
+
+Give every view sized from the terminal its grow bits when you create it;
+then rebuild, in `idle`, whatever depends on the exact size:
+
+```rust,no_run
+use turbo_vision::app::{AppHandler, Application};
+use turbo_vision::core::geometry::Rect;
+use turbo_vision::core::state::Grow;
+use turbo_vision::views::text_viewer::TextViewer;
+use turbo_vision::views::window::Window;
+use turbo_vision::views::{GroupLike, View};
+
+/// A side list that keeps its width; the rest is rebuilt for a new size.
+struct Screen {
+    laid_out: (i16, i16),
+}
+
+fn desktop_size(app: &Application) -> (i16, i16) {
+    let b = app.desktop.get_bounds();
+    (b.width(), b.height())
+}
+
+impl Screen {
+    fn open(app: &mut Application) -> Self {
+        let (_, height) = desktop_size(app);
+        let mut side = Window::new(Rect::new(0, 0, 20, height), "Items");
+        side.set_grow_mode(Grow::HI_Y); // same width, new height
+        let mut list = TextViewer::new(Rect::new(0, 0, 18, height - 2));
+        list.set_grow_mode(Grow::HI_Y); // and its content too
+        side.add(list);
+        app.desktop.add(side);
+        Self { laid_out: desktop_size(app) }
+    }
+}
+
+impl AppHandler for Screen {
+    fn idle(&mut self, app: &mut Application) {
+        let now = desktop_size(app);
+        if now != self.laid_out {
+            self.laid_out = now;
+            // re-wrap text, recompute column widths, rebuild a panel, ...
+        }
+    }
+}
+```
+
 ### React to a control while a dialog is open
 
 A control's change notification (`set_on_change(cmd)` on `Spinner`, `Slider`,
@@ -619,6 +666,18 @@ Record forms can also be tested with no application at all:
     forces a full redraw.
 13. **Grow modes decide resizing.** A child with no grow bits stays put when its
     owner resizes. `Grow::ALL` fills, `Grow::HI_X` stretches to the right.
+14. **The terminal can be resized at any moment, and your layout must follow.**
+    This is the rule most often forgotten. The application moves the menu bar,
+    status line and desktop for you; every other view follows only through its
+    grow bits. So whatever you size from `app.terminal.size()` or the
+    desktop's bounds (a window that fills the desktop, a side list, the views
+    inside them) needs grow bits: `Grow::HI_X | Grow::HI_Y` to stretch with
+    the desktop, `Grow::HI_Y` to keep its width and take the new height.
+    Windows default to `HI_X | HI_Y`; most views default to none. A layout
+    that grow bits cannot express (text wrapped to a width, columns computed
+    from it) is rebuilt: compare the desktop's size in `idle` with the size
+    you laid out for (recipe "Follow a terminal resize"). Test it: a backend
+    whose size you change, then `app.step(&mut handler, None)`.
 
 ## 6. Working on the crate itself
 

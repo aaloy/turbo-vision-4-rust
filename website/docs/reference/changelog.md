@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `cargo run --example gallery`: a component gallery. A list of components;
   for the one under the focus, the live component, how it works and the
-  code that built it, which is the demo's own source file. Ten components
-  so far (button, input line, check boxes, radio buttons, combo box, list
-  box, table, form, message boxes, window); its tests run with `cargo test`.
+  code that built it, which is the demo's own source file. 24 components
+  so far: button, input line, check boxes, radio buttons, combo box, list
+  box, tabbed pane, spinner, slider, memo, static text and labels, sorted
+  list box, table, outline, text viewer, split pane, progress bar, form,
+  message boxes, window, editor, file dialogs, colour dialog, pop-up menu.
+  It follows a terminal resize. Its tests run with `cargo test`.
   The plan and decision log for the design system it starts:
   `docs/DESIGN-SYSTEM-PLAN.md`.
 - `AGENTS.md` (with `CLAUDE.md` pointing at it): the guide for people and AI
@@ -22,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with how to create and use it, recipes, and rules and pitfalls. Its code
   blocks are compiled as doctests. Published on the site, which also gets an
   `llms.txt`.
+  Rule 14 and the "Follow a terminal resize" recipe: the terminal can be
+  resized at any moment, so every view sized from it needs grow bits, and a
+  layout grow bits cannot express is rebuilt from `idle`.
 - `tests/docs_index.rs` fails when a view module is missing from
   `AGENTS.md`'s component index, or a view or core module from
   `docs/RUST-API-CATALOG.md`.
@@ -114,6 +120,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- `TextViewer` takes the focus, so Tab reaches it among a dialog's controls
+  and its arrow and page keys scroll it there (Borland: `TScroller` is
+  `ofSelectable`). Before, only the mouse could scroll it.
+- `ColorDialog`: the OK and Cancel buttons sit one column in from the frame;
+  Cancel's shadow used to touch it.
 - `CheckBoxes` and `RadioButtons` placed away from their owner's corner drew
   at twice their offset and took clicks on the wrong row: they still drew at
   their own position, from before owner-relative coordinates.
@@ -129,6 +140,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   desktop window landed a row low, so calculator buttons did nothing and
   windows could not be dragged, and the status line's Exit never saw its
   click. They now route through `views::view::dispatch_to_child`.
+- `FileDialog`: after entering a folder (or `..`, or a `dir/*.ext` filter)
+  the Open/Save button and Enter no longer closed the dialog, so a file
+  outside the starting folder could not be opened, nor a save location
+  picked. Navigation rebuilt the dialog and lost its modal state; it now
+  refills the list and the directory label in place, like Borland's
+  `TFileList::readDirectory()`. The directory label no longer shows a
+  trailing `/`. `Label::text` / `Label::set_text` added.
 - Non-ASCII text can be typed. `InputLine`, `Memo`, `SortedListBox`'s
   type-ahead and menu letters accepted only ASCII 32–126 (the editor a
   little more): `é`, `ñ`, `ç`, `€`, `ł`, Greek, Cyrillic and the rest now

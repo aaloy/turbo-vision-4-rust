@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `cargo run --example gallery`: a component gallery. A list of components;
   for the one under the focus, the live component, how it works and the
-  code that built it, which is the demo's own source file. Ten components
-  so far (button, input line, check boxes, radio buttons, combo box, list
-  box, table, form, message boxes, window); its tests run with `cargo test`.
+  code that built it, which is the demo's own source file. 24 components
+  so far: button, input line, check boxes, radio buttons, combo box, list
+  box, tabbed pane, spinner, slider, memo, static text and labels, sorted
+  list box, table, outline, text viewer, split pane, progress bar, form,
+  message boxes, window, editor, file dialogs, colour dialog, pop-up menu.
+  It follows a terminal resize. Its tests run with `cargo test`.
   The plan and decision log for the design system it starts:
   `docs/DESIGN-SYSTEM-PLAN.md`.
 - `AGENTS.md` (with `CLAUDE.md` pointing at it): the guide for people and AI
@@ -22,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with how to create and use it, recipes, and rules and pitfalls. Its code
   blocks are compiled as doctests. Published on the site, which also gets an
   `llms.txt`.
+  Rule 14 and the "Follow a terminal resize" recipe: the terminal can be
+  resized at any moment, so every view sized from it needs grow bits, and a
+  layout grow bits cannot express is rebuilt from `idle`.
 - `tests/docs_index.rs` fails when a view module is missing from
   `AGENTS.md`'s component index, or a view or core module from
   `docs/RUST-API-CATALOG.md`.
@@ -114,6 +120,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- `TextViewer` takes the focus, so Tab reaches it among a dialog's controls
+  and its arrow and page keys scroll it there (Borland: `TScroller` is
+  `ofSelectable`). Before, only the mouse could scroll it.
+- `ColorDialog`: the OK and Cancel buttons sit one column in from the frame;
+  Cancel's shadow used to touch it.
 - `CheckBoxes` and `RadioButtons` placed away from their owner's corner drew
   at twice their offset and took clicks on the wrong row: they still drew at
   their own position, from before owner-relative coordinates.
