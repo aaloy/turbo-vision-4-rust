@@ -72,12 +72,12 @@ impl ColorDialog {
             "Sample text with\nselected colors",
         ));
 
-        // Buttons
+        // Buttons, one column in from the frame so the shadow clears it
         dialog.add(Button::new(
             Rect::new(
-                bounds.width() - 24,
+                bounds.width() - 25,
                 bounds.height() - 4,
-                bounds.width() - 14,
+                bounds.width() - 15,
                 bounds.height() - 2,
             ),
             "OK",
@@ -87,9 +87,9 @@ impl ColorDialog {
 
         dialog.add(Button::new(
             Rect::new(
-                bounds.width() - 12,
+                bounds.width() - 13,
                 bounds.height() - 4,
-                bounds.width() - 2,
+                bounds.width() - 3,
                 bounds.height() - 2,
             ),
             "Cancel",

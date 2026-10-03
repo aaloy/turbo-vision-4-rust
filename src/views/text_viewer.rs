@@ -287,6 +287,13 @@ impl View for TextViewer {
         }
     }
 
+    /// A viewer takes the focus, so its scrolling keys reach it in a dialog
+    /// or window among other controls. Matches Borland: `TScroller`'s
+    /// constructor sets `ofSelectable`.
+    fn can_focus(&self) -> bool {
+        true
+    }
+
     fn handle_event(&mut self, event: &mut Event) {
         match event.what {
             EventType::Keyboard => {
@@ -454,6 +461,27 @@ impl Default for TextViewerBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Among a dialog's controls, Tab reaches the viewer and its keys
+    /// scroll it (Borland: `TScroller` is `ofSelectable`).
+    #[test]
+    fn takes_the_focus_in_a_dialog() {
+        use crate::core::event::KB_TAB;
+        use crate::views::GroupLike;
+        use crate::views::dialog::Dialog;
+        use crate::views::input_line::InputLine;
+        let mut dialog = Dialog::new(Rect::new(0, 0, 40, 12), "D");
+        dialog.add(InputLine::new(Rect::new(1, 0, 30, 1), 20));
+        let mut viewer = TextViewer::new(Rect::new(1, 2, 30, 5));
+        viewer.set_text(&(1..=20).map(|n| n.to_string()).collect::<Vec<_>>().join("\n"));
+        let viewer = dialog.add_typed(viewer);
+        dialog.set_initial_focus();
+        dialog.handle_event(&mut Event::keyboard(KB_TAB));
+        dialog.handle_event(&mut Event::keyboard(KB_DOWN));
+        let viewer = dialog.get(viewer).unwrap();
+        assert!(viewer.is_focused());
+        assert_eq!(viewer.delta.y, 1, "Down scrolled the focused viewer");
+    }
 
     /// Regression for 3.0.1: the content area must be the viewer's own
     /// extent, not its owner-relative bounds.
