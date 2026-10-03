@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `cargo run --example gallery`: a component gallery. A list of components;
+  for the one under the focus, the live component, how it works and the
+  code that built it, which is the demo's own source file. Ten components
+  so far (button, input line, check boxes, radio buttons, combo box, list
+  box, table, form, message boxes, window); its tests run with `cargo test`.
+  The plan and decision log for the design system it starts:
+  `docs/DESIGN-SYSTEM-PLAN.md`.
 - `AGENTS.md` (with `CLAUDE.md` pointing at it): the guide for people and AI
   assistants writing applications with the crate or working on it. The
   Turbo Vision way of working in one page, the idiomatic application
@@ -107,6 +114,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- `CheckBoxes` and `RadioButtons` placed away from their owner's corner drew
+  at twice their offset and took clicks on the wrong row: they still drew at
+  their own position, from before owner-relative coordinates.
 - A button answers Alt plus its `~` letter, as Borland's does, not only the
   letter alone. In a dialog whose focus is in an input line the plain letter
   is typed into the field, so Alt+O was the only way to press **~O~K** from

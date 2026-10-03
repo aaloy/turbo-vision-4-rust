@@ -52,6 +52,7 @@ cargo build --examples           # build all 39
 - **`tree_view`** &mdash; a hierarchical outline view.
 - **`progress_bar`** &mdash; determinate and marquee bars, animated as overlay widgets.
 - **`form_layout`** &mdash; a data-entry dialog built with `Form`, with no coordinates: right-aligned labels, an address group with two fields on one line, a check box, a notes box and OK/Cancel; the values are read back through typed handles. Run it with `-- --above` for labels above their fields.
+- **`gallery`** &mdash; the component gallery: a list of components and, for the one under the focus, the live component, how it works, and the code that built it (the demo's own source file). Arrows browse, F6 switches to the component to try it.
 - **`form_record`** &mdash; a record editor: a `Customer` struct bound to its fields (text, an optional phone and date, an enum choice, a number, a flag, notes), required fields and rules within and across fields, saved to an in-memory table that rejects a duplicate email like a database would; the error shows on the email field and the dialog stays open.
 - **`form_labels`** &mdash; one contact form in each label style: labels on the left, left right-aligned, and above their fields. A launcher, itself a `Form`, picks the style.
 - **`label_link`** &mdash; labels that focus the input field they are linked to.

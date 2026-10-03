@@ -58,6 +58,8 @@ LINK_REWRITES = [
     (r"\]\(docs/FORMS\.md", "](../tutorials/forms.md"),
     (r"\]\(docs/user-guide/\)", "](../guide/index.md)"),
     (r"\]\(examples/\)", "](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples)"),
+    (r"\]\(examples/gallery/\)", "](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples/gallery)"),
+    (r"\]\(docs/DESIGN-SYSTEM-PLAN\.md\)", "](https://github.com/aovestdipaperino/turbo-vision-4-rust/blob/main/docs/DESIGN-SYSTEM-PLAN.md)"),
     # The API catalog points back at AGENTS.md, its neighbour under reference/.
     (r"\]\(\.\./AGENTS\.md", "](agents.md"),
     # Doctest fence attributes mean nothing to the site's highlighter.
