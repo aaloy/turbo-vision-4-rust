@@ -97,6 +97,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is typed into the field, so Alt+O was the only way to press **~O~K** from
   the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
   `getAltCode`) gives the key code; `Label` uses it too.
+- A `Tooltip` no longer takes the clicks of the controls it covers. Added
+  last, as it must be, it lay over them, so a click went to the tooltip and
+  the button under it never saw it.
+- A tooltip's hint appears when its delay is over. It was raised on an idle
+  tick, after which nothing is drawn, so it showed only once the pointer
+  moved again.
 - `FileDialog`: after entering a folder (or `..`, or a `dir/*.ext` filter)
   the Open/Save button and Enter no longer closed the dialog, so a file
   outside the starting folder could not be opened, nor a save location
