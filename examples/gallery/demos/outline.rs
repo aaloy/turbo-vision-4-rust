@@ -1,7 +1,16 @@
 //! A tree that expands and collapses. Up and Down move, Right opens a
-//! branch, Left closes it, Enter toggles it. The tree is made of `Node`s
-//! holding values of any type; the closure given to `new` turns a value
-//! into the text shown. `selected_node()` returns the node under the bar.
+//! branch, Left closes it, Enter toggles it.
+//!
+//! Parameters:
+//! - `OutlineViewer::new(bounds, format)`: `format` is a closure that turns
+//!   a node's value into the text shown.
+//! - `Node::new(value)`, `Node::with_children(value, children)`: the tree's
+//!   nodes, holding values of any type, each in an `Rc<RefCell<..>>`;
+//!   `add_child` grows a branch later.
+//! - `set_roots(nodes)`, `add_root(node)`: the top-level nodes.
+//! - `selected_node()`: the node under the bar.
+//!
+//! See also: ListBox, Table, TextViewer
 
 use crate::panel::Panel;
 use std::cell::RefCell;

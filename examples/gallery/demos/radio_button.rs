@@ -1,8 +1,16 @@
 //! One radio button per view, for choices laid out freely rather than in a
 //! column. Buttons with the same group id are one choice: selecting one
 //! clears the others in its group. Space or a click selects; Tab moves
-//! between them. Read each with `is_selected()`. For a column of choices,
-//! one `RadioButtons` is simpler.
+//! between them.
+//!
+//! Parameters:
+//! - `RadioButton::new(bounds, label, group_id)`: one row; `group_id` ties
+//!   the buttons of one choice together, so each choice needs its own id.
+//! - `set_selected(true)`: the button chosen to start with.
+//! - `is_selected()`: read each button; `select()` and `deselect()` set it
+//!   from your code.
+//!
+//! See also: RadioButtons, CheckBoxes, ComboBox
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

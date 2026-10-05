@@ -1,8 +1,23 @@
-//! The bar of pull-down menus on the top row. Give it to the application
-//! with `set_menu_bar`; F10 or a click opens it, Alt and a menu's ~letter~
-//! opens that menu. Picking an item sends its command to your handler, as
-//! a button does. Try it: the button puts a bar on this gallery's top row
-//! and takes it away again.
+//! The bar of pull-down menus on the top row. F10 or a click opens it, Alt
+//! and a menu's ~letter~ opens that menu. Picking an item sends its command
+//! to your handler, as a button does. Try it: the button puts a bar on this
+//! gallery's top row and takes it away again.
+//!
+//! Parameters:
+//! - `MenuBar::new(bounds)`: one row across the top;
+//!   `app.set_menu_bar(bar)` installs it.
+//! - `add_submenu(SubMenu::new(title, menu))`: a menu on the bar; mark its
+//!   hot key with tildes.
+//! - `Menu::from_items(items)`: a menu's items; `MenuItem::separator()`
+//!   draws a line between them.
+//! - `MenuItemBuilder::new().text(t).command(c)`: an item; `.key("Ctrl+O")`
+//!   binds a key and shows it, `.enabled(false)` greys it out,
+//!   `.checked(f)` puts a check mark by it while `f()` is true,
+//!   `.help_ctx(n)` sets its help context.
+//! - An item's command greys out with `app.disable_command`, as a button's
+//!   does.
+//!
+//! See also: MenuBox, StatusLine, Button
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

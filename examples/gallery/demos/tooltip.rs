@@ -1,8 +1,19 @@
-//! Hints that appear when the pointer rests on a control. One `Tooltip`
-//! serves a whole dialog: register a rect and a line of text per control,
-//! with `add_hint`. Add it last, so it draws over the controls; clicks
-//! still go through it to the control underneath. Rest the pointer on a
-//! button below; the hint goes away when you move off, click or type.
+//! Hints that appear when the pointer rests on a control. One Tooltip
+//! serves a whole dialog, and clicks go through it to the control
+//! underneath. Rest the pointer on a button below; the hint goes away when
+//! you move off, click or type.
+//!
+//! Parameters:
+//! - `Tooltip::new(bounds)`: the area its hints may draw in; add it last,
+//!   so it draws over the controls.
+//! - `add_hint(rect, text)`: one hint per control; `rect` is the control's
+//!   own bounds, in the tooltip's coordinates; `clear_hints()` drops them
+//!   all.
+//! - `set_delay(duration)`: how long the pointer must rest before a hint
+//!   shows.
+//! - `is_showing()`, `hide()`: the hint up now.
+//!
+//! See also: StatusLine, StaticText, Button
 
 use crate::panel::Panel;
 use std::time::Duration;

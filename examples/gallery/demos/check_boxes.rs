@@ -1,7 +1,19 @@
 //! Several independent options in one control. Up and Down move between
-//! them, Space ticks the focused one, a click ticks the one clicked.
-//! Read them with `is_checked(i)` or `checked_items()`. A single option on
-//! its own is a `CheckBox`, read with `is_checked()`.
+//! them, Space ticks the focused one, a click ticks the one clicked, Alt
+//! and an item's ~letter~ ticks that item. The whole control is one Tab
+//! stop. A single option on its own is a `CheckBox`.
+//!
+//! Parameters:
+//! - `CheckBoxes::new(bounds, labels)`: one row per label, so `bounds` is
+//!   as tall as the list (32 items at most); mark a label's hot key with
+//!   tildes.
+//! - `set_checked(i, on)`, `is_checked(i)`: one item, by its index.
+//! - `checked_items()`: the indices of the ticked items; `value()` gives
+//!   them as bits.
+//! - `CheckBox::new(bounds, label)`: a single box, one row;
+//!   `set_checked(on)`, `is_checked()` and `toggle()`.
+//!
+//! See also: RadioButtons, GroupBox, Form
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

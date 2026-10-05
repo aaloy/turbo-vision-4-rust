@@ -1,9 +1,20 @@
 //! The row of key hints at the bottom of the screen. Each item shows a key
 //! and sends a command when that key is pressed or the item is clicked; an
-//! item with no command only explains a key. Give it to the application
-//! with `set_status_line`. A hint, `set_hint`, adds a note on the right.
-//! Below, a status line of its own: click its items. The button puts a
-//! hint on this gallery's status line.
+//! item with no command only explains a key. Below, a status line of its
+//! own: click its items. The button puts a hint on this gallery's status
+//! line.
+//!
+//! Parameters:
+//! - `StatusLine::new(bounds, items)`: one row across the bottom;
+//!   `app.set_status_line(line)` installs it.
+//! - `StatusItemBuilder::new().text("~F2~ Save").key("F2").command(c)`: an
+//!   item; the tildes highlight the key's name, `.key` binds the key,
+//!   `.command` is what it sends.
+//! - `set_hint(Some(text))`: a note on the right; `None` takes it away.
+//! - `StatusLine::with_defs(bounds, defs)`: item sets that switch with the
+//!   help context, one `StatusDef` per range.
+//!
+//! See also: MenuBar, Tooltip, Help
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

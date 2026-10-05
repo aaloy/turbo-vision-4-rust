@@ -1,8 +1,17 @@
 //! F1 help from Markdown: each "# Title {#id}" starts a topic, and
-//! "[text](#id)" links to another. Give the application the help with
-//! `set_help` (or `set_help_file` for a file); F1 then opens the first
-//! topic, and `show_help_topic` opens any. In the help window Tab moves
-//! between links, Enter follows one, Alt+F1 goes back, Esc closes it.
+//! "[text](#id)" links to another. In the help window Tab moves between
+//! links, Enter follows one, Alt+F1 goes back, Esc closes it.
+//!
+//! Parameters:
+//! - `app.set_help(HelpFile::from_content(text))`, or
+//!   `app.set_help_file(path)`: give the application its help; F1 then
+//!   opens the first topic.
+//! - `app.show_help_topic(id)`: open a topic from your own command.
+//! - `app.register_help_context(context, id)` and
+//!   `app.set_help_context(context)`: F1 opens the topic for what the user
+//!   is doing.
+//!
+//! See also: StatusLine, Message boxes, Tooltip
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

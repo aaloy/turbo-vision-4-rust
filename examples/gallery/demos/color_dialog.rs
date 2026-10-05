@@ -1,7 +1,12 @@
-//! Pick a colour pair: a foreground and a background, with a sample of
-//! the result. `ColorDialog::new(rect, title, initial)` takes the colour to
-//! start from; `execute(app)` returns `Some(attr)` on OK and `None` when
-//! cancelled. The two grids inside are `ColorSelector` views.
+//! Pick a colour pair: a foreground and a background, with a sample of the
+//! result. The two grids inside are ColorSelector views.
+//!
+//! Parameters:
+//! - `ColorDialog::new(bounds, title, initial)`: `initial` is the `Attr` to
+//!   start from, as in `Attr::new(TvColor::Yellow, TvColor::Blue)`.
+//! - `execute(app)`: runs it; `Some(attr)` on OK, `None` when cancelled.
+//!
+//! See also: File dialogs, Message boxes, Help
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

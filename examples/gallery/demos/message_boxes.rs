@@ -1,7 +1,17 @@
 //! Ready-made dialogs for a message, a question or one line of input. Each
-//! is one call that runs modally and returns what the user chose:
-//! `message_box_ok`, `confirmation_box_yes_no` (CM_YES or CM_NO),
-//! `input_box` (`Some(text)` or `None`). Errors and warnings have their own.
+//! is one call that runs modally and returns what the user chose.
+//!
+//! Parameters:
+//! - `message_box_ok(app, text)`: a message with OK. `message_box_error`
+//!   and `message_box_warning`: the same, titled Error and Warning.
+//! - `confirmation_box_yes_no(app, text)`: returns `CM_YES` or `CM_NO`;
+//!   `confirmation_box_ok_cancel`, `CM_OK` or `CM_CANCEL`.
+//! - `input_box(app, title, label, initial, max_length)`: one input line;
+//!   `Some(text)` on OK, `None` when cancelled.
+//! - `message_box(app, text, MsgBox::WARNING | MsgBox::YES_NO_CANCEL)`: any
+//!   mix of icon and buttons; `MsgBox::AUTO_DISMISS` closes it on its own.
+//!
+//! See also: Form, File dialogs, Button
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

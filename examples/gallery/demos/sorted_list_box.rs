@@ -1,7 +1,18 @@
 //! A list kept in order, whatever order the items come in. Typing searches:
-//! each letter narrows to the first item that starts with what was typed
-//! so far. `find_prefix` and `find_exact` search by binary search; add
-//! items with `add_item` and they go to their place.
+//! each letter narrows to the first item that starts with what was typed so
+//! far.
+//!
+//! Parameters:
+//! - `SortedListBox::new(bounds, command)`: as a ListBox; `command` is sent
+//!   on Enter or a double click (0 for none).
+//! - `set_items(items)`, `add_item(text)`: items go to their place in the
+//!   order.
+//! - `set_case_sensitive(true)`: sort and search with case; off by default.
+//! - `find_prefix(text)`, `find_exact(text)`: search by binary search;
+//!   `focus_prefix(text)` also moves the focus there.
+//! - `get_selection()`, `get_selected_item()`: the focused item.
+//!
+//! See also: ListBox, ComboBox, Table
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

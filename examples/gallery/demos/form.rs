@@ -1,8 +1,25 @@
 //! Builds a dialog from labelled fields, with no coordinates: labels in one
 //! column, fields in the next, buttons at the bottom, the dialog sized and
-//! centred. Lines put fields side by side, groups box related rows. For a
-//! struct of yours, `Form::<T>::for_record` binds and validates the fields.
-//! Full guide: docs/FORMS.md.
+//! centred. The full guide is docs/FORMS.md.
+//!
+//! Parameters:
+//! - `Form::new(title)`, then `build()`: the dialog, to run with
+//!   `execute(app)`.
+//! - `field(label, view)`: one labelled row; the label's ~letter~ focuses
+//!   the view. A view built with `Rect::default()` stretches to the field
+//!   column; `size(w, h)` keeps a size.
+//! - `line()`: fields side by side on one row. `row(view)`: a view across
+//!   the whole width, with no label.
+//! - `group(title)` ... `end_group()`: a box around the rows between.
+//!   `section(title)`: a heading. `gap(n)`: blank rows.
+//! - `ok_cancel()`, `button(title, cmd)`, `default_button(title, cmd)`: the
+//!   bottom row's buttons.
+//! - `spacing(n)`, `field_width(w)`, `label_position`, `label_align`,
+//!   `button_align`, `resizable(on)`: the layout.
+//! - `Form::<T>::for_record(title)`: binds the fields to a struct of yours
+//!   (`input`, `check`, `memo`, `choice`) and validates them.
+//!
+//! See also: Window, GroupBox, Message boxes
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

@@ -8,9 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `cargo run --example gallery`: a component gallery. A list of components;
-  for the one under the focus, the live component, how it works and the
-  code that built it, which is the demo's own source file. 31 components:
+- `cargo run --example gallery`: a component gallery. A list of components,
+  grouped by kind (controls, text entry, lists and tables, display,
+  containers, dialogs, menus and status) and by name within a group; for
+  the one under the focus, the live component, how it works with each
+  parameter explained (the table's `set_frozen_cols` and `set_frozen_rows`,
+  for one), buttons that open related components, and the code that built
+  it, which is the demo's own source file, in a box of its own. 31 components:
   button, input line, history, check boxes, radio buttons (as one cluster
   and one per view), combo box, list box, tabbed pane, spinner, slider,
   memo, static text and labels, group box, tooltip, sorted list box, table,

@@ -1,7 +1,15 @@
-//! A pop-up menu at a point: a context menu. Build a `Menu` the way a
-//! menu bar's menus are built, then `MenuBox::new(point, menu)` and
-//! `execute(&mut app.terminal)`; it returns the command of the item
-//! picked, or 0 when Esc closes it. Up, Down and a ~letter~ pick an item.
+//! A pop-up menu at a point: a context menu. Up, Down and an item's
+//! ~letter~ pick an item, Enter chooses it, Esc closes the menu.
+//!
+//! Parameters:
+//! - `Menu::from_items(items)`: built as a menu bar's menus are, with
+//!   `MenuItemBuilder` and `MenuItem::separator()`.
+//! - `MenuBox::new(point, menu)`: `point` is the menu's top-left corner on
+//!   the screen.
+//! - `execute(&mut app.terminal)`: runs it, and returns the command of the
+//!   item picked, or 0 when Esc closes it.
+//!
+//! See also: MenuBar, ComboBox, StatusLine
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

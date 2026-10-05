@@ -1,7 +1,14 @@
 //! Read-only text that scrolls: a log, a report, a file. The arrows, PgUp,
-//! PgDn, Home and End scroll it, and so do its scroll bars. Fill it with
-//! `set_text` or `load_file`; `set_show_line_numbers(true)` numbers the
-//! lines. Give it `Grow::ALL` in a window so it follows the window's size.
+//! PgDn, Home and End scroll it, and so do its scroll bars.
+//!
+//! Parameters:
+//! - `TextViewer::new(bounds)`: `.with_scrollbars(true)` puts scroll bars
+//!   inside those bounds; `.with_indicator(true)` a line:column row on top.
+//! - `set_text(text)`, `load_file(path)`: what it shows.
+//! - `set_show_line_numbers(true)`: numbers the lines.
+//! - `set_grow_mode(Grow::ALL)`: in a window, it follows the window's size.
+//!
+//! See also: Editor, Memo, StaticText
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

@@ -1,8 +1,19 @@
-//! Tabs over pages, each page a `Group` of ordinary controls. F6 or
-//! Ctrl+PgDn shows the next tab, Shift+F6 or Ctrl+PgUp the previous one,
-//! Alt and a tab's ~letter~ picks it, and a click on a tab works too. The
-//! pane keeps F6 while it has the focus: here, click the list to go back.
-//! Build each page at `pane.page_area()`; `active()` says which is shown.
+//! Tabs over pages, each page a Group of ordinary controls. F6 or Ctrl+PgDn
+//! shows the next tab, Shift+F6 or Ctrl+PgUp the previous one, Alt and a
+//! tab's ~letter~ picks it, and a click on a tab works too. The pane keeps
+//! F6 while it has the focus: here, click the list to go back.
+//!
+//! Parameters:
+//! - `TabbedPane::new(bounds)`: the top row is the tab strip.
+//! - `page_area()`: where to build each page; a page's controls are placed
+//!   from its own corner.
+//! - `add_page(title, group)`: a tab; mark its hot key with tildes.
+//! - `active()`, `active_title()`: the page shown; `set_active(i)` shows
+//!   another.
+//! - `page_mut(i)`: reach a page's controls later.
+//! - `set_initial_focus()`: focus the first page's first control.
+//!
+//! See also: SplitPane, GroupBox, Form
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

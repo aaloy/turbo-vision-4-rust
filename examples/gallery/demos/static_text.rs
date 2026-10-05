@@ -1,8 +1,18 @@
-//! Fixed text, one or more lines: captions, help, notes. `StaticText`
-//! breaks at `\n`; `new_centered` centres each line. `ParamText` is the
-//! same with placeholders, %s for text and %d for numbers, filled in with
-//! `set_params`, for text that changes: a count, a file name. Neither takes
-//! the focus; a `Label` is the caption that focuses a field.
+//! Fixed text, one or more lines: captions, notes, help. Neither StaticText
+//! nor ParamText takes the focus; a Label is the caption that focuses a
+//! field.
+//!
+//! Parameters:
+//! - `StaticText::new(bounds, text)`: breaks at each `\n`; `bounds` must be
+//!   as tall as the lines. `new_centered(bounds, text)` centres each line.
+//! - `ParamText::new(bounds, template)`: text with placeholders, %s for
+//!   text and %d for numbers; `set_params(texts, numbers)` fills them in,
+//!   for text that changes, such as a count or a file name.
+//! - `Label::new(bounds, text)`: a caption with a ~letter~; `set_link(id)`
+//!   names the view that Alt and the letter, or a click, focuses.
+//!   `set_error(true)` shows it in the error colour.
+//!
+//! See also: InputLine, GroupBox, Form
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

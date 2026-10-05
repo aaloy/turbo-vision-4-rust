@@ -1,8 +1,19 @@
 //! A whole number in a range, with up and down steppers. Up and Down step,
 //! PgUp and PgDn step ten times, Home and End jump to the ends; digits are
 //! typed in and kept within the range. A click on an arrow steps too.
-//! Read it with `value()`; `set_on_change(cmd)` broadcasts each change to
-//! the views of the same window.
+//!
+//! Parameters:
+//! - `Spinner::new(bounds, min, max)`: one row; the range is `min..=max` (a
+//!   reversed one is swapped), and the value starts at `min`.
+//! - `set_value(v)`, `value()`: the number; `set_range(min, max)` changes
+//!   the range later.
+//! - `set_step(n)`: how far one Up or Down moves (zero counts as one).
+//! - `set_suffix("%")`: text shown after the number.
+//! - `set_wrap(true)`: stepping past one end comes back at the other.
+//! - `set_on_change(cmd)`: broadcast `cmd` when the value changes; 0, the
+//!   default, sends none.
+//!
+//! See also: Slider, InputLine, Label
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

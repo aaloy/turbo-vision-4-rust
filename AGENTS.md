@@ -712,6 +712,6 @@ Record forms can also be tested with no application at all:
 | [`docs/OWNER-COORDINATES.md`](docs/OWNER-COORDINATES.md) | How owner-relative coordinates work. |
 | [`docs/PALETTE-SYSTEM.md`](docs/PALETTE-SYSTEM.md) | How colours are looked up by role. |
 | [`docs/MORE-CONTROLS.md`](docs/MORE-CONTROLS.md) | What was added beyond Borland, and the roadmap. |
-| [`examples/gallery/`](examples/gallery/) | The component gallery (`cargo run --example gallery`): each component live, how it works, and the code that built it. Each demo in `examples/gallery/demos/` is a short, idiomatic file to copy from. |
+| [`examples/gallery/`](examples/gallery/) | The component gallery (`cargo run --example gallery`): each component live, grouped by kind, with how it works, its parameters, links to related components, and the code that built it. Each demo in `examples/gallery/demos/` is a short, idiomatic file to copy from. |
 | [`examples/`](examples/) | `form_record` (record editor), `form_layout`, `form_labels`, `table_frozen` (window + table + `AppHandler`), `showcase`, `new_controls`, `file_dialog`, `help`, ... |
 | [`docs/DESIGN-SYSTEM-PLAN.md`](docs/DESIGN-SYSTEM-PLAN.md) | The design system plan and its decision log. |

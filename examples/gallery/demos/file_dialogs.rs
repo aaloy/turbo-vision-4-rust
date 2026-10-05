@@ -1,8 +1,18 @@
-//! The standard Open / Save dialog and the change-folder dialog. Each is
-//! built, run with `execute(app)`, and returns `Some(path)` or `None` when
-//! cancelled. The file dialog takes a title, a wildcard (`*.rs`) and an
-//! optional starting folder; typing a folder or `dir/*.ext` in its name
-//! field moves there.
+//! The standard Open or Save dialog and the change-folder dialog. Typing a
+//! folder, or `dir/*.ext`, in the file dialog's name field moves there.
+//!
+//! Parameters:
+//! - `FileDialog::new(bounds, title, wildcard, folder)`: `wildcard` filters
+//!   the files shown, as in `*.rs`; `folder` is where it starts, or `None`
+//!   for the current folder.
+//! - `with_button_label("~S~ave")`: the button's text, for a Save dialog.
+//! - `build()`, then `execute(app)`: `Some(path)` on OK, `None` when
+//!   cancelled.
+//! - `ChDirDialog::new(history_id)`: the folder dialog; `history_id`, if
+//!   given, keeps a history of the folders typed. `execute(app)` returns
+//!   `Some(folder)` or `None`.
+//!
+//! See also: ColorDialog, Message boxes, Editor
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

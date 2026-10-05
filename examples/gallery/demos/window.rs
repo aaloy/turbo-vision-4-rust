@@ -1,7 +1,21 @@
 //! A framed window on the desktop: drag it by its title, resize it from its
 //! corner, zoom it with the arrow at the top right, close it with the box
-//! at the top left. F6 moves between windows. Keep the handle that
-//! `add_typed` returns to reach it, and its views, again.
+//! at the top left. F6 moves between windows.
+//!
+//! Parameters:
+//! - `Window::new(bounds, title)`: the views inside are placed from the
+//!   corner inside the frame.
+//! - `app.desktop.add_typed(window)`: shows it, and returns a handle to
+//!   reach it, and its views, again.
+//! - `set_resizable(on)`, `set_zoomable(on)`: whether it can be resized
+//!   from its corner and zoomed.
+//! - `set_min_size(Point::new(w, h))`: the smallest it may be resized to.
+//! - `set_number(n)`: the number in its frame; Alt and the number selects
+//!   it.
+//! - `set_grow_mode(Grow::ALL)` on a view inside: it follows the window's
+//!   size.
+//!
+//! See also: Form, Editor, SplitPane
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

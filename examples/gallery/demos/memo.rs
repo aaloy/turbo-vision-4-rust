@@ -1,8 +1,21 @@
-//! Several lines of text in a form. Type and edit as in an input line;
-//! Enter starts a new line, the arrows, PgUp and PgDn move, and Shift
-//! selects. Tab moves to the next control, so a memo sits among others.
-//! Read it with `get_text()`, fill it with `set_text`; `is_modified()`
-//! says whether the user changed it. In a record form: `form.memo`.
+//! Several lines of text among a form's other controls. Type and edit as in
+//! an input line; Enter starts a new line, the arrows, PgUp and PgDn move,
+//! and Shift selects. Tab moves on to the next control, unlike in the
+//! Editor.
+//!
+//! Parameters:
+//! - `Memo::new(bounds)`: as many rows as `bounds` is tall;
+//!   `.with_scrollbars(true)` puts scroll bars inside those bounds.
+//! - `set_text(text)`, `get_text()`: the text, with `\n` between lines.
+//! - `is_modified()`: whether the user changed it; `clear_modified()`
+//!   starts again.
+//! - `set_max_length(Some(n))`: the longest a line may be; `None` for no
+//!   limit.
+//! - `set_read_only(true)`: shown, not changed. `set_tab_size(n)`: how wide
+//!   a tab is drawn.
+//! - In a record form: `form.memo`.
+//!
+//! See also: InputLine, Editor, TextViewer
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

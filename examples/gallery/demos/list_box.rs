@@ -1,7 +1,21 @@
 //! A scrolling list of strings. Up, Down, PgUp and PgDn move; typing a
 //! letter jumps to an item starting with it. Enter or a double click sends
-//! the list's command; read the item with `get_selected_item()`. For many
-//! thousands of items, give it a provider instead of a Vec: `set_provider`.
+//! the list's command.
+//!
+//! Parameters:
+//! - `ListBox::new(bounds, command)`: one item per row; `command` is sent
+//!   on Enter or a double click (0 for none).
+//! - `set_items(items)`, `add_item(text)`, `clear()`: the items, from a
+//!   Vec.
+//! - `set_provider(provider)`: read the items from a `ListProvider` as they
+//!   are drawn, for many thousands of them; `refresh_items()` after its
+//!   length changes.
+//! - `get_selection()`, `get_selected_item()`: the focused item, by index
+//!   or as text; `set_selection(i)` moves the focus.
+//! - `set_multi_select(true)`: Space marks items and Shift+click marks a
+//!   run, apart from the focus; `marked_items()` returns them in order.
+//!
+//! See also: SortedListBox, Table, Outline
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

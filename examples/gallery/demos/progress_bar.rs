@@ -1,8 +1,24 @@
-//! Progress, known or unknown. Set the value with `set_value` (or `advance`)
-//! against the `max` given to `new`; it can show the percentage or a
-//! caption, in smooth, block or ASCII style. For work of unknown length,
-//! `set_mode(ProgressMode::Marquee)` sweeps a block that `tick()` moves.
-//! The button runs a job in a modal dialog, advanced from its tick closure.
+//! Progress, known or unknown. The bar fills as the value nears its
+//! maximum, and can show the percentage or a caption on the track. The
+//! button runs a job in a modal dialog, advanced from its tick closure.
+//!
+//! Parameters:
+//! - `ProgressBar::new(bounds, max)`: one row; `max` is the value at which
+//!   the bar is full (0 counts as 1).
+//! - `set_value(v)`, `advance(n)`, `value()`: progress so far; `set_max(n)`
+//!   and `reset()` start another job.
+//! - `show_percent()`: the percentage on the track; `set_caption(text)`,
+//!   fixed text instead; `hide_caption()`, neither.
+//! - `set_style(ProgressStyle::Smooth)`: smooth (the default, an eighth of
+//!   a cell at a time), `Blocks` (whole cells) or `Ascii` (# and -, for
+//!   terminals without block characters).
+//! - `set_mode(ProgressMode::Marquee)`: for work of unknown length, a block
+//!   sweeps along the track; `tick()` moves it, or `set_tick_interval(d)`
+//!   animates it on its own.
+//! - `app.execute_modal(&mut dialog, tick)`: run a dialog whose `tick`
+//!   closure does the work in steps and ends it with `ModalTick::End(cmd)`.
+//!
+//! See also: Slider, Message boxes, StaticText
 
 use crate::panel::Panel;
 use std::time::{Duration, Instant};

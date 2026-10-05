@@ -1,8 +1,23 @@
 //! One line of text. Type to insert; Home, End and the arrows move; Shift
-//! selects; Ctrl+C, Ctrl+X and Ctrl+V copy, cut and paste. A label linked
-//! to it focuses it with Alt and its ~letter~. A validator limits what can
-//! be typed: here only digits, and a date mask that fills in the slashes.
-//! Read it with `text()`; in a record form, `form.input` does it for you.
+//! selects; Ctrl+C, Ctrl+X and Ctrl+V copy, cut and paste. A validator
+//! limits what can be typed: here only digits, and a date mask that fills
+//! in the slashes.
+//!
+//! Parameters:
+//! - `InputLine::new(bounds, max_length)`: one row; `max_length` is the
+//!   most characters it takes, which may be more than the field shows.
+//! - `with_validator(bounds, max_length, validator)`, or `set_validator`:
+//!   `FilterValidator::new("0123456789")` allows only those characters;
+//!   `RangeValidator::new(min, max)`, a number in range;
+//!   `PictureValidator::new("##/##/####")`, a mask (# a digit, ? a letter,
+//!   & a letter in capitals, @ any character);
+//!   `LookupValidator::new(values)`, one of a list.
+//! - `set_text(text)`, `text()`; `is_valid()` asks the validator about the
+//!   text.
+//! - `Label::set_link(id)`: a label whose ~letter~ focuses the input.
+//! - In a record form, `form.input` reads and writes the field for you.
+//!
+//! See also: History, Memo, ComboBox
 
 use crate::panel::Panel;
 use std::cell::RefCell;

@@ -1,8 +1,22 @@
 //! Sends a command when pressed: click it, or press Enter or Space while it
-//! has the focus, or Alt and its ~letter~ from anywhere in the dialog.
-//! The default button (last argument `true`) is the one Enter presses when
-//! the focus is not on a button. A button greys out when its command is
-//! disabled: `app.disable_command(c)`.
+//! has the focus, or Alt and its ~letter~ from anywhere in the dialog. A
+//! button greys out when its command is disabled; here Archive is.
+//!
+//! Parameters:
+//! - `Button::new(bounds, title, command, is_default)`: `bounds` is two
+//!   rows (the second holds the shadow) and the title's width plus four
+//!   columns; `title` marks the hot key with tildes, as in "~S~ave";
+//!   `command` is what the button sends to your handler; `is_default` makes
+//!   it the button Enter presses when the focus is not on a button.
+//! - `app.disable_command(c)`, `app.enable_command(c)`: grey out, or bring
+//!   back, every button and menu item that sends `c`. Before the
+//!   application runs, `command_set::disable_command`.
+//! - `set_disabled(true)`: grey out this one button only.
+//! - `set_broadcast(true)`: broadcast the command to the dialog's views
+//!   instead of sending it to your handler.
+//! - `set_selectable(false)`: it no longer takes the focus.
+//!
+//! See also: Form, Message boxes, StatusLine
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

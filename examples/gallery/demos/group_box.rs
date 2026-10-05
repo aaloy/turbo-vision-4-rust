@@ -1,7 +1,15 @@
 //! A titled frame around related controls. It only draws: the controls
 //! inside are added after it, as its siblings, so they keep the dialog's
-//! focus order and Tab moves through them as usual. `Form::group` puts one
-//! around the rows that follow it, with no coordinates.
+//! focus order and Tab moves through them as usual.
+//!
+//! Parameters:
+//! - `GroupBox::new(bounds, title)`: the frame takes the outer row and
+//!   column of `bounds`, so the controls go one in from each edge; add it
+//!   before them, so they draw on top.
+//! - `Form::group(title)` puts one around the rows that follow it, with no
+//!   coordinates.
+//!
+//! See also: Form, TabbedPane, CheckBoxes
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

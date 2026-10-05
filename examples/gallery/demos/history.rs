@@ -1,8 +1,16 @@
-//! Earlier entries for an input line. The `History` button (the arrow on
-//! the right) is linked to its input by a handle; click it to pick an
-//! entry, which is copied into the input. Lists are kept per history id,
-//! so inputs with the same id share one. A dialog closed with OK records
-//! what was typed; `HistoryManager::add` adds an entry yourself.
+//! Earlier entries for an input line. The History button, the arrow on the
+//! input's right, is linked to the input; click it to pick an entry, which
+//! is copied into the input. A dialog closed with OK records what was
+//! typed.
+//!
+//! Parameters:
+//! - `History::new(point, history_id, input)`: `point` is where the button
+//!   goes, two columns just after the input; `history_id` names the list,
+//!   and inputs with the same id share one; `input` is the handle that
+//!   `add_typed` returned for the input line.
+//! - `HistoryManager::add(history_id, text)`: add an entry yourself.
+//!
+//! See also: InputLine, ComboBox, Label
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::{Point, Rect};

@@ -1,7 +1,16 @@
 //! A whole number on a track: drag the thumb or click where it should go.
-//! Left and Right move it one step, Home and End to the ends. Read it with
-//! `value()`; `set_on_change(cmd)` broadcasts each change to the views of
-//! the same window. It is the dragging counterpart of the Spinner.
+//! Left and Right move it one step, Home and End to the ends. It is the
+//! dragging counterpart of the Spinner.
+//!
+//! Parameters:
+//! - `Slider::new(bounds, min, max)`: one row; the track is as long as
+//!   `bounds` is wide; `min` and `max` are the ends of the range.
+//! - `set_value(v)`, `value()`: the number; `range()` gives the ends back.
+//! - `set_step(n)`: how far Left and Right move (at least 1).
+//! - `set_on_change(cmd)`: broadcast `cmd` to the views of the same window
+//!   whenever the user changes the value; 0 turns it off.
+//!
+//! See also: Spinner, ProgressBar, Label
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

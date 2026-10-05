@@ -1,9 +1,25 @@
-//! A text editor: undo and redo (Ctrl+Z, Ctrl+Y), selection with Shift,
-//! the clipboard, search and replace, and syntax colours from a
-//! `SyntaxHighlighter` (`RustHighlighter` comes with the crate). Read and
-//! fill it with `get_text` and `set_text`. Tab is typed into the text, so
-//! Alt+O reaches the button: it opens an `EditWindow`, an editor in a
-//! window with scroll bars and line:column.
+//! A text editor: undo and redo (Ctrl+Z, Ctrl+Y), selection with Shift, the
+//! clipboard, search and replace, and syntax colours. Tab is typed into the
+//! text, so Alt+O reaches the button: it opens an EditWindow, an editor in
+//! a window with scroll bars and line:column.
+//!
+//! Parameters:
+//! - `EditorWindow::new(bounds)`: the bare editor. `with_scrollbars(bounds,
+//!   h_bar, v_bar, indicator)` links it to scroll bars and a line:column
+//!   indicator that you place yourself.
+//! - `set_text(text)`, `get_text()`; `load_file(path)`, `save_file()`,
+//!   `save_as(path)`; `is_modified()` says whether the text changed.
+//! - `set_highlighter(Box::new(RustHighlighter::new()))`: syntax colours,
+//!   from any `SyntaxHighlighter`.
+//! - `set_read_only(true)`: the text can be read and selected, not changed.
+//!   This gallery's code view is one.
+//! - `set_tab_size(n)`, `set_auto_indent(on)`: how Tab and Enter indent.
+//! - `undo()`, `redo()`, `find(text, options)`, `replace_all(...)`: the
+//!   same, from your own commands.
+//! - `EditWindow::new(bounds, title)`: the editor in a window;
+//!   `editor_mut()` reaches the editor inside.
+//!
+//! See also: Memo, TextViewer, File dialogs
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;
