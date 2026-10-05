@@ -838,6 +838,26 @@ impl Application {
 
     /// Draw the desktop, menu bar and status line, each in its own space.
     fn draw_chrome(&mut self) {
+        // With no menu bar or status line the desktop still leaves its row
+        // free (Borland: initDeskTop), and no view draws there; blank it, or
+        // a bar taken away at run time stays on the screen.
+        let (width, height) = self.terminal.size();
+        let desktop = self.desktop.bounds();
+        let blank =
+            vec![
+                crate::core::draw::Cell::new(' ', crate::core::palette::Attr::from_u8(0x07));
+                usize::try_from(width).unwrap_or(0)
+            ];
+        if self.menu_bar.is_none() {
+            for y in 0..desktop.a.y {
+                self.terminal.write_line(0, y, &blank);
+            }
+        }
+        if self.status_line.is_none() {
+            for y in desktop.b.y..height {
+                self.terminal.write_line(0, y, &blank);
+            }
+        }
         Self::draw_child(&mut self.terminal, &mut self.desktop);
         if let Some(ref mut menu_bar) = self.menu_bar {
             Self::draw_child(&mut self.terminal, menu_bar);
@@ -1923,6 +1943,26 @@ mod resize_tests {
         let sb = app.status_line.as_ref().unwrap().bounds();
         assert_eq!(sb.a.y, 49);
         assert_eq!(sb.b.y, 50);
+    }
+
+    #[test]
+    fn a_menu_bar_taken_away_leaves_a_blank_row() {
+        let (mut app, _size, _calls) = build_test_app(80, 25);
+        let mut bar = MenuBar::new(Rect::new(0, 0, 80, 1));
+        let menu = crate::core::menu_data::Menu::from_items(vec![]);
+        bar.add_submenu(crate::views::menu_bar::SubMenu::new("~F~ile", menu));
+        app.set_menu_bar(bar);
+        app.draw();
+        let top_row = |app: &Application| -> String {
+            (0..10)
+                .map(|x| app.terminal.read_cell(x, 0).map_or('?', |c| c.ch))
+                .collect()
+        };
+        assert!(top_row(&app).contains("File"));
+
+        app.menu_bar = None;
+        app.draw();
+        assert_eq!(top_row(&app), " ".repeat(10));
     }
 
     #[test]
