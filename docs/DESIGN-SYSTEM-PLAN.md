@@ -16,7 +16,7 @@ code, so it cannot drift from the library.
 
 | # | Deliverable | Where | Status |
 |---|-------------|-------|--------|
-| 1 | **Component gallery**: an interactive program listing every component, each live, with how it works and the code that built it. | `examples/gallery/` | 24 components (step 1 done, step 3 under way) |
+| 1 | **Component gallery**: an interactive program listing every component, each live, with how it works and the code that built it. | `examples/gallery/` | 31 components (steps 1 and 3 done) |
 | 2 | **Generated reference pages**: one page and PNG per component, rendered from the gallery's demos. | `website/docs/components/` | planned (step 2) |
 | 3 | **Foundations**: colours by role, spacing, states, keyboard conventions, wording. | `docs/DESIGN-SYSTEM.md` | planned (step 4) |
 | 4 | **Sample application**: a small contacts-and-invoices program that uses the components the way a real application would. | `examples/crm/` | planned (step 5) |
@@ -71,11 +71,12 @@ code, so it cannot drift from the library.
       with ParamText and Label, SortedListBox, Outline, TextViewer,
       SplitPane, ProgressBar (with a job run from a modal tick), Editor (and
       EditWindow), file and folder dialogs, ColorDialog, MenuBox.
-- [ ] Demos for the remaining views: RadioButton, Tooltip, GroupBox,
-      history, help, menu bar, status line. Tooltip and History need
-      `Panel` to offset hint rects and to hand back typed handles.
-- [ ] Coverage test: every view module has a demo or is listed as internal
-      (frame, scroller, base traits) with a reason.
+- [x] Demos for the remaining views: RadioButton, Tooltip, GroupBox,
+      History, Help, MenuBar, StatusLine. `Panel::add_typed` hands back
+      the typed handle a `History` button links to; hint rects needed no
+      offset, since a tooltip sees the pointer in its own coordinates.
+- [x] Coverage test: every view module is imported by a demo or listed in
+      `NOT_DEMOED` with a reason (D13).
 
 ### Step 4: foundations document
 
@@ -117,6 +118,11 @@ decision by adding a new entry that supersedes it; do not edit old ones.
 | D11 | 2026-10-03 | The gallery follows the terminal's size. The list has `Grow::HI_Y`, the panel `HI_X \| HI_Y` so the first frame after a resize is right, and on the next idle tick the panel is rebuilt for the new size, because its "How it works" text is wrapped to the width. | A terminal can be resized at any moment; a layout computed once at start-up is the most common way a TUI breaks. `AGENTS.md` rule 14 now says so to every application. | accepted |
 | D12 | 2026-10-03 | Supersedes D8's "cannot clash": demo commands are `CM_USER + 100` to `CM_USER + 199` (`registry::DEMO_COMMANDS`), and the gallery enables the whole range again before it shows a demo. | The enabled-command set is global, so a command one demo disables (the Button demo greys out Archive) stayed disabled for the next demo using the same number: the MenuBox demo's Copy item did nothing. | accepted |
 
+| D13 | 2026-10-05 | A view module counts as shown when a demo's code imports it (`turbo_vision::views::<module>`); the rest are listed in the gallery's `NOT_DEMOED`, each with a reason, and the test also fails when a listed module gains a demo or disappears. | Reading the imports needs no second list to keep in step with the demos, and a reason per exception makes "internal" a decision rather than an omission. |
+| D14 | 2026-10-05 | Views that only watch the pointer say so (`View::watches_pointer`); a group shows them each mouse event, then routes it as if they were not there. | A `Tooltip` must be added last to draw over the controls, which put it on top for clicks too: it took them all. Borland has no such view; a flag the group asks keeps every other view's routing unchanged. |
+| D15 | 2026-10-05 | The MenuBar and StatusLine demos act on the gallery's own top and bottom rows (a menu bar put on and taken off; a hint on the status line), and the StatusLine demo also shows one in its panel. | Both belong to the application, not to a dialog; showing them where they live is what a reader needs to see. |
+| D16 | 2026-10-05 | The code is shown in a read-only `EditorWindow` with `RustHighlighter`, not a `TextViewer`. | Coloured code reads faster, and it uses what the crate already has; a highlighter for `TextViewer` would be new API for one use. It needed a library fix: an editor in a dialog took the dialog's control colours for its syntax colours. |
+
 ### Open questions
 
 | Id | Question | Decide by |
@@ -135,3 +141,5 @@ decision by adding a new entry that supersedes it; do not edit old ones.
 | 2026-10-03 | 1 | Building the gallery found a library bug: `CheckBoxes` and `RadioButtons` drew at their own position instead of their corner (a leftover from before owner-relative coordinates), so away from (0, 0) they appeared doubly offset and clicks hit the wrong row. Fixed, with tests. Also found O5. |
 | 2026-10-03 | 1 | Step 1 done: `cargo run --example gallery` shows the ten components; 7 gallery tests run with `cargo test`; checked by hand in an 80x25 terminal (list browsing, F6, every demo's controls and commands, mouse). |
 | 2026-10-03 | 3 | Resizing fixed (D11), with a test that resizes a fake terminal. Fourteen demos added (24 in all); 9 gallery tests. Found and fixed two library bugs: `TextViewer` never took the focus, so its keys never reached it in a dialog (Borland's `TScroller` is selectable); `ColorDialog`'s Cancel button touched the right frame. Found the shared-command leak (D12). Checked by hand in tmux at 80x25, 110x32 and 80x22. |
+| 2026-10-05 | 3 | Step 3 done: seven demos (31 in all) and the coverage test (D13); 10 gallery tests. Found and fixed four library bugs: a `Tooltip` took the clicks of the controls under it (D14); its hint showed only when the pointer next moved, since the idle tick that raises it is not followed by a draw (it now posts a timed tick); a selected `RadioButton`'s label sat two columns right, placed by the marker's length in bytes; a menu bar taken away stayed on the screen, as nothing drew the free top row. Checked by hand in tmux at 80x25: history popup, tooltip hint and click-through, menu bar on, picked and off, status line items and hint, help links. |
+| 2026-10-05 | 3 | The gallery's code is coloured as Rust (D16). Doing it found that every `EditorWindow` in a dialog drew in the wrong colours (the Editor demo's comment was white on green); fixed with editor entries at the end of the dialog palettes. |

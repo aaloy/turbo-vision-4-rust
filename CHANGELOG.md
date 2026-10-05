@@ -10,12 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `cargo run --example gallery`: a component gallery. A list of components;
   for the one under the focus, the live component, how it works and the
-  code that built it, which is the demo's own source file. 24 components
-  so far: button, input line, check boxes, radio buttons, combo box, list
-  box, tabbed pane, spinner, slider, memo, static text and labels, sorted
-  list box, table, outline, text viewer, split pane, progress bar, form,
-  message boxes, window, editor, file dialogs, colour dialog, pop-up menu.
-  It follows a terminal resize. Its tests run with `cargo test`.
+  code that built it, which is the demo's own source file. 31 components:
+  button, input line, history, check boxes, radio buttons (as one cluster
+  and one per view), combo box, list box, tabbed pane, spinner, slider,
+  memo, static text and labels, group box, tooltip, sorted list box, table,
+  outline, text viewer, split pane, progress bar, form, message boxes,
+  window, editor, file dialogs, colour dialog, help, menu bar, pop-up menu,
+  status line. The code is coloured as Rust. It follows a terminal resize. Its tests run with
+  `cargo test`, and fail when a view module has neither a demo nor a
+  reason for having none.
   The plan and decision log for the design system it starts:
   `docs/DESIGN-SYSTEM-PLAN.md`.
 - `AGENTS.md` (with `CLAUDE.md` pointing at it): the guide for people and AI
@@ -28,6 +31,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Rule 14 and the "Follow a terminal resize" recipe: the terminal can be
   resized at any moment, so every view sized from it needs grow bits, and a
   layout grow bits cannot express is rebuilt from `idle`.
+- `View::watches_pointer`: a view that only watches the pointer is shown
+  every mouse event over it, which then goes on to the view underneath.
+  `Tooltip` is one.
 - `tests/docs_index.rs` fails when a view module is missing from
   `AGENTS.md`'s component index, or a view or core module from
   `docs/RUST-API-CATALOG.md`.
@@ -120,6 +126,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- An `EditorWindow` in a dialog draws in editor colours. Its palette,
+  `CP_EDITOR`, points at a window's text and syntax entries, which in a
+  dialog are the controls' colours: a comment came out white on green. In a
+  dialog it now resolves through `CP_EDITOR_IN_DIALOG`, to entries 33-45
+  added at the end of the dialog palettes, and gets the colours it has in a
+  gray (or blue) window.
+- A `Tooltip` no longer takes the clicks of the controls it covers. Added
+  last, as it must be, it lay over them, so a click went to the tooltip and
+  the button under it never saw it.
+- A tooltip's hint appears when its delay is over. It was raised on an idle
+  tick, after which nothing is drawn, so it showed only once the pointer
+  moved again.
+- A selected `RadioButton` drew its label two columns to the right: the
+  label was placed after the marker's length in bytes, and the `•` in
+  `(•)` is three bytes long.
+- The top row is blanked when there is no menu bar, and the bottom row when
+  there is no status line. A menu bar taken away at run time
+  (`app.menu_bar = None`) stayed on the screen, since no view draws there.
 - `TextViewer` takes the focus, so Tab reaches it among a dialog's controls
   and its arrow and page keys scroll it there (Borland: `TScroller` is
   `ofSelectable`). Before, only the mouse could scroll it.

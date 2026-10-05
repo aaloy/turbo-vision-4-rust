@@ -549,7 +549,7 @@ into events.
 - `can_focus() -> bool` (false), `set_focus(bool)`, `update_cursor(&Terminal)`, `zoom(Rect)`, `valid(CommandId) -> bool` (true)
 - `idle(&mut self)` - Called on every idle tick for overlay widgets (no-op by default)
 - `as_group() -> Option<&dyn GroupLike>` / `as_group_mut()` - The container interface, if the view is one (Borland: `dynamic_cast<TGroup*>`)
-- `window_number()`, `label_link()`, `init_after_add()`, `constrain_to_parent_bounds()`, `set_owner_extent(Rect)`, `extent() -> Rect` (the view's own `(0,0,w,h)`; bounds are owner-relative), `get_redraw_union()`, `clear_move_tracking()`, `dump_to_file(..)`
+- `window_number()`, `label_link()`, `watches_pointer() -> bool` (false; a view that only watches the pointer, like `Tooltip`, sees mouse events without taking them from the views under it), `init_after_add()`, `constrain_to_parent_bounds()`, `set_owner_extent(Rect)`, `extent() -> Rect` (the view's own `(0,0,w,h)`; bounds are owner-relative), `get_redraw_union()`, `clear_move_tracking()`, `dump_to_file(..)`
 
 A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both accepted.
 
@@ -1680,6 +1680,8 @@ Tooltip view - hover hints for the controls of a dialog.
 - `is_showing(&self) -> bool` - Whether a hint is on screen.
 - `shown_text(&self) -> Option<&str>` - The text currently on screen, if any.
 - `hide(&mut self)` - Hide whatever is showing and forget the hover.
+
+Added last, it covers the controls, yet clicks and moves still reach them (`watches_pointer`).
 - `struct TooltipBuilder` - Builder for creating tooltips with a fluent API.
 
 **TooltipBuilder**
@@ -1975,6 +1977,7 @@ All UI components implement the `View` trait, which provides:
 
 7. **Special Behaviors:**
    - `label_link()` - The view a label focuses
+   - `watches_pointer()` - Sees mouse events without taking them (`Tooltip`)
    - `get_redraw_union()` / `clear_move_tracking()` - For window movement
    - `end_state()` / `end_modal()` - For modal execution (`GroupLike`)
    - `idle()` - Periodic work for overlay widgets
