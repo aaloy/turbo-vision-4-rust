@@ -565,11 +565,20 @@ pub trait GroupLike: View {
                 }
             }
 
+            // Views that only watch the pointer (a tooltip) see the event,
+            // then it goes on to the view under them.
+            for i in 0..self.group().children.len() {
+                let child = &self.group().children[i];
+                if child.watches_pointer() && child.bounds().contains(mouse_pos) {
+                    self.dispatch_to_child(i, event);
+                }
+            }
+
             // First pass: find which child contains the mouse (search in reverse z-order)
             let mut clicked_child_index: Option<usize> = None;
             for i in (0..self.group_mut().children.len()).rev() {
-                let child_bounds = self.group_mut().children[i].bounds();
-                if child_bounds.contains(mouse_pos) {
+                let child = &self.group_mut().children[i];
+                if !child.watches_pointer() && child.bounds().contains(mouse_pos) {
                     clicked_child_index = Some(i);
                     break;
                 }

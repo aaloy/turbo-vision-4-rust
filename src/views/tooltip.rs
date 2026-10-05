@@ -32,6 +32,7 @@ use crate::core::draw::DrawBuffer;
 use crate::core::event::{Event, EventType};
 use crate::core::geometry::{Point, Rect};
 use crate::core::state::{State, StateFlags};
+use crate::core::timed_event;
 use crate::terminal::Terminal;
 use std::time::{Duration, Instant};
 
@@ -146,6 +147,11 @@ impl Tooltip {
                 if !same {
                     self.hover = Some((index, Instant::now()));
                     self.shown = None;
+                    // The idle ticks raise the hint but draw nothing; a tick
+                    // arriving as an event once the delay is over is
+                    // followed by a redraw, so the hint appears on time.
+                    let tick = Event::broadcast(crate::core::command::CM_IDLE_TICK);
+                    timed_event::post_after(tick, self.delay);
                 }
             }
             None => self.hide(),
@@ -201,6 +207,11 @@ impl View for Tooltip {
     /// A tooltip is never focused; it only watches the pointer.
     fn can_focus(&self) -> bool {
         false
+    }
+
+    /// Clicks and moves go on to the controls under the tooltip.
+    fn watches_pointer(&self) -> bool {
+        true
     }
 
     fn state(&self) -> StateFlags {
@@ -499,5 +510,61 @@ mod tests {
             .build();
         assert_eq!(t.hint_count(), 1);
         assert_eq!(t.delay, Duration::from_millis(50));
+    }
+
+    #[test]
+    fn a_click_goes_through_the_tooltip_to_the_control_under_it() {
+        use crate::core::event::MB_LEFT_BUTTON;
+        use crate::views::GroupLike;
+        use crate::views::checkbox::CheckBox;
+        use crate::views::dialog::Dialog;
+
+        let mut dialog = Dialog::new(Rect::new(0, 0, 40, 10), "T");
+        let check = dialog.add_typed(CheckBox::new(Rect::new(2, 2, 20, 3), "X"));
+        let mut tips = Tooltip::new(Rect::new(0, 0, 38, 8));
+        tips.add_hint(Rect::new(2, 2, 20, 3), "Ticks the box");
+        tips.set_delay(Duration::ZERO);
+        let tips = dialog.add_typed(tips); // last, over the check box
+
+        // Dialog coordinates: the interior starts inside the frame.
+        let over_check = Point::new(4, 3);
+        let mut moved = Event::mouse(EventType::MouseMove, over_check, 0, false);
+        dialog.handle_event(&mut moved);
+        tick(dialog.get_mut(tips).unwrap());
+        assert!(
+            dialog.get(tips).unwrap().is_showing(),
+            "the tooltip saw the move"
+        );
+
+        for (what, buttons) in [
+            (EventType::MouseDown, MB_LEFT_BUTTON),
+            (EventType::MouseUp, 0),
+        ] {
+            let mut click = Event::mouse(what, over_check, buttons, false);
+            dialog.handle_event(&mut click);
+        }
+        assert!(
+            dialog.get(check).unwrap().is_checked(),
+            "the click reached the check box"
+        );
+        assert!(
+            !dialog.get(tips).unwrap().is_showing(),
+            "the click took the hint down"
+        );
+    }
+
+    #[test]
+    fn resting_on_a_control_asks_for_a_tick_once_the_delay_is_over() {
+        // The screen is drawn after events, not after idle ticks.
+        timed_event::clear();
+        let mut t = tips();
+        t.set_delay(Duration::from_millis(400));
+        move_to(&mut t, 5, 2);
+        let due = timed_event::next_due().expect("a tick is posted");
+        assert!(due >= Instant::now() + Duration::from_millis(300));
+        let event = timed_event::take_next().unwrap();
+        assert_eq!(event.command, crate::core::command::CM_IDLE_TICK);
+        move_to(&mut t, 6, 2); // the same control: nothing more to post
+        assert!(timed_event::next_due().is_none());
     }
 }
