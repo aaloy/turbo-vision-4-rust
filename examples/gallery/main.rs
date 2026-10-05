@@ -19,6 +19,8 @@ mod panel;
 mod registry;
 
 use registry::{DEMO_COMMANDS, DEMOS, Demo};
+use std::cell::RefCell;
+use std::rc::Rc;
 use turbo_vision::app::{AppHandler, Application};
 use turbo_vision::core::command::{CM_QUIT, CommandId};
 use turbo_vision::core::event::Event;
@@ -26,11 +28,14 @@ use turbo_vision::core::geometry::{Point, Rect};
 use turbo_vision::core::state::{Grow, State};
 use turbo_vision::core::status_data::StatusItemBuilder;
 use turbo_vision::views::dialog::Dialog;
+use turbo_vision::views::editor::EditorWindow;
 use turbo_vision::views::group_box::GroupBox;
 use turbo_vision::views::listbox::ListBox;
+use turbo_vision::views::scrollbar::ScrollBar;
+use turbo_vision::views::shared::Shared;
 use turbo_vision::views::static_text::StaticText;
 use turbo_vision::views::status_line::StatusLine;
-use turbo_vision::views::text_viewer::TextViewer;
+use turbo_vision::views::syntax::RustHighlighter;
 use turbo_vision::views::window::Window;
 use turbo_vision::views::{GroupLike, Handle, View, ViewId};
 
@@ -198,13 +203,37 @@ fn panel(demo: &Demo, bounds: Rect) -> Dialog {
     let code_top = how_top + how_lines + 1;
     let code_bottom = bounds.height() - 2;
     if code_bottom - code_top >= 3 {
-        let mut viewer =
-            TextViewer::new(Rect::new(1, code_top, inner - 1, code_bottom)).with_scrollbars(true);
-        viewer.set_text(&code);
-        viewer.set_grow_mode(Grow::HI_X | Grow::HI_Y);
-        dialog.add(viewer);
+        add_code(
+            &mut dialog,
+            Rect::new(1, code_top, inner - 1, code_bottom),
+            &code,
+        );
     }
     dialog
+}
+
+/// Show `code` in `area` of `dialog`, coloured as Rust: a read-only editor
+/// with a scroll bar on its right and one along its bottom.
+fn add_code(dialog: &mut Dialog, area: Rect, code: &str) {
+    let (right, bottom) = (area.b.x - 1, area.b.y - 1);
+    let mut v_bar = ScrollBar::new_vertical(Rect::new(right, area.a.y, area.b.x, bottom));
+    v_bar.set_grow_mode(Grow::LO_X | Grow::HI_X | Grow::HI_Y);
+    let mut h_bar = ScrollBar::new_horizontal(Rect::new(area.a.x, bottom, right, area.b.y));
+    h_bar.set_grow_mode(Grow::LO_Y | Grow::HI_Y | Grow::HI_X);
+    let (v_bar, h_bar) = (Rc::new(RefCell::new(v_bar)), Rc::new(RefCell::new(h_bar)));
+
+    let mut editor = EditorWindow::with_scrollbars(
+        Rect::new(area.a.x, area.a.y, right, bottom),
+        Some(Rc::clone(&h_bar)),
+        Some(Rc::clone(&v_bar)),
+        None,
+    );
+    editor.set_highlighter(Box::new(RustHighlighter::new()));
+    editor.set_text(code);
+    editor.set_read_only(true);
+    dialog.add(editor);
+    dialog.add(Shared::new(v_bar));
+    dialog.add(Shared::new(h_bar));
 }
 
 fn main() -> turbo_vision::core::error::Result<()> {
@@ -236,6 +265,11 @@ mod tests {
     /// A dialog holding only what `demo` builds, with the panel's corner
     /// at (0, 0).
     fn built(demo: &Demo) -> Dialog {
+        // As `Gallery::show` does: a command an earlier demo disabled (D12)
+        // would grey out this demo's button.
+        for command in DEMO_COMMANDS {
+            turbo_vision::core::command_set::enable_command(command);
+        }
         let mut dialog = Dialog::new(Rect::new(0, 0, PANEL_WIDTH + 2, demo.height + 2), "T");
         (demo.build)(&mut panel::Panel::new(&mut dialog, Point::new(0, 0)));
         dialog
@@ -289,9 +323,16 @@ mod tests {
             // Only the views the demo builds into its panel, not the
             // dialogs its handler opens.
             let build = code.split("pub fn handle").next().unwrap_or_default();
-            for part in build.split('~').skip(1).step_by(2) {
-                let key = part.chars().next().unwrap_or(' ').to_ascii_lowercase();
-                assert!(seen.insert(key), "{}: two ~{key}~ hot keys", demo.name);
+            // A hot key is one letter; a longer marker, ~F2~ in a status
+            // line item, highlights a key name.
+            let hot_keys = build.split('~').skip(1).step_by(2);
+            for part in hot_keys.filter(|p| p.chars().count() == 1) {
+                let key = part.to_ascii_lowercase();
+                assert!(
+                    seen.insert(key.clone()),
+                    "{}: two ~{key}~ hot keys",
+                    demo.name
+                );
             }
         }
     }
@@ -313,6 +354,75 @@ mod tests {
                     demo.name
                 );
             }
+        }
+    }
+
+    /// View modules with no demo of their own, and why.
+    const NOT_DEMOED: &[(&str, &str)] = &[
+        ("background", "the desktop's pattern, behind every demo"),
+        ("cluster", "the trait CheckBoxes and RadioButtons share"),
+        ("color_selector", "part of ColorDialog"),
+        ("desktop", "every demo runs on it"),
+        ("dir_listbox", "part of the folder dialog"),
+        ("editor_traits", "the traits the editors share"),
+        ("file_editor", "the Editor demo's editor, tied to a file"),
+        ("file_list", "part of the file dialog"),
+        ("frame", "every window's and dialog's border"),
+        ("handle", "typed handles to views, not a view"),
+        ("help_context", "part of the help the Help demo opens"),
+        ("help_index", "part of the help the Help demo opens"),
+        ("help_toc", "part of the help the Help demo opens"),
+        ("help_viewer", "part of the help the Help demo opens"),
+        ("help_window", "the window the Help demo opens"),
+        ("history_viewer", "part of the History demo's popup"),
+        ("history_window", "the History demo's popup"),
+        ("indicator", "the line and column in an EditWindow"),
+        ("list_viewer", "the trait the lists share"),
+        ("lookup_validator", "a validator, not a view; see InputLine"),
+        ("menu_viewer", "the trait the menus share"),
+        ("scrollbar", "part of the lists, TextViewer and Editor"),
+        ("scroller", "the base of TextViewer"),
+        ("shared", "helpers, not a view"),
+        ("view", "the trait every view implements"),
+    ];
+
+    #[test]
+    fn every_view_module_has_a_demo_or_a_reason() {
+        // A demo covers the modules its code imports.
+        let views = concat!(env!("CARGO_MANIFEST_DIR"), "/src/views");
+        let mut modules: Vec<String> = std::fs::read_dir(views)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .map(|name| name.trim_end_matches(".rs").to_string())
+            .filter(|name| name != "mod")
+            .collect();
+        modules.sort();
+        let imported = |module: &str| {
+            let path = format!("turbo_vision::views::{module}");
+            DEMOS.iter().any(|d| {
+                d.source.lines().any(|l| {
+                    l.split_once(&path).is_some_and(|(_, rest)| {
+                        !rest.starts_with(char::is_alphanumeric) && !rest.starts_with('_')
+                    })
+                })
+            })
+        };
+        for module in &modules {
+            let reason = NOT_DEMOED.iter().any(|(m, _)| m == module);
+            assert!(
+                imported(module) || reason,
+                "views::{module} has no demo: write one, or add it to NOT_DEMOED with a reason"
+            );
+            assert!(
+                !(imported(module) && reason),
+                "views::{module} has a demo now: take it out of NOT_DEMOED"
+            );
+        }
+        for (module, _) in NOT_DEMOED {
+            assert!(
+                modules.contains(&module.to_string()),
+                "views::{module} is gone"
+            );
         }
     }
 

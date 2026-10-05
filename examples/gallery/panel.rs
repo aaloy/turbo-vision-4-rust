@@ -9,7 +9,7 @@
 
 use turbo_vision::core::geometry::{Point, Rect};
 use turbo_vision::views::dialog::Dialog;
-use turbo_vision::views::{GroupLike, View, ViewId};
+use turbo_vision::views::{GroupLike, Handle, View, ViewId};
 
 /// The area of the gallery's dialog that a demo builds in.
 pub struct Panel<'a> {
@@ -25,10 +25,21 @@ impl<'a> Panel<'a> {
 
     /// Add `view`, placed relative to the panel's corner, and return its id
     /// (to link a label to it, for instance).
-    pub fn add<V: View + 'static>(&mut self, mut view: V) -> ViewId {
+    pub fn add<V: View + 'static>(&mut self, view: V) -> ViewId {
+        self.dialog.add(self.placed(view))
+    }
+
+    /// Add `view` as [`add`](Self::add) does, and return a typed handle to
+    /// it (to link a `History` button to its input line, for instance).
+    pub fn add_typed<V: View + 'static>(&mut self, view: V) -> Handle<V> {
+        self.dialog.add_typed(self.placed(view))
+    }
+
+    /// `view`, moved from the panel's coordinates to the dialog's.
+    fn placed<V: View>(&self, mut view: V) -> V {
         let b = view.bounds();
         let (x, y) = (self.origin.x, self.origin.y);
         view.set_bounds(Rect::new(b.a.x + x, b.a.y + y, b.b.x + x, b.b.y + y));
-        self.dialog.add(view)
+        view
     }
 }
