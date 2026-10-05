@@ -129,6 +129,15 @@ pub const DEMOS: &[Demo] = &[
         handle: None,
     },
     Demo {
+        name: "ScrollBar",
+        group: Group::Controls,
+        module: "views::scrollbar",
+        source: include_str!("demos/scroll_bar.rs"),
+        height: 6,
+        build: demos::scroll_bar::build,
+        handle: None,
+    },
+    Demo {
         name: "Slider",
         group: Group::Controls,
         module: "views::slider",

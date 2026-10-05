@@ -35,6 +35,7 @@ pub mod outline;
 pub mod progress_bar;
 pub mod radio_button;
 pub mod radio_buttons;
+pub mod scroll_bar;
 pub mod slider;
 pub mod sorted_list_box;
 pub mod spinner;

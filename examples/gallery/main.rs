@@ -27,6 +27,7 @@ use turbo_vision::app::{AppHandler, Application};
 use turbo_vision::core::command::{CM_QUIT, CM_USER, CommandId};
 use turbo_vision::core::event::Event;
 use turbo_vision::core::geometry::{Point, Rect};
+use turbo_vision::core::palette::palettes;
 use turbo_vision::core::state::{Grow, State};
 use turbo_vision::core::status_data::StatusItemBuilder;
 use turbo_vision::views::button::Button;
@@ -82,6 +83,21 @@ fn row_text(row: Row) -> String {
     }
 }
 
+/// The component list's palette: a blue window's, extended to the entries
+/// a list box draws with (26 to 28), which take a dialog's list colours:
+/// black on cyan, and white on green for the item under the focus. A list
+/// box is made for dialogs (Borland's list viewer palette); a blue window's
+/// palette stops short of those entries, and the list came out in light
+/// green on gray.
+fn list_palette() -> Vec<u8> {
+    let mut palette = palettes::CP_BLUE_WINDOW.to_vec();
+    // Entries 20 to 25 are not used by the list; they keep the window's
+    // normal text colour.
+    palette.resize(25, palettes::CP_BLUE_WINDOW[5]);
+    palette.extend_from_slice(&palettes::CP_GRAY_DIALOG[25..28]);
+    palette
+}
+
 /// The gallery's state: where the list is, and which demo the panel shows.
 struct Gallery {
     list_window: Handle<Window>,
@@ -99,6 +115,7 @@ impl Gallery {
     fn open(app: &mut Application) -> Self {
         let desk = desktop_size(app);
         let mut window = Window::new(Rect::new(0, 0, LIST_WIDTH, desk.1), "Components");
+        window.set_custom_palette(list_palette());
         no_shadow(&mut window);
         // A resize changes the list's height, never its width.
         window.set_grow_mode(Grow::HI_Y);
@@ -598,9 +615,7 @@ mod tests {
         ("list_viewer", "the trait the lists share"),
         ("lookup_validator", "a validator, not a view; see InputLine"),
         ("menu_viewer", "the trait the menus share"),
-        ("scrollbar", "part of the lists, TextViewer and Editor"),
         ("scroller", "the base of TextViewer"),
-        ("shared", "helpers, not a view"),
         ("view", "the trait every view implements"),
     ];
 
@@ -744,6 +759,28 @@ mod tests {
         gallery.select(&mut app, 0);
         app.step(&mut gallery, None);
         assert_eq!(gallery.shown, Some(0));
+    }
+
+    #[test]
+    fn the_list_draws_in_a_dialog_s_list_colours() {
+        use turbo_vision::core::palette::{Attr, LISTBOX_NORMAL, LISTBOX_SELECTED, TvColor};
+        let (mut app, _) = app(80, 25);
+        let mut gallery = Gallery::open(&mut app);
+        // A view learns its owners' palettes as it is drawn.
+        app.step(&mut gallery, None);
+        let list = app
+            .desktop
+            .get(gallery.list_window)
+            .and_then(|w| w.get(gallery.list))
+            .unwrap();
+        assert_eq!(
+            list.map_color(LISTBOX_NORMAL),
+            Attr::new(TvColor::Black, TvColor::Cyan)
+        );
+        assert_eq!(
+            list.map_color(LISTBOX_SELECTED),
+            Attr::new(TvColor::White, TvColor::Green)
+        );
     }
 
     #[test]
