@@ -76,7 +76,7 @@ impl PaletteChainNode {
     ///
     /// A view whose indices are only meaningful against a particular owner
     /// palette asks this to learn which kind of owner it sits in: a dialog's
-    /// palette has 32 entries, a window's far fewer.
+    /// palette has 45 entries, a window's far fewer.
     pub fn nearest_palette_len(&self) -> Option<usize> {
         let token = palette_token();
         let data = self.inner.ro(token);

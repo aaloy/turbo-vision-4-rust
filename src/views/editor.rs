@@ -1999,7 +1999,9 @@ impl View for EditorWindow {
                     }
                     event.clear();
                 }
-                KB_TAB => {
+                // A read-only editor types nothing, so it leaves Tab to
+                // its owner, which moves the focus to the next control.
+                KB_TAB if !self.read_only => {
                     self.insert_tab();
                     event.clear();
                 }
@@ -2063,8 +2065,21 @@ impl View for EditorWindow {
     fn get_palette(&self) -> Option<crate::core::palette::Palette> {
         use crate::core::palette::{Palette, palettes};
         // EditorWindow uses cpEditor palette for proper color remapping through window hierarchy
-        // Matches Borland: cpEditor = [6, 7] for normal and selected text
-        Some(Palette::from_slice(palettes::CP_EDITOR))
+        // Matches Borland: cpEditor = [6, 7] for normal and selected text.
+        // In a dialog those indices are the controls' colours, so an editor
+        // there uses the editor entries at the end of the dialog palette.
+        let needed = palettes::CP_EDITOR_IN_DIALOG.iter().copied().max().unwrap_or(0) as usize;
+        let in_dialog = self
+            .core
+            .palette_chain
+            .as_ref()
+            .and_then(crate::core::palette_chain::PaletteChainNode::nearest_palette_len)
+            .is_some_and(|len| len >= needed);
+        if in_dialog {
+            Some(Palette::from_slice(palettes::CP_EDITOR_IN_DIALOG))
+        } else {
+            Some(Palette::from_slice(palettes::CP_EDITOR))
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -2079,6 +2094,26 @@ impl View for EditorWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_editor_takes_its_syntax_colours_from_a_dialog_or_a_window() {
+        use crate::core::palette::{Attr, SYNTAX_KEYWORD_IDX, palettes::CP_APP_COLOR};
+        use crate::views::GroupLike;
+        use crate::views::dialog::Dialog;
+        use crate::views::window::Window;
+
+        fn keyword(mut owner: impl GroupLike) -> Attr {
+            let editor = owner.add(EditorWindow::new(Rect::new(0, 0, 20, 3)));
+            let mut terminal = crate::test_util::test_terminal(40, 10);
+            owner.draw(&mut terminal); // gives the editor its owner chain
+            owner.child_by_id(editor).unwrap().map_color(SYNTAX_KEYWORD_IDX)
+        }
+        // The gray and blue keyword colours (app palette 87 and 65).
+        let dialog = Dialog::new(Rect::new(0, 0, 30, 8), "D");
+        assert_eq!(keyword(dialog), Attr::from_u8(CP_APP_COLOR[86]));
+        let window = Window::new(Rect::new(0, 0, 30, 8), "W");
+        assert_eq!(keyword(window), Attr::from_u8(CP_APP_COLOR[64]));
+    }
 
     /// Regression for 3.0.1: `get_content_area` returned the owner-relative
     /// bounds, so text and hit-testing were shifted by the origin a second
@@ -2710,5 +2745,23 @@ mod tests {
             editor.handle_event(&mut e);
         }
         assert_eq!(editor.get_text(), "ěł€");
+    }
+
+    #[test]
+    fn a_read_only_editor_leaves_tab_to_its_owner() {
+        let mut editor = EditorWindow::new(Rect::new(0, 0, 40, 5));
+        editor.set_text("text");
+        editor.set_focus(true);
+
+        let mut ev = Event::keyboard(KB_TAB);
+        editor.handle_event(&mut ev);
+        assert_eq!(ev.what, EventType::Nothing, "Tab is typed into the text");
+        assert_eq!(editor.get_text(), "    text");
+
+        editor.set_read_only(true);
+        let mut ev = Event::keyboard(KB_TAB);
+        editor.handle_event(&mut ev);
+        assert_eq!(ev.what, EventType::Keyboard, "Tab goes on to the owner");
+        assert_eq!(editor.get_text(), "    text");
     }
 }

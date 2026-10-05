@@ -8,6 +8,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `cargo run --example gallery`: a component gallery. A list of components,
+  grouped by kind (controls, text entry, lists and tables, display,
+  containers, dialogs, menus and status) and by name within a group; for
+  the one under the focus, the live component, how it works with each
+  parameter explained (the table's `set_frozen_cols` and `set_frozen_rows`,
+  for one), buttons that open related components, and the code that built
+  it, which is the demo's own source file, in a box of its own. The list
+  is drawn in a dialog's list colours, black on cyan. 32 components:
+  button, input line, history, check boxes, radio buttons (as one cluster
+  and one per view), scroll bar, combo box, list box, tabbed pane, spinner, slider,
+  memo, static text and labels, group box, tooltip, sorted list box, table,
+  outline, text viewer, split pane, progress bar, form, message boxes,
+  window, editor, file dialogs, colour dialog, help, menu bar, pop-up menu,
+  status line. The code is coloured as Rust. It follows a terminal resize. Its tests run with
+  `cargo test`, and fail when a view module has neither a demo nor a
+  reason for having none.
+  The plan and decision log for the design system it starts:
+  `docs/DESIGN-SYSTEM-PLAN.md`.
 - `AGENTS.md` (with `CLAUDE.md` pointing at it): the guide for people and AI
   assistants writing applications with the crate or working on it. The
   Turbo Vision way of working in one page, the idiomatic application
@@ -15,6 +33,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with how to create and use it, recipes, and rules and pitfalls. Its code
   blocks are compiled as doctests. Published on the site, which also gets an
   `llms.txt`.
+  Rule 14 and the "Follow a terminal resize" recipe: the terminal can be
+  resized at any moment, so every view sized from it needs grow bits, and a
+  layout grow bits cannot express is rebuilt from `idle`.
+- `View::watches_pointer`: a view that only watches the pointer is shown
+  every mouse event over it, which then goes on to the view underneath.
+  `Tooltip` is one.
 - `tests/docs_index.rs` fails when a view module is missing from
   `AGENTS.md`'s component index, or a view or core module from
   `docs/RUST-API-CATALOG.md`.
@@ -107,6 +131,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- A read-only `EditorWindow` lets Tab move the focus to the next control.
+  It used to take the key and type nothing, so the focus could not leave
+  it by keyboard.
+- An `EditorWindow` in a dialog draws in editor colours. Its palette,
+  `CP_EDITOR`, points at a window's text and syntax entries, which in a
+  dialog are the controls' colours: a comment came out white on green. In a
+  dialog it now resolves through `CP_EDITOR_IN_DIALOG`, to entries 33-45
+  added at the end of the dialog palettes, and gets the colours it has in a
+  gray (or blue) window.
+- A `Tooltip` no longer takes the clicks of the controls it covers. Added
+  last, as it must be, it lay over them, so a click went to the tooltip and
+  the button under it never saw it.
+- A tooltip's hint appears when its delay is over. It was raised on an idle
+  tick, after which nothing is drawn, so it showed only once the pointer
+  moved again.
+- A selected `RadioButton` drew its label two columns to the right: the
+  label was placed after the marker's length in bytes, and the `•` in
+  `(•)` is three bytes long.
+- The top row is blanked when there is no menu bar, and the bottom row when
+  there is no status line. A menu bar taken away at run time
+  (`app.menu_bar = None`) stayed on the screen, since no view draws there.
+- `TextViewer` takes the focus, so Tab reaches it among a dialog's controls
+  and its arrow and page keys scroll it there (Borland: `TScroller` is
+  `ofSelectable`). Before, only the mouse could scroll it.
+- `ColorDialog`: the OK and Cancel buttons sit one column in from the frame;
+  Cancel's shadow used to touch it.
+- `CheckBoxes` and `RadioButtons` placed away from their owner's corner drew
+  at twice their offset and took clicks on the wrong row: they still drew at
+  their own position, from before owner-relative coordinates.
 - A button answers Alt plus its `~` letter, as Borland's does, not only the
   letter alone. In a dialog whose focus is in an input line the plain letter
   is typed into the field, so Alt+O was the only way to press **~O~K** from
@@ -119,6 +172,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   desktop window landed a row low, so calculator buttons did nothing and
   windows could not be dragged, and the status line's Exit never saw its
   click. They now route through `views::view::dispatch_to_child`.
+- `FileDialog`: after entering a folder (or `..`, or a `dir/*.ext` filter)
+  the Open/Save button and Enter no longer closed the dialog, so a file
+  outside the starting folder could not be opened, nor a save location
+  picked. Navigation rebuilt the dialog and lost its modal state; it now
+  refills the list and the directory label in place, like Borland's
+  `TFileList::readDirectory()`. The directory label no longer shows a
+  trailing `/`. `Label::text` / `Label::set_text` added.
 - Non-ASCII text can be typed. `InputLine`, `Memo`, `SortedListBox`'s
   type-ahead and menu letters accepted only ASCII 32–126 (the editor a
   little more): `é`, `ñ`, `ç`, `€`, `ł`, Greek, Cyrillic and the rest now

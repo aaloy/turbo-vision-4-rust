@@ -381,6 +381,15 @@ pub trait View {
         None // Default: not a label or no link
     }
 
+    /// Whether this view only watches the pointer, as a tooltip does.
+    ///
+    /// A group shows such a view every mouse event over it, then routes the
+    /// event on as if the view were not there, so a view drawn on top of the
+    /// controls does not take their clicks. Default: false.
+    fn watches_pointer(&self) -> bool {
+        false
+    }
+
     /// Initialize internal owner pointers after view is added to parent and won't move
     /// This is called by parent's add() method after the view is in its final position
     /// Views that contain other views by value should override this to set up owner chains
@@ -650,6 +659,9 @@ macro_rules! forward_view_through_box {
             }
             fn label_link(&self) -> Option<ViewId> {
                 (**self).label_link()
+            }
+            fn watches_pointer(&self) -> bool {
+                (**self).watches_pointer()
             }
             fn init_after_add(&mut self) {
                 (**self).init_after_add()

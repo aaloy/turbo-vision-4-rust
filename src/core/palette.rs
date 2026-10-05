@@ -676,6 +676,10 @@ pub mod palettes {
         42, 43, 44, 45, 46, 47, 48, 49, 50, 51,  // 11-20
         52, 53, 54, 55, 56, 57, 58, 59, 60, 61,  // 21-30
         62, 63,                                   // 31-32
+        // 33-45: an editor in the dialog (CP_EDITOR_IN_DIALOG): normal and
+        // selected text as in a gray window, then the gray syntax colours.
+        29, 30,
+        86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96,
     ];
 
     // Blue dialog palette - maps dialog color indices to app palette.
@@ -690,6 +694,10 @@ pub mod palettes {
         115, 116, 117, 118, 119, 120, 121, 122, 123, 124,  // 11-20
         125, 126, 127, 128, 129, 130, 131, 132, 133, 134,  // 21-30
         135, 136,                                           // 31-32
+        // 33-45: an editor in the dialog (CP_EDITOR_IN_DIALOG): normal and
+        // selected text as in a blue window, then the blue syntax colours.
+        13, 14,
+        64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74,
     ];
 
     // Button palette - from Borland cpButton "\x0A\x0B\x0C\x0D\x0E\x0E\x0E\x0F"
@@ -813,6 +821,14 @@ pub mod palettes {
         9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,   // 3-13: Syntax colors (window-relative)
     ];
 
+    // EditorWindow in a dialog: the same 13 roles, at the end of the dialog
+    // palettes (33-45), since a dialog's 6-19 are its controls' colours.
+    #[rustfmt::skip]
+    pub const CP_EDITOR_IN_DIALOG: &[u8] = &[
+        33, 34,                                                 // 1-2: Normal text, Selected text
+        35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45,             // 3-13: Syntax colors
+    ];
+
     // History Viewer palette (THistoryViewer)
     // Borland: cpHistoryViewer = "\x06\x06\x07\x06\x06" (6, 6, 7, 6, 6)
     #[rustfmt::skip]
@@ -879,8 +895,9 @@ mod tests {
         for &idx in CP_BLUE_DIALOG {
             assert!((idx as usize) <= CP_APP_COLOR.len());
         }
-        // And they must not collide with the syntax-color region (64-96).
-        for &idx in CP_BLUE_DIALOG {
+        // Borland's 32 entries must not collide with the syntax-color region
+        // (64-96); the editor entries after them point into it on purpose.
+        for &idx in &CP_BLUE_DIALOG[..32] {
             assert!(idx < 64 || idx > 96);
         }
     }
@@ -894,8 +911,21 @@ mod tests {
             0x10, 0x30, 0x3F, 0x3E, 0x70, 0x2F, 0x7A, 0x20, 0x12, 0x31, 0x31, 0x30, 0x2F, 0x3E,
             0x31, 0x13, 0x38, 0x00,
         ];
-        for (i, &idx) in CP_BLUE_DIALOG.iter().enumerate() {
+        for (i, &idx) in CP_BLUE_DIALOG[..32].iter().enumerate() {
             assert_eq!(app(idx), borland[i], "blue dialog entry {}", i + 1);
+        }
+    }
+
+    #[test]
+    fn an_editor_in_a_dialog_gets_the_syntax_colours_of_its_background() {
+        // Through CP_EDITOR_IN_DIALOG, then the dialog's palette: the same
+        // roles a window's editor gets through CP_EDITOR.
+        let through = |dialog: &[u8], index: usize| app(dialog[CP_EDITOR_IN_DIALOG[index] as usize - 1]);
+        for (dialog, window) in [(CP_GRAY_DIALOG, CP_GRAY_WINDOW), (CP_BLUE_DIALOG, CP_BLUE_WINDOW)] {
+            for index in 0..CP_EDITOR.len() {
+                let in_window = app(window[CP_EDITOR[index] as usize - 1]);
+                assert_eq!(through(dialog, index), in_window, "editor entry {}", index + 1);
+            }
         }
     }
 
