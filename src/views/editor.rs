@@ -1999,7 +1999,9 @@ impl View for EditorWindow {
                     }
                     event.clear();
                 }
-                KB_TAB => {
+                // A read-only editor types nothing, so it leaves Tab to
+                // its owner, which moves the focus to the next control.
+                KB_TAB if !self.read_only => {
                     self.insert_tab();
                     event.clear();
                 }
@@ -2743,5 +2745,23 @@ mod tests {
             editor.handle_event(&mut e);
         }
         assert_eq!(editor.get_text(), "ěł€");
+    }
+
+    #[test]
+    fn a_read_only_editor_leaves_tab_to_its_owner() {
+        let mut editor = EditorWindow::new(Rect::new(0, 0, 40, 5));
+        editor.set_text("text");
+        editor.set_focus(true);
+
+        let mut ev = Event::keyboard(KB_TAB);
+        editor.handle_event(&mut ev);
+        assert_eq!(ev.what, EventType::Nothing, "Tab is typed into the text");
+        assert_eq!(editor.get_text(), "    text");
+
+        editor.set_read_only(true);
+        let mut ev = Event::keyboard(KB_TAB);
+        editor.handle_event(&mut ev);
+        assert_eq!(ev.what, EventType::Keyboard, "Tab goes on to the owner");
+        assert_eq!(editor.get_text(), "    text");
     }
 }

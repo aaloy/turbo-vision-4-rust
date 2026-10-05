@@ -126,6 +126,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- A read-only `EditorWindow` lets Tab move the focus to the next control.
+  It used to take the key and type nothing, so the focus could not leave
+  it by keyboard.
 - An `EditorWindow` in a dialog draws in editor colours. Its palette,
   `CP_EDITOR`, points at a window's text and syntax entries, which in a
   dialog are the controls' colours: a comment came out white on green. In a
