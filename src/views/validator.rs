@@ -1,9 +1,9 @@
 // (C) 2025 - Enzo Lombardi
 
-//! Validator - input validation system for InputLine controls.
+//! Validator - input validation system for `InputLine` controls.
 use std::cell::RefCell;
-/// Validator module - Input validation for InputLine
-/// Matches Borland's TValidator architecture from validate.h and tvalidat.cc
+/// Validator module - Input validation for `InputLine`
+/// Matches Borland's `TValidator` architecture from validate.h and tvalidat.cc
 ///
 /// Validators provide:
 /// - Character filtering (which characters are allowed during typing)
@@ -37,7 +37,7 @@ pub enum ValidatorStatus {
 }
 
 /// Base Validator trait
-/// Matches Borland's TValidator class (validate.h:36-66)
+/// Matches Borland's `TValidator` class (validate.h:36-66)
 ///
 /// All validators implement this trait to provide:
 /// - `is_valid()` - Check if the complete input is valid
@@ -47,18 +47,18 @@ pub enum ValidatorStatus {
 /// Reference: local-only/borland-tvision/classes/tvalidat.cc
 pub trait Validator {
     /// Check if the complete input string is valid
-    /// Matches Borland's TValidator::IsValid() (tvalidat.cc:28-31)
+    /// Matches Borland's `TValidator::IsValid()` (tvalidat.cc:28-31)
     fn is_valid(&self, input: &str) -> bool;
 
     /// Check if input is valid during typing
     /// Used to filter characters as user types
-    /// Matches Borland's TValidator::IsValidInput() (tvalidat.cc:33-36)
+    /// Matches Borland's `TValidator::IsValidInput()` (tvalidat.cc:33-36)
     fn is_valid_input(&self, input: &str, _append: bool) -> bool {
         self.is_valid(input)
     }
 
     /// Display error message when validation fails
-    /// Matches Borland's TValidator::Error() - pure virtual in base class
+    /// Matches Borland's `TValidator::Error()` - pure virtual in base class
     fn error(&self);
 
     /// Get validator options
@@ -68,7 +68,7 @@ pub trait Validator {
 
     /// Ask the validator for an auto-filled/transformed version of `text`.
     ///
-    /// Called by InputLine after a character has been accepted and inserted,
+    /// Called by `InputLine` after a character has been accepted and inserted,
     /// mirroring Borland's `TInputLine::checkValid(False)` which lets picture
     /// validators auto-insert literal characters (typing "12" against mask
     /// "##/##" becomes "12/") and force uppercase for `&`/`!` positions.
@@ -80,7 +80,7 @@ pub trait Validator {
     }
 
     /// Validate and show error if invalid
-    /// Matches Borland's TValidator::Valid() (tvalidat.cc:43-48)
+    /// Matches Borland's `TValidator::Valid()` (tvalidat.cc:43-48)
     fn valid(&self, input: &str) -> bool {
         if self.is_valid(input) {
             true
@@ -91,8 +91,8 @@ pub trait Validator {
     }
 }
 
-/// FilterValidator - validates input against a set of allowed characters
-/// Matches Borland's TFilterValidator (validate.h:68-92, tfilterv.cc)
+/// `FilterValidator` - validates input against a set of allowed characters
+/// Matches Borland's `TFilterValidator` (validate.h:68-92, tfilterv.cc)
 ///
 /// Example:
 /// ```
@@ -123,8 +123,8 @@ impl FilterValidator {
 }
 
 impl Validator for FilterValidator {
-    /// Check if all characters in input are in valid_chars
-    /// Matches Borland's TFilterValidator::IsValid() (tfilterv.cc:43-52)
+    /// Check if all characters in input are in `valid_chars`
+    /// Matches Borland's `TFilterValidator::IsValid()` (tfilterv.cc:43-52)
     fn is_valid(&self, input: &str) -> bool {
         input.chars().all(|ch| self.valid_chars.contains(ch))
     }
@@ -144,8 +144,8 @@ impl Validator for FilterValidator {
     }
 }
 
-/// RangeValidator - validates numeric input within a range
-/// Matches Borland's TRangeValidator (validate.h:94-116, trangeva.cc)
+/// `RangeValidator` - validates numeric input within a range
+/// Matches Borland's `TRangeValidator` (validate.h:94-116, trangeva.cc)
 ///
 /// Example:
 /// ```
@@ -163,8 +163,8 @@ pub struct RangeValidator {
 }
 
 impl RangeValidator {
-    /// Create a new RangeValidator
-    /// Matches Borland's TRangeValidator::TRangeValidator(long, long) (trangeva.cc:39-46)
+    /// Create a new `RangeValidator`
+    /// Matches Borland's `TRangeValidator::TRangeValidator(long`, long) (trangeva.cc:39-46)
     pub fn new(min: i64, max: i64) -> Self {
         // Determine valid characters based on range
         // Matches Borland's logic in trangeva.cc:28-31,44-45
@@ -194,8 +194,8 @@ impl RangeValidator {
     }
 
     /// Parse input string to i64, supporting hex (0x) and octal (0) prefixes
-    /// Matches Borland's get_val() and get_uval() functions (trangeva.cc:59-69)
-    fn parse_value(&self, input: &str) -> Result<i64, std::num::ParseIntError> {
+    /// Matches Borland's `get_val()` and `get_uval()` functions (trangeva.cc:59-69)
+    fn parse_value(input: &str) -> Result<i64, std::num::ParseIntError> {
         let trimmed = input.trim();
 
         // Support hexadecimal (0x prefix)
@@ -204,10 +204,7 @@ impl RangeValidator {
         }
 
         // Support octal (0 prefix, but not just "0")
-        if trimmed.starts_with('0')
-            && trimmed.len() > 1
-            && !trimmed.contains(|c: char| c == '8' || c == '9')
-        {
+        if trimmed.starts_with('0') && trimmed.len() > 1 && !trimmed.contains(['8', '9']) {
             return i64::from_str_radix(&trimmed[1..], 8);
         }
 
@@ -218,7 +215,7 @@ impl RangeValidator {
 
 impl Validator for RangeValidator {
     /// Check if input is a valid number within range
-    /// Matches Borland's TRangeValidator::IsValid() (trangeva.cc:72-91)
+    /// Matches Borland's `TRangeValidator::IsValid()` (trangeva.cc:72-91)
     fn is_valid(&self, input: &str) -> bool {
         // First check if characters are valid
         if !input.chars().all(|ch| self.valid_chars.contains(ch)) {
@@ -226,7 +223,7 @@ impl Validator for RangeValidator {
         }
 
         // Try to parse the value
-        match self.parse_value(input) {
+        match Self::parse_value(input) {
             Ok(value) => {
                 // Check if within range
                 value >= self.min && value <= self.max
@@ -284,7 +281,7 @@ impl Validator for RangeValidator {
 }
 
 /// Type alias for shared validator references
-/// InputLine will hold an `Option<ValidatorRef>`
+/// `InputLine` will hold an `Option<ValidatorRef>`
 pub type ValidatorRef = Rc<RefCell<dyn Validator>>;
 
 /// Builder for creating filter validators with a fluent API.

@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! ComboBox view - a text field showing one choice, with a drop-down list.
+//! `ComboBox` view - a text field showing one choice, with a drop-down list.
 //!
 //! Not part of the Borland Turbo Vision widget set. It follows the same
 //! two-step pattern the history button already uses: the control itself cannot
@@ -848,7 +848,7 @@ mod tests {
             let found = lookup(910).expect("registered while alive");
             assert_eq!(found.borrow().items.len(), 3);
             drop(c);
-        }
+        };
         assert!(lookup(910).is_none(), "registration freed on drop");
     }
 

@@ -21,7 +21,7 @@ fn main() -> turbo_vision::core::error::Result<()> {
     macro_rules! log {
         ($($arg:tt)*) => {{
             eprintln!($($arg)*);
-            writeln!(log_file, $($arg)*).ok();
+            let _ = writeln!(log_file, $($arg)*);
         }};
     }
 
@@ -44,10 +44,8 @@ fn main() -> turbo_vision::core::error::Result<()> {
                     );
                     event_count += 1;
                 }
-                EventType::Keyboard => {
-                    if event.key_code == KB_CTRL_C {
-                        app.running = false;
-                    }
+                EventType::Keyboard if event.key_code == KB_CTRL_C => {
+                    app.running = false;
                 }
                 _ => {}
             }

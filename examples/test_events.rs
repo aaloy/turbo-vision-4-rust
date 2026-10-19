@@ -22,7 +22,7 @@ fn main() -> turbo_vision::core::error::Result<()> {
     macro_rules! log {
         ($($arg:tt)*) => {{
             eprintln!($($arg)*);
-            writeln!(log_file, $($arg)*).ok();
+            let _ = writeln!(log_file, $($arg)*);
         }};
     }
 

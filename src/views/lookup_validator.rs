@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! LookupValidator - validates input against a list of allowed values.
+//! `LookupValidator` - validates input against a list of allowed values.
 // LookupValidator - Validates input against a list of valid values
 //
 // Matches Borland: TLookupValidator (validate.h)
@@ -10,9 +10,9 @@
 
 use super::validator::Validator;
 
-/// LookupValidator - Validates against a list of valid values
+/// `LookupValidator` - Validates against a list of valid values
 ///
-/// Matches Borland: TLookupValidator
+/// Matches Borland: `TLookupValidator`
 pub struct LookupValidator {
     valid_values: Vec<String>,
     case_sensitive: bool,
@@ -79,7 +79,7 @@ impl LookupValidator {
 
 impl Validator for LookupValidator {
     /// Check if input is in the list of valid values
-    /// Matches Borland's TLookupValidator::IsValid()
+    /// Matches Borland's `TLookupValidator::IsValid()`
     fn is_valid(&self, input: &str) -> bool {
         if input.is_empty() {
             // Empty input is allowed - validation happens on non-empty input
@@ -95,7 +95,7 @@ impl Validator for LookupValidator {
     }
 
     /// Display error message when validation fails
-    /// Matches Borland's TLookupValidator::Error()
+    /// Matches Borland's `TLookupValidator::Error()`
     fn error(&self) {
         // In a full implementation, this would show a message box
         // For now, just a no-op (the InputLine will handle visual feedback)
@@ -128,7 +128,7 @@ pub struct LookupValidatorBuilder {
 }
 
 impl LookupValidatorBuilder {
-    /// Creates a new LookupValidatorBuilder with default values.
+    /// Creates a new `LookupValidatorBuilder` with default values.
     pub fn new() -> Self {
         Self {
             valid_values: Vec::new(),
@@ -157,15 +157,16 @@ impl LookupValidatorBuilder {
         self
     }
 
-    /// Builds the LookupValidator.
+    /// Builds the `LookupValidator`.
     ///
     /// # Panics
     ///
     /// Panics if no valid values have been added.
     pub fn build(self) -> LookupValidator {
-        if self.valid_values.is_empty() {
-            panic!("LookupValidator must have at least one valid value");
-        }
+        assert!(
+            !self.valid_values.is_empty(),
+            "LookupValidator must have at least one valid value"
+        );
 
         LookupValidator {
             valid_values: self.valid_values,

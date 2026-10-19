@@ -186,7 +186,7 @@ impl Rect {
 
     /// Calculate the union of this rectangle with another
     /// Returns the smallest rectangle that contains both rectangles
-    /// Matches Borland: Used in TView::locate() to calculate redraw region
+    /// Matches Borland: Used in `TView::locate()` to calculate redraw region
     pub fn union(&self, other: &Rect) -> Rect {
         Rect {
             a: Point::new(self.a.x.min(other.a.x), self.a.y.min(other.a.y)),
@@ -319,19 +319,19 @@ mod tests {
     #[test]
     fn test_point_display() {
         let p = Point::new(10, 20);
-        assert_eq!(format!("{}", p), "(10, 20)");
+        assert_eq!(format!("{p}"), "(10, 20)");
 
         let p2 = Point::new(-5, 0);
-        assert_eq!(format!("{}", p2), "(-5, 0)");
+        assert_eq!(format!("{p2}"), "(-5, 0)");
     }
 
     #[test]
     fn test_rect_display() {
         let r = Rect::new(1, 2, 11, 12);
-        assert_eq!(format!("{}", r), "[1, 2, 11, 12]");
+        assert_eq!(format!("{r}"), "[1, 2, 11, 12]");
 
         let r2 = Rect::new(0, 0, 80, 25);
-        assert_eq!(format!("{}", r2), "[0, 0, 80, 25]");
+        assert_eq!(format!("{r2}"), "[0, 0, 80, 25]");
     }
 
     #[test]

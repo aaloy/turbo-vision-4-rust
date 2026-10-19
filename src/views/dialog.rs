@@ -87,8 +87,8 @@ impl Dialog {
         self.auto_dismiss
     }
 
-    /// Create a new modal dialog for use with Application::exec_view()
-    /// Matches Borland pattern: Dialog is created with State::MODAL set, then passed to execView()
+    /// Create a new modal dialog for use with `Application::exec_view()`
+    /// Matches Borland pattern: Dialog is created with `State::MODAL` set, then passed to `execView()`
     pub fn new_modal(bounds: Rect, title: &str) -> Box<Self> {
         let mut dialog = Self::new(bounds, title);
         let current_state = dialog.state();
@@ -109,7 +109,7 @@ impl Dialog {
 
     /// Set whether the dialog is resizable.
     /// Resizable dialogs show single-line bottom corners and a resize handle.
-    /// By default, dialogs are not resizable (matching Borland's TDialog).
+    /// By default, dialogs are not resizable (matching Borland's `TDialog`).
     pub fn set_resizable(&mut self, resizable: bool) {
         self.window.set_resizable(resizable);
     }
@@ -125,7 +125,7 @@ impl Dialog {
     /// let result = dialog.execute(&mut app);  // Runs own event loop
     /// ```
     ///
-    /// **Pattern 2: Centralized (Borland-style, via Application::exec_view):**
+    /// **Pattern 2: Centralized (Borland-style, via `Application::exec_view)`:**
     /// ```ignore
     /// let mut dialog = Dialog::new_modal(bounds, "Title");
     /// dialog.add(Button::new(...));
@@ -133,7 +133,7 @@ impl Dialog {
     /// ```
     ///
     /// Both patterns work identically. Pattern 1 is simpler for standalone use.
-    /// Pattern 2 matches Borland's TProgram::execView() architecture.
+    /// Pattern 2 matches Borland's `TProgram::execView()` architecture.
     /// Put the dialog into its modal state: `State::MODAL`, drag limits from the
     /// desktop, position constrained to it, first focusable child focused.
     /// `execute` does this before entering the loop; a type wrapping a `Dialog`
@@ -203,9 +203,9 @@ pub(crate) fn show_dropdown_popup(event: &mut Event, terminal: &mut Terminal) {
             let p = event.mouse.pos;
             let (fw, fh) = (s.field.width(), s.field.height());
             s.field = Rect::new(p.x, p.y, p.x + fw, p.y + fh);
-        }
+        };
         let (w, h) = terminal.size();
-        let screen = Rect::new(0, 0, w as i16, h as i16);
+        let screen = Rect::new(0, 0, w, h);
         DropdownWindow::new(state, screen).execute(terminal);
     }
     event.clear();
@@ -376,20 +376,14 @@ impl Dialog {
 
     /// Find the default button and return its command if it's enabled
     /// Returns None if no default button found or if it's disabled
-    /// Matches Borland's TButton::handleEvent() cmDefault broadcast handling (tbutton.cc lines 238-244)
+    /// Matches Borland's `TButton::handleEvent()` cmDefault broadcast handling (tbutton.cc lines 238-244)
     fn find_default_button_command(&self) -> Option<CommandId> {
         // Borland checks: amDefault && !(state & sfDisabled); a disabled
         // default button yields None rather than falling through to another.
         (0..self.child_count())
             .filter_map(|i| self.child_at(i).as_any().downcast_ref::<Button>())
             .find(|b| b.is_default())
-            .and_then(|b| {
-                if b.can_focus() {
-                    Some(b.command())
-                } else {
-                    None
-                }
-            })
+            .and_then(|b| b.can_focus().then(|| b.command()))
     }
 }
 
@@ -432,7 +426,7 @@ pub struct DialogBuilder {
 }
 
 impl DialogBuilder {
-    /// Creates a new DialogBuilder with default values.
+    /// Creates a new `DialogBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -466,7 +460,7 @@ impl DialogBuilder {
     }
 
     /// Sets whether the dialog should be modal (default: false).
-    /// Modal dialogs are created with State::MODAL flag set.
+    /// Modal dialogs are created with `State::MODAL` flag set.
     #[must_use]
     pub fn modal(mut self, modal: bool) -> Self {
         self.modal = modal;
@@ -505,7 +499,7 @@ impl DialogBuilder {
         dialog
     }
 
-    /// Builds the Dialog as a Box (for use with Application::exec_view).
+    /// Builds the Dialog as a Box (for use with `Application::exec_view`).
     ///
     /// # Panics
     ///
@@ -639,12 +633,12 @@ mod tests {
         );
     }
 
-    /// Regression test for FileDialog folder navigation bug (issue #73 follow-up)
+    /// Regression test for `FileDialog` folder navigation bug (issue #73 follow-up)
     ///
-    /// The bug: Dialog was calling end_modal() for ALL commands (including CMD_FILE_SELECTED = 1000),
-    /// which caused FileDialog to close when double-clicking folders instead of navigating into them.
+    /// The bug: Dialog was calling `end_modal()` for ALL commands (including `CMD_FILE_SELECTED` = 1000),
+    /// which caused `FileDialog` to close when double-clicking folders instead of navigating into them.
     ///
-    /// The fix: Dialog now only calls end_modal() for commands < 1000 (dialog close commands).
+    /// The fix: Dialog now only calls `end_modal()` for commands < 1000 (dialog close commands).
     /// Commands >= 1000 (internal/child view commands) pass through without closing the dialog.
     ///
     /// This test verifies:
@@ -674,7 +668,7 @@ mod tests {
                 "and must stay pending for the caller"
             );
             assert_eq!(event.command, 1000);
-        }
+        };
 
         // A custom button added to the dialog closes it with its own command,
         // whatever the number (`CloseOn::StandardAndButtons`, the default).
@@ -693,7 +687,7 @@ mod tests {
                 "the button's command closes the dialog"
             );
             assert_eq!(event.what, EventType::Nothing, "and is consumed");
-        }
+        };
 
         // An explicit list closes on exactly those commands.
         {
@@ -744,8 +738,8 @@ mod tests {
         );
     }
 
-    /// History views must record their linked InputLine data when the dialog
-    /// is accepted with CM_OK (via the CM_RECORD_HISTORY broadcast), but not
+    /// History views must record their linked `InputLine` data when the dialog
+    /// is accepted with `CM_OK` (via the `CM_RECORD_HISTORY` broadcast), but not
     /// when it is cancelled.
     #[test]
     fn test_dialog_ok_records_history() {
@@ -786,7 +780,7 @@ mod tests {
         assert_eq!(dialog.end_state(), CM_OK);
     }
 
-    /// CM_SHOW_HISTORY must not be swallowed by the "< 1000 closes the dialog"
+    /// `CM_SHOW_HISTORY` must not be swallowed by the "< 1000 closes the dialog"
     /// rule; it is left pending so the modal loop can open the popup.
     #[test]
     fn test_dialog_show_history_command_passes_through() {

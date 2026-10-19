@@ -21,7 +21,7 @@ use turbo_vision::views::{
     label::LabelBuilder,
     picture_validator::PictureValidator,
     static_text::StaticTextBuilder,
-    validator::{FilterValidator, RangeValidator, Validator},
+    validator::{FilterValidator, RangeValidator, ValidatorRef},
 };
 
 fn main() -> turbo_vision::core::error::Result<()> {
@@ -85,12 +85,12 @@ fn demo_all_validators(app: &mut Application) {
     dialog.add(label1);
     y += 1;
 
-    let field1_validator = Rc::new(RefCell::new(FilterValidator::new("0123456789")));
+    let field1_validator: ValidatorRef = Rc::new(RefCell::new(FilterValidator::new("0123456789")));
     let input1 = InputLineBuilder::new()
         .bounds(Rect::new(2, y, dialog_width - 4, y + 1))
         .max_length(20)
         .text("12345")
-        .validator(field1_validator.clone())
+        .validator(Rc::clone(&field1_validator))
         .build();
     let field1 = dialog.add_typed(input1);
     y += 2;
@@ -103,12 +103,12 @@ fn demo_all_validators(app: &mut Application) {
     dialog.add(label2);
     y += 1;
 
-    let field2_validator = Rc::new(RefCell::new(RangeValidator::new(0, 100)));
+    let field2_validator: ValidatorRef = Rc::new(RefCell::new(RangeValidator::new(0, 100)));
     let input2 = InputLineBuilder::new()
         .bounds(Rect::new(2, y, dialog_width - 4, y + 1))
         .max_length(20)
         .text("50")
-        .validator(field2_validator.clone())
+        .validator(Rc::clone(&field2_validator))
         .build();
     let field2 = dialog.add_typed(input2);
     y += 2;
@@ -121,12 +121,12 @@ fn demo_all_validators(app: &mut Application) {
     dialog.add(label3);
     y += 1;
 
-    let field3_validator = Rc::new(RefCell::new(RangeValidator::new(-50, 50)));
+    let field3_validator: ValidatorRef = Rc::new(RefCell::new(RangeValidator::new(-50, 50)));
     let input3 = InputLineBuilder::new()
         .bounds(Rect::new(2, y, dialog_width - 4, y + 1))
         .max_length(20)
         .text("-25")
-        .validator(field3_validator.clone())
+        .validator(Rc::clone(&field3_validator))
         .build();
     let field3 = dialog.add_typed(input3);
     y += 2;
@@ -139,12 +139,12 @@ fn demo_all_validators(app: &mut Application) {
     dialog.add(label4);
     y += 1;
 
-    let field4_validator = Rc::new(RefCell::new(RangeValidator::new(0, 255)));
+    let field4_validator: ValidatorRef = Rc::new(RefCell::new(RangeValidator::new(0, 255)));
     let input4 = InputLineBuilder::new()
         .bounds(Rect::new(2, y, dialog_width - 4, y + 1))
         .max_length(20)
         .text("0xAB")
-        .validator(field4_validator.clone())
+        .validator(Rc::clone(&field4_validator))
         .build();
     let field4 = dialog.add_typed(input4);
     y += 3;

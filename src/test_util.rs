@@ -172,20 +172,14 @@ impl MockTerminal {
 
     /// Gets the character at the specified position.
     pub fn get_char(&self, x: i16, y: i16) -> Option<char> {
-        if self.in_bounds(x, y) {
-            Some(self.buffer[y as usize][x as usize].ch)
-        } else {
-            None
-        }
+        self.in_bounds(x, y)
+            .then(|| self.buffer[y as usize][x as usize].ch)
     }
 
     /// Gets the full cell (character + attributes) at the specified position.
     pub fn get_cell(&self, x: i16, y: i16) -> Option<Cell> {
-        if self.in_bounds(x, y) {
-            Some(self.buffer[y as usize][x as usize])
-        } else {
-            None
-        }
+        self.in_bounds(x, y)
+            .then(|| self.buffer[y as usize][x as usize])
     }
 
     /// Checks if coordinates are within bounds.
@@ -249,11 +243,8 @@ impl MockTerminal {
     ///
     /// Useful for assertions in tests.
     pub fn get_row(&self, y: i16) -> Option<String> {
-        if y >= 0 && y < self.height as i16 {
-            Some(self.buffer[y as usize].iter().map(|cell| cell.ch).collect())
-        } else {
-            None
-        }
+        (y >= 0 && y < self.height as i16)
+            .then(|| self.buffer[y as usize].iter().map(|cell| cell.ch).collect())
     }
 
     /// Returns a rectangular region as a vector of strings (one per row).
@@ -262,13 +253,8 @@ impl MockTerminal {
         for y in rect.a.y..rect.b.y {
             if y >= 0 && y < self.height as i16 {
                 let row: String = (rect.a.x..rect.b.x)
-                    .filter_map(|x| {
-                        if x >= 0 && x < self.width as i16 {
-                            Some(self.buffer[y as usize][x as usize].ch)
-                        } else {
-                            None
-                        }
-                    })
+                    .filter(|&x| x >= 0 && x < self.width as i16)
+                    .map(|x| self.buffer[y as usize][x as usize].ch)
                     .collect();
                 result.push(row);
             }
@@ -282,9 +268,7 @@ impl MockTerminal {
         let default_attr = Attr::new(TvColor::LightGray, TvColor::Black);
         let default_cell = Cell::new(' ', default_attr);
         for row in &mut self.buffer {
-            for cell in row {
-                *cell = default_cell;
-            }
+            row.fill(default_cell);
         }
     }
 }
@@ -303,7 +287,10 @@ mod send_assertions {
     fn assert_send<T: Send>() {}
 
     #[test]
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "generic assert helper only instantiated inside this test"
+    )]
     fn test_core_types_are_send() {
         // Geometry types
         assert_send::<Point>();

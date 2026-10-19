@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! PictureValidator - validates and formats input using picture mask patterns.
+//! `PictureValidator` - validates and formats input using picture mask patterns.
 //!
 //! Port of Borland's `TPXPictureValidator` (TValidator.cc / validate.h),
 //! including the full picture state machine.
@@ -205,11 +205,11 @@ impl<'a> PicMachine<'a> {
                 match self.pic_at(j) {
                     '[' => self.to_group_end(&mut j, term_ch),
                     '*' => {
-                        if !self.pic_at(j + 1).is_ascii_digit() {
+                        if self.pic_at(j + 1).is_ascii_digit() {
+                            break;
+                        } else {
                             j += 1;
                             self.to_group_end(&mut j, term_ch);
-                        } else {
-                            break;
                         }
                     }
                     _ => break,
@@ -288,7 +288,7 @@ impl<'a> PicMachine<'a> {
                         self.index += 1;
                     }
                     let lit = self.pic_at(self.index);
-                    if lit.to_ascii_uppercase() != ch.to_ascii_uppercase() && ch != ' ' {
+                    if !lit.eq_ignore_ascii_case(&ch) && ch != ' ' {
                         return PicResult::Error;
                     }
                     self.consume(lit);
@@ -497,11 +497,8 @@ impl Validator for PictureValidator {
             return None;
         }
         let (rslt, transformed) = self.picture(input, self.auto_format);
-        if rslt != PicResult::Error && rslt != PicResult::Syntax && transformed != input {
-            Some(transformed)
-        } else {
-            None
-        }
+        (rslt != PicResult::Error && rslt != PicResult::Syntax && transformed != input)
+            .then_some(transformed)
     }
 
     fn error(&self) {
@@ -519,7 +516,7 @@ impl Validator for PictureValidator {
     }
 }
 
-/// Helper function to create a ValidatorRef for a PictureValidator
+/// Helper function to create a `ValidatorRef` for a `PictureValidator`
 pub fn picture_validator(mask: &str) -> ValidatorRef {
     Rc::new(RefCell::new(PictureValidator::new(mask)))
 }
@@ -548,7 +545,7 @@ pub struct PictureValidatorBuilder {
 }
 
 impl PictureValidatorBuilder {
-    /// Creates a new PictureValidatorBuilder with default values.
+    /// Creates a new `PictureValidatorBuilder` with default values.
     pub fn new() -> Self {
         Self {
             mask: None,
@@ -581,7 +578,7 @@ impl PictureValidatorBuilder {
         self
     }
 
-    /// Builds the PictureValidator.
+    /// Builds the `PictureValidator`.
     ///
     /// # Panics
     ///
@@ -595,7 +592,7 @@ impl PictureValidatorBuilder {
         }
     }
 
-    /// Builds the PictureValidator as a ValidatorRef.
+    /// Builds the `PictureValidator` as a `ValidatorRef`.
     pub fn build_ref(self) -> ValidatorRef {
         Rc::new(RefCell::new(self.build()))
     }

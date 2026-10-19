@@ -47,7 +47,11 @@ pub enum TokenType {
 impl TokenType {
     /// Get the default color attribute for a token type
     pub fn default_color(&self) -> Attr {
-        use crate::core::palette::colors::*;
+        use crate::core::palette::colors::{
+            SYNTAX_COMMENT, SYNTAX_FUNCTION, SYNTAX_IDENTIFIER, SYNTAX_KEYWORD, SYNTAX_NORMAL,
+            SYNTAX_NUMBER, SYNTAX_OPERATOR, SYNTAX_PREPROCESSOR, SYNTAX_SPECIAL, SYNTAX_STRING,
+            SYNTAX_TYPE,
+        };
         match self {
             TokenType::Normal => SYNTAX_NORMAL,
             TokenType::Keyword => SYNTAX_KEYWORD,
@@ -65,9 +69,13 @@ impl TokenType {
 
     /// Get the palette index for this token type (editor-relative).
     /// Used by the editor's draw method to resolve colors through the palette chain.
-    /// Maps through CP_EDITOR → window palette → app palette.
+    /// Maps through `CP_EDITOR` → window palette → app palette.
     pub fn palette_index(&self) -> u8 {
-        use crate::core::palette::*;
+        use crate::core::palette::{
+            SYNTAX_COMMENT_IDX, SYNTAX_FUNCTION_IDX, SYNTAX_IDENTIFIER_IDX, SYNTAX_KEYWORD_IDX,
+            SYNTAX_NORMAL_IDX, SYNTAX_NUMBER_IDX, SYNTAX_OPERATOR_IDX, SYNTAX_PREPROCESSOR_IDX,
+            SYNTAX_SPECIAL_IDX, SYNTAX_STRING_IDX, SYNTAX_TYPE_IDX,
+        };
         match self {
             TokenType::Normal => SYNTAX_NORMAL_IDX,
             TokenType::Keyword => SYNTAX_KEYWORD_IDX,
@@ -130,7 +138,7 @@ pub trait SyntaxHighlighter: Send + Sync {
 pub struct PlainTextHighlighter;
 
 impl SyntaxHighlighter for PlainTextHighlighter {
-    fn language(&self) -> &str {
+    fn language(&self) -> &'static str {
         "text"
     }
 
@@ -225,12 +233,18 @@ impl RustHighlighter {
                 | "Box"
                 | "Rc"
                 | "Arc"
-        ) || word.chars().next().map_or(false, |c| c.is_uppercase())
+        ) || word.chars().next().is_some_and(char::is_uppercase)
+    }
+}
+
+impl Default for RustHighlighter {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
 impl SyntaxHighlighter for RustHighlighter {
-    fn language(&self) -> &str {
+    fn language(&self) -> &'static str {
         "rust"
     }
 

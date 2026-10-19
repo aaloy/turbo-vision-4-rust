@@ -186,10 +186,10 @@ impl FileEditor for FileEditorWindow {
         use super::file_dialog::FileDialogBuilder;
 
         let (tw, th) = app.terminal.size();
-        let dw = 64i16.min(tw as i16 - 4);
-        let dh = 18i16.min(th as i16 - 4);
-        let x = ((tw as i16) - dw) / 2;
-        let y = ((th as i16) - dh) / 2;
+        let dw = 64i16.min(tw - 4);
+        let dh = 18i16.min(th - 4);
+        let x = (tw - dw) / 2;
+        let y = (th - dh) / 2;
         let bounds = Rect::new(x, y, x + dw, y + dh);
         let mut dialog = FileDialogBuilder::new()
             .bounds(bounds)

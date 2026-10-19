@@ -322,8 +322,8 @@ impl Backend for CrosstermBackend {
         if let Ok(ws) = window_size() {
             // WindowSize has: columns, rows, width (pixels), height (pixels)
             if ws.width > 0 && ws.height > 0 && ws.columns > 0 && ws.rows > 0 {
-                let cell_width = ws.width as f32 / ws.columns as f32;
-                let cell_height = ws.height as f32 / ws.rows as f32;
+                let cell_width = f32::from(ws.width) / f32::from(ws.columns);
+                let cell_height = f32::from(ws.height) / f32::from(ws.rows);
 
                 if cell_width > 0.0 {
                     // Calculate ratio: how many horizontal cells equal one vertical cell

@@ -12,9 +12,9 @@ use crate::core::event::KeyCode;
 
 /// Status line item - displays text and responds to keyboard shortcuts
 ///
-/// Matches Borland: TStatusItem
+/// Matches Borland: `TStatusItem`
 ///
-/// In Borland, TStatusItem is a linked list node with a `next` pointer.
+/// In Borland, `TStatusItem` is a linked list node with a `next` pointer.
 /// In Rust, we use Vec for type safety, but provide builder methods
 /// that match Borland's ergonomics.
 #[derive(Clone, Debug)]
@@ -62,7 +62,7 @@ pub struct StatusItemBuilder {
 }
 
 impl StatusItemBuilder {
-    /// Creates a new StatusItemBuilder with default values.
+    /// Creates a new `StatusItemBuilder` with default values.
     pub fn new() -> Self {
         Self {
             text: None,
@@ -104,7 +104,7 @@ impl StatusItemBuilder {
         self
     }
 
-    /// Builds the StatusItem.
+    /// Builds the `StatusItem`.
     ///
     /// # Panics
     ///
@@ -127,9 +127,9 @@ impl Default for StatusItemBuilder {
 
 /// Status line definition - defines which items are visible for a command set range
 ///
-/// Matches Borland: TStatusDef
+/// Matches Borland: `TStatusDef`
 ///
-/// In Borland, TStatusDef is a linked list node with:
+/// In Borland, `TStatusDef` is a linked list node with:
 /// - `min`, `max`: command range for which this def is active
 /// - `items`: pointer to first item in linked list
 /// - `next`: pointer to next status def
@@ -216,7 +216,7 @@ pub struct StatusDefBuilder {
 }
 
 impl StatusDefBuilder {
-    /// Creates a new StatusDefBuilder with default values (full range: 0-0xFFFF).
+    /// Creates a new `StatusDefBuilder` with default values (full range: 0-0xFFFF).
     pub fn new() -> Self {
         Self {
             min: 0,
@@ -261,7 +261,7 @@ impl StatusDefBuilder {
         self
     }
 
-    /// Builds the StatusDef.
+    /// Builds the `StatusDef`.
     pub fn build(self) -> StatusDef {
         StatusDef {
             min: self.min,
@@ -279,7 +279,7 @@ impl Default for StatusDefBuilder {
 
 /// Status line configuration - collection of status definitions
 ///
-/// Matches Borland: linked list of TStatusDef
+/// Matches Borland: linked list of `TStatusDef`
 ///
 /// In Borland, status defs are linked via `next` pointers.
 /// In Rust, we use Vec for type safety.
@@ -304,7 +304,7 @@ impl StatusLine {
 
     /// Get the status definition that applies to the given command set
     ///
-    /// Matches Borland: TStatusLine::update() logic
+    /// Matches Borland: `TStatusLine::update()` logic
     pub fn get_def_for(&self, command_set: u16) -> Option<&StatusDef> {
         // Return first matching definition (Borland behavior)
         self.defs.iter().find(|def| def.applies_to(command_set))

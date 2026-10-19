@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! StaticText view - multi-line static text display with word wrapping.
+//! `StaticText` view - multi-line static text display with word wrapping.
 
 use super::view::{View, ViewCore, write_line_to_terminal};
 use crate::core::draw::DrawBuffer;
@@ -132,7 +132,7 @@ pub struct StaticTextBuilder {
 }
 
 impl StaticTextBuilder {
-    /// Creates a new StaticTextBuilder with default values.
+    /// Creates a new `StaticTextBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -162,7 +162,7 @@ impl StaticTextBuilder {
         self
     }
 
-    /// Builds the StaticText.
+    /// Builds the `StaticText`.
     ///
     /// # Panics
     ///
@@ -178,7 +178,7 @@ impl StaticTextBuilder {
         }
     }
 
-    /// Builds the StaticText as a Box.
+    /// Builds the `StaticText` as a Box.
     pub fn build_boxed(self) -> Box<StaticText> {
         Box::new(self.build())
     }

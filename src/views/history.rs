@@ -28,7 +28,7 @@ use crate::terminal::Terminal;
 
 /// History - Dropdown button for accessing input history
 ///
-/// Matches Borland: THistory. The button is linked to an `InputLine` by a
+/// Matches Borland: `THistory`. The button is linked to an `InputLine` by a
 /// typed [`Handle`] (Borland: the `link` pointer):
 /// - When the owning dialog is accepted with OK, the owner adds
 ///   the linked input's text to the history list (Borland: cmRecordHistory).
@@ -41,7 +41,7 @@ use crate::terminal::Terminal;
 /// which resolves the handle through its child list.
 pub struct History {
     core: ViewCore,
-    history_id: u16,
+    id: u16,
     /// The input this button records and fills (Borland: `THistory::link`).
     link: Handle<InputLine>,
 }
@@ -58,19 +58,19 @@ impl History {
                 palette_chain: None,
                 ..ViewCore::default()
             },
-            history_id,
+            id: history_id,
             link,
         }
     }
 
     /// Check if this history list has any items
     pub fn has_items(&self) -> bool {
-        HistoryManager::has_history(self.history_id)
+        HistoryManager::has_history(self.id)
     }
 
     /// The history list id this button is attached to
     pub fn history_id(&self) -> u16 {
-        self.history_id
+        self.id
     }
 
     /// The input this button is linked to.
@@ -162,25 +162,21 @@ impl View for History {
     }
 
     fn handle_event(&mut self, event: &mut Event) {
-        match event.what {
-            EventType::MouseDown => {
-                if self.extent().contains(event.mouse.pos)
-                    && event.mouse.buttons & MB_LEFT_BUTTON != 0
-                {
-                    if self.has_items() {
-                        // Convert the click into a CM_SHOW_HISTORY command so the
-                        // owning dialog/application (which has terminal access)
-                        // can open the popup. Mouse position is preserved so the
-                        // popup can be placed near the button.
-                        event.what = EventType::Command;
-                        event.command = CM_SHOW_HISTORY;
-                        event.info = self.history_id;
-                    } else {
-                        event.clear();
-                    }
+        if event.what == EventType::MouseDown {
+            if self.extent().contains(event.mouse.pos) && event.mouse.buttons & MB_LEFT_BUTTON != 0
+            {
+                if self.has_items() {
+                    // Convert the click into a CM_SHOW_HISTORY command so the
+                    // owning dialog/application (which has terminal access)
+                    // can open the popup. Mouse position is preserved so the
+                    // popup can be placed near the button.
+                    event.what = EventType::Command;
+                    event.command = CM_SHOW_HISTORY;
+                    event.info = self.id;
+                } else {
+                    event.clear();
                 }
             }
-            _ => {}
         }
     }
 
@@ -218,7 +214,7 @@ impl HistoryBuilder {
         }
     }
 
-    /// Sets the linked InputLine shared data (required).
+    /// Sets the linked `InputLine` shared data (required).
     #[must_use]
     pub fn link(mut self, link: Handle<InputLine>) -> Self {
         self.link = Some(link);

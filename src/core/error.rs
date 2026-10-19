@@ -31,7 +31,10 @@ pub struct TurboVisionError {
 
 /// The specific kind of error that occurred.
 #[derive(Debug)]
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "error kinds reserved for the internal error API, not all constructed yet"
+)]
 pub(crate) enum ErrorKind {
     /// I/O operation failed
     Io(std::io::Error),
@@ -61,25 +64,25 @@ impl TurboVisionError {
     }
 
     /// Creates a terminal initialization error.
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "reserved error constructor, no call site yet")]
     pub(crate) fn terminal_init(msg: impl Into<String>) -> Self {
         Self::new(ErrorKind::TerminalInit(msg.into()))
     }
 
     /// Creates an invalid input error.
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "reserved error constructor, no call site yet")]
     pub(crate) fn invalid_input(msg: impl Into<String>) -> Self {
         Self::new(ErrorKind::InvalidInput(msg.into()))
     }
 
     /// Creates a parse error.
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "reserved error constructor, no call site yet")]
     pub(crate) fn parse(msg: impl Into<String>) -> Self {
         Self::new(ErrorKind::Parse(msg.into()))
     }
 
     /// Creates a file operation error.
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "reserved error constructor, no call site yet")]
     pub(crate) fn file_operation(path: impl Into<PathBuf>, source: std::io::Error) -> Self {
         Self::new(ErrorKind::FileOperation {
             path: path.into(),
@@ -124,10 +127,10 @@ impl TurboVisionError {
 impl Display for TurboVisionError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match &self.kind {
-            ErrorKind::Io(e) => write!(f, "I/O error: {}", e)?,
-            ErrorKind::TerminalInit(msg) => write!(f, "Terminal initialization failed: {}", msg)?,
-            ErrorKind::InvalidInput(msg) => write!(f, "Invalid input: {}", msg)?,
-            ErrorKind::Parse(msg) => write!(f, "Parse error: {}", msg)?,
+            ErrorKind::Io(e) => write!(f, "I/O error: {e}")?,
+            ErrorKind::TerminalInit(msg) => write!(f, "Terminal initialization failed: {msg}")?,
+            ErrorKind::InvalidInput(msg) => write!(f, "Invalid input: {msg}")?,
+            ErrorKind::Parse(msg) => write!(f, "Parse error: {msg}")?,
             ErrorKind::FileOperation { path, source } => write!(
                 f,
                 "File operation failed for '{}': {}",

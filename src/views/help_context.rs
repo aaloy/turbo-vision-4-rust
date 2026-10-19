@@ -14,7 +14,7 @@ pub type HelpContextId = u16;
 /// Special help context IDs
 pub const HC_NO_CONTEXT: HelpContextId = 0;
 
-/// HelpContext - Maps context IDs to help topic IDs
+/// `HelpContext` - Maps context IDs to help topic IDs
 pub struct HelpContext {
     /// Map from context ID to topic ID
     map: HashMap<HelpContextId, String>,
@@ -35,7 +35,7 @@ impl HelpContext {
 
     /// Get the topic ID for a context
     pub fn get_topic(&self, context_id: HelpContextId) -> Option<&str> {
-        self.map.get(&context_id).map(|s| s.as_str())
+        self.map.get(&context_id).map(std::string::String::as_str)
     }
 
     /// Check if a context is registered

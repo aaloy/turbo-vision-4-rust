@@ -50,7 +50,7 @@ impl Desktop {
 
     /// Initialize the palette chain after Desktop is in its final memory location.
     /// Must be called after Desktop is constructed and in a stable location (not moved).
-    /// Matches Borland: Desktop is the root of the palette chain with CP_APP_COLOR.
+    /// Matches Borland: Desktop is the root of the palette chain with `CP_APP_COLOR`.
     pub fn init_palette_chain(&mut self) {
         // Set children's owner to this Desktop (for palette chain)
         // Desktop provides CP_APP_COLOR palette, making it the palette root
@@ -215,14 +215,14 @@ impl Desktop {
 
     /// Remove a child view by index
     /// Note: Index 0 refers to the first window (background is at internal index 0)
-    /// Used by Application::exec_view() to remove modal dialogs after they close
+    /// Used by `Application::exec_view()` to remove modal dialogs after they close
     pub fn remove_child(&mut self, index: usize) {
         self.children.remove(index + 1); // +1 to skip background
     }
 
     /// Draw views in the affected rectangle (Borland's drawUnderRect pattern)
     /// This is called when a window moves to redraw only the affected area
-    /// Matches Borland: TView::drawUnderRect() (tview.cc:304-308)
+    /// Matches Borland: `TView::drawUnderRect()` (tview.cc:304-308)
     pub fn draw_under_rect(
         &mut self,
         terminal: &mut Terminal,
@@ -242,7 +242,7 @@ impl Desktop {
     }
 
     /// Check for moved windows and redraw affected areas
-    /// Matches Borland: TProgram::idle() checks for moved views and calls drawUnderRect
+    /// Matches Borland: `TProgram::idle()` checks for moved views and calls drawUnderRect
     /// This is called after event handling to redraw areas exposed by window movement
     /// Returns true if any windows were moved and redrawn
     pub fn handle_moved_windows(&mut self, terminal: &mut Terminal) -> bool {
@@ -304,13 +304,13 @@ impl Desktop {
     }
 
     /// Cascade windows in a staircase pattern (using full desktop bounds)
-    /// Matches Borland: TDesktop::cascade(const TRect &r)
+    /// Matches Borland: `TDesktop::cascade(const` `TRect` &r)
     pub fn cascade(&mut self) {
         self.cascade_with_rect(self.extent());
     }
 
     /// Cascade windows in a staircase pattern within specified rect
-    /// Matches Borland: TDesktop::cascade(const TRect &r)
+    /// Matches Borland: `TDesktop::cascade(const` `TRect` &r)
     pub fn cascade_with_rect(&mut self, rect: Rect) {
         // Count tileable windows (skip background at index 0)
         let mut count = 0;
@@ -351,13 +351,13 @@ impl Desktop {
     }
 
     /// Tile windows in a grid pattern (using full desktop bounds)
-    /// Matches Borland: TDesktop::tile(const TRect &r)
+    /// Matches Borland: `TDesktop::tile(const` `TRect` &r)
     pub fn tile(&mut self) {
         self.tile_with_rect(self.extent());
     }
 
     /// Tile windows in a grid pattern within specified rect
-    /// Matches Borland: TDesktop::tile(const TRect &r)
+    /// Matches Borland: `TDesktop::tile(const` `TRect` &r)
     pub fn tile_with_rect(&mut self, rect: Rect) {
         // Count tileable windows (skip background at index 0)
         let mut count = 0;
@@ -393,19 +393,19 @@ impl Desktop {
     }
 
     /// Split `[lo, hi)` into `num` near-equal parts; boundary of part `pos`.
-    /// Matches Borland: dividerLoc()
+    /// Matches Borland: `dividerLoc()`
     fn divider_loc(lo: i16, hi: i16, num: usize, pos: usize) -> i16 {
-        lo + ((hi - lo) as i32 * pos as i32 / num as i32) as i16
+        lo + (i32::from(hi - lo) * pos as i32 / num as i32) as i16
     }
 
     /// Grid dimensions `(cols, rows)` as equal as possible.
-    /// Matches Borland: mostEqualDivisors()
+    /// Matches Borland: `mostEqualDivisors()`
     fn most_equal_divisors(n: usize, favor_y: bool) -> (usize, usize) {
         let mut i = (n as f64).sqrt() as usize;
         if i == 0 {
             i = 1;
         }
-        if n % i != 0 && n % (i + 1) == 0 {
+        if !n.is_multiple_of(i) && n.is_multiple_of(i + 1) {
             i += 1;
         }
         if i < n / i {
@@ -414,7 +414,7 @@ impl Desktop {
         if favor_y { (n / i, i) } else { (i, n / i) }
     }
 
-    /// Tile cell for window `pos`. Matches Borland: calcTileRect()
+    /// Tile cell for window `pos`. Matches Borland: `calcTileRect()`
     fn calc_tile_rect(
         pos: usize,
         r: Rect,
@@ -494,16 +494,12 @@ impl Desktop {
     /// Index 0 refers to first window (background is at internal index 0)
     pub fn window_at_mut(&mut self, index: usize) -> Option<&mut dyn View> {
         let internal_index = index + 1; // +1 to skip background
-        if internal_index < self.children.len() {
-            Some(self.children.child_at_mut(internal_index))
-        } else {
-            None
-        }
+        (internal_index < self.children.len()).then(|| self.children.child_at_mut(internal_index))
     }
 
     /// Zoom the topmost window
-    /// Matches Borland: Desktop handles cmZoom and calls window->zoom()
-    /// In Borland, TWindow::zoom() calls sizeLimits() which gets owner->size
+    /// Matches Borland: Desktop handles cmZoom and calls `window->zoom()`
+    /// In Borland, `TWindow::zoom()` calls `sizeLimits()` which gets owner->size
     pub fn zoom_top_window(&mut self) {
         // Get the topmost window (last in children list, excluding background)
         if self.children.len() <= 1 {
@@ -522,17 +518,16 @@ impl Desktop {
             .zoom(desktop_extent);
     }
 
-    /// Bring a specific window to the front of the Z-order by its ViewId.
+    /// Bring a specific window to the front of the Z-order by its `ViewId`.
     /// Returns true if the window was found and moved, false if not found.
-    /// Matches Borland: TView::makeFirst() / TView::select()
+    /// Matches Borland: `TView::makeFirst()` / `TView::select()`
     pub fn bring_to_front(&mut self, view_id: ViewId) -> bool {
         // Search children (skip background at index 0) for matching ViewId
         let found_index =
             (1..self.children.len()).find(|&i| self.children.view_id_at(i) == Some(view_id));
 
-        let index = match found_index {
-            Some(i) => i,
-            None => return false,
+        let Some(index) = found_index else {
+            return false;
         };
 
         let last_idx = self.children.len() - 1;
@@ -561,7 +556,7 @@ impl Desktop {
 
     /// Whether the topmost window is modal. Modal windows capture all events
     /// (clicks on other windows have no effect), and the desktop leaves its
-    /// window commands alone. Matches Borland: TGroup::execView() creates a
+    /// window commands alone. Matches Borland: `TGroup::execView()` creates a
     /// modal scope.
     fn top_is_modal(&self) -> bool {
         self.children.len() > 1
@@ -572,9 +567,9 @@ impl Desktop {
                 .contains(State::MODAL)
     }
 
-    /// Remove closed windows (those with State::CLOSED flag)
-    /// In Borland, views call CLY_destroy() which removes them from the owner
-    /// In Rust, views set State::CLOSED flag and the parent removes them
+    /// Remove closed windows (those with `State::CLOSED` flag)
+    /// In Borland, views call `CLY_destroy()` which removes them from the owner
+    /// In Rust, views set `State::CLOSED` flag and the parent removes them
     /// This is called after event handling in the main loop
     /// Returns true if any windows were removed
     /// Returns the ids of the windows removed, so the caller can tell which
@@ -811,7 +806,7 @@ mod tests {
     use crate::views::window::Window;
 
     /// The background must follow the desktop's bottom-right corner on a
-    /// resize (Borland: TBackground's gfGrowHiX | gfGrowHiY). Before the
+    /// resize (Borland: `TBackground`'s gfGrowHiX | gfGrowHiY). Before the
     /// grow mode was set, `Group::set_bounds` only translated the
     /// background, so a widened terminal left its new columns unpainted -
     /// a black band down the right edge of the desktop.

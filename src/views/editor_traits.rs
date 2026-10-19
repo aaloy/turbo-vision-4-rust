@@ -1,12 +1,12 @@
 // (C) 2026 - Enzo Lombardi
 
-//! Window-level editor contracts that mirror Borland's TEditor / TFileEditor
+//! Window-level editor contracts that mirror Borland's `TEditor` / `TFileEditor`
 //! hierarchy.
 //!
 //! `View::valid(cmd)` already covers no-app close validation, but a save-on-close
 //! prompt needs `&mut Application` to display a modal dialog. These traits add
 //! `valid_close(app, cmd)` for that purpose; the IDE event loop calls it when an
-//! editor's frame requests a close (CM_CLOSE).
+//! editor's frame requests a close (`CM_CLOSE`).
 //!
 //! Hierarchy:
 //! - [`Editor`] — basic editor window. Default `valid_close` always allows close.
@@ -136,8 +136,7 @@ pub trait FileEditor: Editor {
             .as_deref()
             .and_then(|p| p.file_name())
             .and_then(|n| n.to_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "Untitled".to_string())
+            .map_or_else(|| "Untitled".to_string(), std::string::ToString::to_string)
     }
 
     /// Show a Save As dialog and persist the buffer to the chosen path.

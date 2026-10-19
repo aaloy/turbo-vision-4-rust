@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! CheckBox view - boolean selection control with checkable items.
+//! `CheckBox` view - boolean selection control with checkable items.
 // CheckBox - Boolean selection control
 //
 // Matches Borland: TCheckBoxes (extends TCluster)
@@ -27,10 +27,10 @@ use crate::core::geometry::Rect;
 use crate::core::state::State;
 use crate::terminal::Terminal;
 
-/// CheckBox - A boolean selection control with a label
+/// `CheckBox` - A boolean selection control with a label
 ///
 /// Now implements Cluster trait for standard button group behavior.
-/// Matches Borland: TCheckBoxes (extends TCluster)
+/// Matches Borland: `TCheckBoxes` (extends `TCluster`)
 #[derive(Debug)]
 pub struct CheckBox {
     core: ViewCore,
@@ -65,7 +65,7 @@ impl CheckBox {
 
     /// Set the checked state
     pub fn set_checked(&mut self, checked: bool) {
-        self.cluster_state.set_value(if checked { 1 } else { 0 });
+        self.cluster_state.set_value(u32::from(checked));
     }
 
     /// Get the checked state
@@ -172,7 +172,7 @@ pub struct CheckBoxBuilder {
 }
 
 impl CheckBoxBuilder {
-    /// Creates a new CheckBoxBuilder with default values.
+    /// Creates a new `CheckBoxBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -202,7 +202,7 @@ impl CheckBoxBuilder {
         self
     }
 
-    /// Builds the CheckBox.
+    /// Builds the `CheckBox`.
     ///
     /// # Panics
     ///
@@ -218,7 +218,7 @@ impl CheckBoxBuilder {
         checkbox
     }
 
-    /// Builds the CheckBox as a Box.
+    /// Builds the `CheckBox` as a Box.
     pub fn build_boxed(self) -> Box<CheckBox> {
         Box::new(self.build())
     }

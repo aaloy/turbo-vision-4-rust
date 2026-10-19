@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! TextViewer view - scrollable text display for viewing large text content.
+//! `TextViewer` view - scrollable text display for viewing large text content.
 
 use super::indicator::Indicator;
 use super::scrollbar::ScrollBar;
@@ -13,7 +13,7 @@ use crate::core::geometry::{Point, Rect};
 use crate::terminal::Terminal;
 use std::cmp::min;
 
-/// TextViewer displays text content with scrolling support.
+/// `TextViewer` displays text content with scrolling support.
 /// Useful for viewing files, logs, or any multi-line text.
 pub struct TextViewer {
     core: ViewCore,
@@ -44,7 +44,7 @@ impl TextViewer {
         }
     }
 
-    /// Create a TextViewer with scrollbars
+    /// Create a `TextViewer` with scrollbars
     pub fn with_scrollbars(mut self, add_scrollbars: bool) -> Self {
         if add_scrollbars {
             // Vertical scrollbar on the right edge
@@ -68,7 +68,7 @@ impl TextViewer {
         self
     }
 
-    /// Create a TextViewer with indicator
+    /// Create a `TextViewer` with indicator
     pub fn with_indicator(mut self, add_indicator: bool) -> Self {
         if add_indicator {
             let indicator_bounds = Rect::new(0, 0, self.extent().b.x, 1);
@@ -83,7 +83,7 @@ impl TextViewer {
 
     /// Set the text content
     pub fn set_text(&mut self, text: &str) {
-        self.lines = text.lines().map(|s| s.to_string()).collect();
+        self.lines = text.lines().map(std::string::ToString::to_string).collect();
         if self.lines.is_empty() {
             self.lines.push(String::new());
         }
@@ -136,20 +136,20 @@ impl TextViewer {
 
         if let Some(ref mut h_bar) = self.h_scrollbar {
             h_bar.set_params(
-                self.delta.x as i32,
+                i32::from(self.delta.x),
                 0,
-                max_x.saturating_sub(content_area.width()) as i32,
-                content_area.width() as i32,
+                i32::from(max_x.saturating_sub(content_area.width())),
+                i32::from(content_area.width()),
                 1,
             );
         }
 
         if let Some(ref mut v_bar) = self.v_scrollbar {
             v_bar.set_params(
-                self.delta.y as i32,
+                i32::from(self.delta.y),
                 0,
-                max_y.saturating_sub(content_area.height()) as i32,
-                content_area.height() as i32,
+                i32::from(max_y.saturating_sub(content_area.height())),
+                i32::from(content_area.height()),
                 1,
             );
         }
@@ -197,9 +197,9 @@ impl View for TextViewer {
         if let Some(ref mut v_bar) = self.v_scrollbar {
             let v_bounds = Rect::new(
                 bounds.b.x - 1,
-                bounds.a.y + if self.indicator.is_some() { 1 } else { 0 },
+                bounds.a.y + i16::from(self.indicator.is_some()),
                 bounds.b.x,
-                bounds.b.y - if self.h_scrollbar.is_some() { 1 } else { 0 },
+                bounds.b.y - i16::from(self.h_scrollbar.is_some()),
             );
             v_bar.set_bounds(v_bounds);
         }
@@ -208,7 +208,7 @@ impl View for TextViewer {
             let h_bounds = Rect::new(
                 bounds.a.x,
                 bounds.b.y - 1,
-                bounds.b.x - if self.v_scrollbar.is_some() { 1 } else { 0 },
+                bounds.b.x - i16::from(self.v_scrollbar.is_some()),
                 bounds.b.y,
             );
             h_bar.set_bounds(h_bounds);

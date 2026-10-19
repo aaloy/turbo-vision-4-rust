@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! FileList view - specialized list viewer for displaying and selecting files.
+//! `FileList` view - specialized list viewer for displaying and selecting files.
 // FileList - Specialized list viewer for files
 //
 // Matches Borland: TFileList (views/tfillist.cc)
@@ -79,9 +79,9 @@ impl FileEntry {
     }
 }
 
-/// FileList - Displays files and directories
+/// `FileList` - Displays files and directories
 ///
-/// Matches Borland: TFileList
+/// Matches Borland: `TFileList`
 pub struct FileList {
     core: ViewCore,
     list_state: ListViewerState,
@@ -152,7 +152,7 @@ impl FileList {
         // Read directory entries
         if let Ok(entries) = fs::read_dir(&self.current_path) {
             let mut file_entries: Vec<FileEntry> = entries
-                .filter_map(|e| e.ok())
+                .filter_map(std::result::Result::ok)
                 .filter_map(|e| FileEntry::from_dir_entry(&e).ok())
                 .filter(|entry| {
                     // Filter hidden files
@@ -221,11 +221,7 @@ impl FileList {
     /// Navigate into the focused directory
     pub fn enter_focused_dir(&mut self) -> std::io::Result<bool> {
         let path = if let Some(entry) = self.get_focused_entry() {
-            if entry.is_dir {
-                Some(entry.path.clone())
-            } else {
-                None
-            }
+            entry.is_dir.then(|| entry.path.clone())
         } else {
             None
         };
@@ -256,7 +252,7 @@ impl ListViewer for FileList {
     fn get_text(&self, item: usize, _max_len: usize) -> String {
         self.files
             .get(item)
-            .map(|f| f.display_name())
+            .map(FileEntry::display_name)
             .unwrap_or_default()
     }
 }
@@ -292,7 +288,7 @@ impl View for FileList {
                 (String::new(), crate::core::palette::colors::LISTBOX_NORMAL)
             };
 
-            let padded = format!("{:width$}", text, width = width);
+            let padded = format!("{text:width$}");
 
             for (x, ch) in padded.chars().take(width).enumerate() {
                 terminal.write_cell(x as i16, y as i16, crate::core::draw::Cell::new(ch, color));
@@ -333,6 +329,49 @@ impl View for FileList {
     }
 }
 
+/// Builder for creating file lists with a fluent API.
+pub struct FileListBuilder {
+    bounds: Option<Rect>,
+    path: Option<PathBuf>,
+}
+
+impl FileListBuilder {
+    pub fn new() -> Self {
+        Self {
+            bounds: None,
+            path: None,
+        }
+    }
+
+    #[must_use]
+    pub fn bounds(mut self, bounds: Rect) -> Self {
+        self.bounds = Some(bounds);
+        self
+    }
+
+    #[must_use]
+    pub fn path(mut self, path: impl Into<PathBuf>) -> Self {
+        self.path = Some(path.into());
+        self
+    }
+
+    pub fn build(self) -> FileList {
+        let bounds = self.bounds.expect("FileList bounds must be set");
+        let path = self.path.expect("FileList path must be set");
+        FileList::new(bounds, &path)
+    }
+
+    pub fn build_boxed(self) -> Box<FileList> {
+        Box::new(self.build())
+    }
+}
+
+impl Default for FileListBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -361,7 +400,11 @@ mod tests {
         // All non-directory entries should be .rs files
         for entry in &list.files {
             if !entry.is_dir {
-                assert!(entry.name.ends_with(".rs"), "Should only show .rs files");
+                assert!(
+                    std::path::Path::new(&entry.name).extension()
+                        == Some(std::ffi::OsStr::new("rs")),
+                    "Should only show .rs files"
+                );
             }
         }
     }
@@ -415,48 +458,5 @@ mod tests {
             modified: None,
         };
         assert_eq!(dir.size_string(), "<DIR>");
-    }
-}
-
-/// Builder for creating file lists with a fluent API.
-pub struct FileListBuilder {
-    bounds: Option<Rect>,
-    path: Option<PathBuf>,
-}
-
-impl FileListBuilder {
-    pub fn new() -> Self {
-        Self {
-            bounds: None,
-            path: None,
-        }
-    }
-
-    #[must_use]
-    pub fn bounds(mut self, bounds: Rect) -> Self {
-        self.bounds = Some(bounds);
-        self
-    }
-
-    #[must_use]
-    pub fn path(mut self, path: impl Into<PathBuf>) -> Self {
-        self.path = Some(path.into());
-        self
-    }
-
-    pub fn build(self) -> FileList {
-        let bounds = self.bounds.expect("FileList bounds must be set");
-        let path = self.path.expect("FileList path must be set");
-        FileList::new(bounds, &path)
-    }
-
-    pub fn build_boxed(self) -> Box<FileList> {
-        Box::new(self.build())
-    }
-}
-
-impl Default for FileListBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }

@@ -2,7 +2,7 @@
 
 //! Outline view - generic hierarchical tree control for displaying expandable/collapsible data.
 //!
-//! Matches Borland: TOutline, TOutlineViewer, TNode (from Turbo Vision Professional)
+//! Matches Borland: `TOutline`, `TOutlineViewer`, `TNode` (from Turbo Vision Professional)
 //!
 //! Provides a hierarchical tree view with:
 //! - Expand/collapse nodes
@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 /// A node in the tree
-/// Matches Borland: TNode
+/// Matches Borland: `TNode`
 pub struct Node<T> {
     /// Node data (user-provided)
     pub data: T,
@@ -121,8 +121,8 @@ impl DisplayNode {
     }
 }
 
-/// OutlineViewer - displays a hierarchical tree of nodes
-/// Matches Borland: TOutlineViewer
+/// `OutlineViewer` - displays a hierarchical tree of nodes
+/// Matches Borland: `TOutlineViewer`
 pub struct OutlineViewer<T> {
     core: ViewCore,
     /// Root nodes
@@ -139,7 +139,7 @@ pub struct OutlineViewer<T> {
 
 impl<T: 'static> OutlineViewer<T> {
     /// Create a new outline viewer
-    /// format_fn converts node data to display string
+    /// `format_fn` converts node data to display string
     pub fn new<F>(bounds: Rect, format_fn: F) -> Self
     where
         F: Fn(&T) -> String + 'static,
@@ -180,7 +180,7 @@ impl<T: 'static> OutlineViewer<T> {
         let roots = self.roots.clone();
         for (i, root) in roots.iter().enumerate() {
             let is_last_root = i == roots.len() - 1;
-            self.flatten_node(root.clone(), 0, is_last_root, &mut Vec::new());
+            self.flatten_node(root, 0, is_last_root, &mut Vec::new());
         }
 
         // Update list state with new count
@@ -190,13 +190,13 @@ impl<T: 'static> OutlineViewer<T> {
     /// Recursively flatten a node and its visible children
     fn flatten_node(
         &mut self,
-        node: Rc<RefCell<Node<T>>>,
+        node: &Rc<RefCell<Node<T>>>,
         level: usize,
         is_last: bool,
         parent_continues: &mut Vec<bool>,
     ) {
         let node_index = self.all_nodes.len();
-        self.all_nodes.push(node.clone());
+        self.all_nodes.push(Rc::clone(node));
 
         let node_borrow = node.borrow();
         let text = (self.format_fn)(&node_borrow.data);
@@ -223,7 +223,7 @@ impl<T: 'static> OutlineViewer<T> {
 
             for (i, child) in node.borrow().children.iter().enumerate() {
                 let child_is_last = i == children_len - 1;
-                self.flatten_node(child.clone(), level + 1, child_is_last, parent_continues);
+                self.flatten_node(child, level + 1, child_is_last, parent_continues);
             }
 
             parent_continues.pop();
@@ -236,7 +236,7 @@ impl<T: 'static> OutlineViewer<T> {
             if focused < self.display_nodes.len() {
                 let node_index = self.display_nodes[focused].node_index;
                 if node_index < self.all_nodes.len() {
-                    return Some(self.all_nodes[node_index].clone());
+                    return Some(Rc::clone(&self.all_nodes[node_index]));
                 }
             }
         }

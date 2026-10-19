@@ -200,7 +200,7 @@ fn draw_selection_info(terminal: &mut Terminal, listbox: &SortedListBox) {
     const SELECTION_Y: i16 = 20;
 
     if let Some(selected) = listbox.get_selected_item() {
-        let info = format!("Selected: {}", selected);
+        let info = format!("Selected: {selected}");
         let mut buf = DrawBuffer::new(LISTBOX_WIDTH);
         let chars: Vec<char> = info.chars().collect();
 

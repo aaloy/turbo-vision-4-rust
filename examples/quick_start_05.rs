@@ -34,7 +34,7 @@ fn setup_status_line(app: &Application) -> StatusLine {
     let (w, h) = app.terminal.size();
 
     StatusLine::new(
-        Rect::new(0, h as i16 - 1, w as i16, h as i16),
+        Rect::new(0, h - 1, w, h),
         vec![
             StatusItemBuilder::new()
                 .text("~Alt-X~ Exit")
@@ -72,7 +72,7 @@ fn setup_menu_bar(app: &Application) -> MenuBar {
     let help_menu = SubMenu::new("~H~elp", Menu::from_items(help_menu_items));
 
     let (w, _) = app.terminal.size();
-    let mut menu_bar = MenuBar::new(Rect::new(0, 0, w as i16, 1));
+    let mut menu_bar = MenuBar::new(Rect::new(0, 0, w, 1));
     menu_bar.add_submenu(file_menu);
     menu_bar.add_submenu(help_menu);
     menu_bar

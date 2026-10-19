@@ -102,7 +102,7 @@ impl PascalHighlighter {
 }
 
 impl SyntaxHighlighter for PascalHighlighter {
-    fn language(&self) -> &str {
+    fn language(&self) -> &'static str {
         "pascal"
     }
 
@@ -317,7 +317,7 @@ impl SyntaxHighlighter for PascalHighlighter {
 // ── Sample Program ───────────────────────────────────────
 // From bruto-pascal-lang (https://github.com/aovestdipaperino/bruto-pascal-lang)
 
-const SAMPLE_PROGRAM: &str = r#"program Demo;
+const SAMPLE_PROGRAM: &str = r"program Demo;
 const
   Size = 5;
 
@@ -399,11 +399,11 @@ begin
   else
     writeln('Something is wrong!')
 end.
-"#;
+";
 
 // ── Help Content ────────────────────────────────────────
 
-const HELP_CONTENT: &str = r#"# Bruto Pascal IDE {#welcome}
+const HELP_CONTENT: &str = r"# Bruto Pascal IDE {#welcome}
 
 Welcome to the **Bruto Pascal IDE**, a Mini-Pascal
 development environment built with Turbo Vision for Rust.
@@ -467,15 +467,15 @@ The sample program demonstrates arrays, records,
 pointer allocation, and formatted output.
 
   [Back to Welcome](#welcome)
-"#;
+";
 
 // ── Main ─────────────────────────────────────────────────
 
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;
     let (width, height) = app.terminal.size();
-    let w = width as i16;
-    let h = height as i16;
+    let w = width;
+    let h = height;
 
     // Help system
     let help = HelpFile::from_content(HELP_CONTENT);

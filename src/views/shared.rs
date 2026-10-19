@@ -123,7 +123,7 @@ impl<T: View + 'static> View for Shared<T> {
     }
 
     fn set_palette_chain(&mut self, node: Option<PaletteChainNode>) {
-        self.core.palette_chain = node.clone();
+        self.core.palette_chain.clone_from(&node);
         self.inner.borrow_mut().set_palette_chain(node);
     }
 

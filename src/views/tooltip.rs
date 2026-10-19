@@ -242,12 +242,10 @@ impl View for Tooltip {
             }
             // Any real interaction takes the hint down.
             EventType::MouseDown | EventType::Keyboard => self.hide(),
-            EventType::Broadcast => {
-                if event.command == crate::core::command::CM_IDLE_TICK {
-                    self.tick();
-                    // Left alone on purpose: a broadcast stops travelling once
-                    // it is consumed, and other views want this tick too.
-                }
+            EventType::Broadcast if event.command == crate::core::command::CM_IDLE_TICK => {
+                self.tick();
+                // Left alone on purpose: a broadcast stops travelling once
+                // it is consumed, and other views want this tick too.
             }
             _ => {}
         }

@@ -82,10 +82,7 @@ fn attr_to_sgr(attr: Attr) -> String {
     use crate::core::palette::Style;
     let (fg_r, fg_g, fg_b) = attr.fg.to_rgb();
     let (bg_r, bg_g, bg_b) = attr.bg.to_rgb();
-    let mut s = format!(
-        "\x1b[0;38;2;{};{};{};48;2;{};{};{}",
-        fg_r, fg_g, fg_b, bg_r, bg_g, bg_b
-    );
+    let mut s = format!("\x1b[0;38;2;{fg_r};{fg_g};{fg_b};48;2;{bg_r};{bg_g};{bg_b}");
     if attr.style.contains(Style::BOLD) {
         s.push_str(";1");
     }
@@ -320,9 +317,7 @@ impl Terminal {
         // Force full screen redraw by clearing prev_buffer
         let empty_cell = Cell::new(' ', Attr::from_u8(0x07));
         for row in &mut self.prev_buffer {
-            for cell in row {
-                *cell = empty_cell;
-            }
+            row.fill(empty_cell);
         }
 
         Ok(())
@@ -373,8 +368,8 @@ impl Terminal {
 
         if let Ok(ws) = window_size() {
             if ws.width > 0 && ws.height > 0 && ws.columns > 0 && ws.rows > 0 {
-                let cell_width = ws.width as f32 / ws.columns as f32;
-                let cell_height = ws.height as f32 / ws.rows as f32;
+                let cell_width = f32::from(ws.width) / f32::from(ws.columns);
+                let cell_height = f32::from(ws.height) / f32::from(ws.rows);
 
                 if cell_width > 0.0 {
                     let ratio = (cell_height / cell_width).round() as i16;
@@ -437,7 +432,7 @@ impl Terminal {
         let _ = timeout_ms;
     }
 
-    /// Get a mutable reference to the backend as CrosstermBackend, if applicable.
+    /// Get a mutable reference to the backend as `CrosstermBackend`, if applicable.
     #[cfg(feature = "native")]
     fn backend_as_crossterm_mut(&mut self) -> Option<&mut CrosstermBackend> {
         self.backend.as_any_mut().downcast_mut::<CrosstermBackend>()
@@ -445,7 +440,7 @@ impl Terminal {
 
     /// Force a full screen redraw on the next flush.
     ///
-    /// This clears the internal prev_buffer, forcing all cells to be resent
+    /// This clears the internal `prev_buffer`, forcing all cells to be resent
     /// to the terminal on the next [`flush()`](Self::flush) call.
     pub fn force_full_redraw(&mut self) {
         for row in &mut self.prev_buffer {
@@ -566,9 +561,7 @@ impl Terminal {
     pub fn clear(&mut self) {
         let empty_cell = Cell::new(' ', Attr::from_u8(0x07));
         for row in &mut self.buffer {
-            for cell in row {
-                *cell = empty_cell;
-            }
+            row.fill(empty_cell);
         }
     }
 
@@ -794,7 +787,11 @@ impl Terminal {
     /// the remote-input listener; failures are logged and otherwise ignored,
     /// since a capture is never essential to the running application.
     fn capture_injected(&mut self, png: bool) {
-        let kind = if png { CaptureKind::Png } else { CaptureKind::Ansi };
+        let kind = if png {
+            CaptureKind::Png
+        } else {
+            CaptureKind::Ansi
+        };
         if self.run_capture_hook(kind) {
             return;
         }
@@ -937,9 +934,7 @@ impl Terminal {
         for row in &mut self.buffer {
             for cell in row {
                 // Swap foreground and background colors
-                let temp_fg = cell.attr.fg;
-                cell.attr.fg = cell.attr.bg;
-                cell.attr.bg = temp_fg;
+                std::mem::swap(&mut cell.attr.fg, &mut cell.attr.bg);
             }
         }
 
@@ -1040,7 +1035,7 @@ mod tests {
     }
 
     /// The first flush must paint the screen even where a view drew spaces
-    /// in the attribute the empty cell happens to use (LightGray on Black,
+    /// in the attribute the empty cell happens to use (`LightGray` on Black,
     /// `0x07`). Before the diff buffer was seeded with a cell that matches
     /// nothing, those cells compared equal and were dropped, leaving the
     /// host terminal's own background showing through.
@@ -1099,7 +1094,7 @@ mod tests {
         // previous run's style does not bleed into it.
         let p = attr_to_sgr(plain);
         assert!(p.starts_with("\x1b[0;38;2;"));
-        assert!(p.ends_with("m"));
+        assert!(p.ends_with('m'));
         assert!(!p.ends_with(";1m"), "no bold code for plain attr: {p:?}");
     }
 
@@ -1265,7 +1260,7 @@ mod tests {
         let seen = Arc::new(Mutex::new(Vec::new()));
         let log = Arc::clone(&seen);
         t.set_capture_hook(Box::new(move |kind, term| {
-            log.lock().unwrap().push((kind, term.size()))
+            log.lock().unwrap().push((kind, term.size()));
         }));
         let tx = t.event_injector();
         tx.send(Event::keyboard(KB_CTRL_F12)).unwrap();

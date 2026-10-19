@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! ProgressBar view - determinate and indeterminate progress indicator.
+//! `ProgressBar` view - determinate and indeterminate progress indicator.
 //!
 //! Not part of the Borland Turbo Vision widget set; added because any
 //! application that copies, compiles or downloads needs one.
@@ -176,7 +176,7 @@ impl ProgressBar {
     /// Completion as a whole percentage in `0..=100`, truncated.
     pub fn percent(&self) -> u32 {
         // Compute in integers so 99.9% never rounds up to a misleading 100%.
-        ((self.value as u128 * 100) / self.max as u128) as u32
+        ((u128::from(self.value) * 100) / u128::from(self.max)) as u32
     }
 
     /// Current mode.
@@ -287,8 +287,8 @@ impl ProgressBar {
         if width == 0 {
             return (0, 0);
         }
-        let eighths_total = width as u128 * 8;
-        let filled_eighths = (self.value as u128 * eighths_total) / self.max as u128;
+        let eighths_total = u128::from(width) * 8;
+        let filled_eighths = (u128::from(self.value) * eighths_total) / u128::from(self.max);
         let whole = (filled_eighths / 8) as u16;
         let rem = (filled_eighths % 8) as u32;
         (whole.min(width), rem)

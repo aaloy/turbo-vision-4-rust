@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! MenuBox view - popup menu container for dropdown menus.
+//! `MenuBox` view - popup menu container for dropdown menus.
 // MenuBox - Popup menu container
 //
 // Matches Borland: TMenuBox (menubox.h, tmenubox.cc)
@@ -28,10 +28,10 @@ const MENU_SELECTED: u8 = 2; // Selected item text
 const MENU_DISABLED: u8 = 3; // Disabled item text
 const MENU_SHORTCUT: u8 = 4; // Shortcut/accelerator text
 
-/// MenuBox - Popup menu container
+/// `MenuBox` - Popup menu container
 ///
 /// Displays a vertical menu with borders, shadows, and selection highlighting.
-/// Matches Borland: TMenuBox
+/// Matches Borland: `TMenuBox`
 pub struct MenuBox {
     core: ViewCore,
     menu_state: MenuViewerState,
@@ -62,7 +62,7 @@ impl MenuBox {
 
     /// Calculate bounds for menu based on content
     ///
-    /// Matches Borland: getRect() in tmenubox.cc
+    /// Matches Borland: `getRect()` in tmenubox.cc
     fn calculate_bounds(position: Point, menu: &Menu) -> Rect {
         let mut width = 10; // Minimum width
         let mut height = 2; // Top and bottom borders
@@ -72,7 +72,7 @@ impl MenuBox {
             let item_width = match item {
                 MenuItem::Regular { text, shortcut, .. } => {
                     let text_len = text.replace('~', "").len();
-                    let shortcut_len = shortcut.as_ref().map(|s| s.len() + 2).unwrap_or(0);
+                    let shortcut_len = shortcut.as_ref().map_or(0, |s| s.len() + 2);
                     text_len + shortcut_len + 6 // Padding
                 }
                 MenuItem::SubMenu { text, .. } => {
@@ -97,12 +97,12 @@ impl MenuBox {
     pub fn get_selected_command(&self) -> Option<CommandId> {
         self.menu_state
             .get_current_item()
-            .and_then(|item| item.command())
+            .and_then(super::super::core::menu_data::MenuItem::command)
     }
 
     /// Execute the menu modally
     ///
-    /// Matches Borland: TMenuView::execute()
+    /// Matches Borland: `TMenuView::execute()`
     /// Returns the selected command, or 0 if cancelled. The cursor is hidden
     /// while the menu is up and put back when it closes.
     pub fn execute(&mut self, terminal: &mut Terminal) -> CommandId {
@@ -161,9 +161,8 @@ impl View for MenuBox {
             return; // Too small to draw
         }
 
-        let menu = match self.menu_state.get_menu() {
-            Some(m) => m,
-            None => return,
+        let Some(menu) = self.menu_state.get_menu() else {
+            return;
         };
 
         let normal_attr = self.map_color(MENU_NORMAL);
@@ -230,7 +229,7 @@ impl View for MenuBox {
                     }
 
                     // Flag items get a check mark in the left padding column
-                    if checked.map(|f| f()).unwrap_or(false) {
+                    if checked.is_some_and(|f| f()) {
                         buf.put_char(1, '√', color);
                     }
 
@@ -411,19 +410,17 @@ impl View for MenuBox {
                 // Only execute if there was a corresponding MouseDown in this menu
                 if self.mouse_down_in_menu {
                     // Execute the currently selected item on mouse up
-                    if let Some(item) = self.menu_state.get_current_item() {
-                        if let MenuItem::Regular {
-                            command,
-                            enabled: true,
-                            ..
-                        } = item
-                        {
-                            // Also require the command to be enabled in the
-                            // global command set (matches menu_bar.rs).
-                            if command_set::command_enabled(*command) {
-                                *event = Event::command(*command);
-                                return;
-                            }
+                    if let Some(MenuItem::Regular {
+                        command,
+                        enabled: true,
+                        ..
+                    }) = self.menu_state.get_current_item()
+                    {
+                        // Also require the command to be enabled in the
+                        // global command set (matches menu_bar.rs).
+                        if command_set::command_enabled(*command) {
+                            *event = Event::command(*command);
+                            return;
                         }
                     }
                 }

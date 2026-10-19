@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! RadioButton view - mutually exclusive selection control (one choice from many).
+//! `RadioButton` view - mutually exclusive selection control (one choice from many).
 // RadioButton - Mutually exclusive selection control
 //
 // Matches Borland: TRadioButtons (extends TCluster)
@@ -29,10 +29,10 @@ use crate::core::geometry::Rect;
 use crate::core::state::State;
 use crate::terminal::Terminal;
 
-/// RadioButton - A mutually exclusive selection control with a label
+/// `RadioButton` - A mutually exclusive selection control with a label
 ///
 /// Now implements Cluster trait for standard button group behavior.
-/// Matches Borland: TRadioButtons (extends TCluster)
+/// Matches Borland: `TRadioButtons` (extends `TCluster`)
 #[derive(Debug)]
 pub struct RadioButton {
     core: ViewCore,
@@ -43,7 +43,7 @@ pub struct RadioButton {
 impl RadioButton {
     /// Create a new radio button with the given bounds, label, and group ID
     ///
-    /// Radio buttons with the same group_id are mutually exclusive.
+    /// Radio buttons with the same `group_id` are mutually exclusive.
     pub fn new(bounds: Rect, label: &str, group_id: u16) -> Self {
         RadioButton {
             core: ViewCore {
@@ -59,7 +59,7 @@ impl RadioButton {
 
     /// Set the selected state
     pub fn set_selected(&mut self, selected: bool) {
-        self.cluster_state.set_value(if selected { 1 } else { 0 });
+        self.cluster_state.set_value(u32::from(selected));
     }
 
     /// Get the selected state
@@ -192,7 +192,7 @@ pub struct RadioButtonBuilder {
 }
 
 impl RadioButtonBuilder {
-    /// Creates a new RadioButtonBuilder with default values.
+    /// Creates a new `RadioButtonBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -230,7 +230,7 @@ impl RadioButtonBuilder {
         self
     }
 
-    /// Builds the RadioButton.
+    /// Builds the `RadioButton`.
     ///
     /// # Panics
     ///
@@ -246,7 +246,7 @@ impl RadioButtonBuilder {
         radio
     }
 
-    /// Builds the RadioButton as a Box.
+    /// Builds the `RadioButton` as a Box.
     pub fn build_boxed(self) -> Box<RadioButton> {
         Box::new(self.build())
     }

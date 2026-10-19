@@ -202,12 +202,12 @@
 //! This implementation maintains conceptual compatibility with Borland Turbo Vision
 //! while modernizing the design for Rust's ownership model:
 //!
-//! - **TView** → [`View`](views::View) trait
-//! - **TWindow** → [`Window`](views::window::Window)
-//! - **TDialog** → [`Dialog`](views::dialog::Dialog)
-//! - **TButton** → [`Button`](views::button::Button)
-//! - **TInputLine** → [`InputLine`](views::input_line::InputLine)
-//! - **TProgram** → [`Application`](app::Application)
+//! - **`TView`** → [`View`](views::View) trait
+//! - **`TWindow`** → [`Window`](views::window::Window)
+//! - **`TDialog`** → [`Dialog`](views::dialog::Dialog)
+//! - **`TButton`** → [`Button`](views::button::Button)
+//! - **`TInputLine`** → [`InputLine`](views::input_line::InputLine)
+//! - **`TProgram`** → [`Application`](app::Application)
 //!
 //! Event handling uses Rust's ownership system instead of raw pointers, with
 //! events bubbling up through the call stack rather than using owner pointers.

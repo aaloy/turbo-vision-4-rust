@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! ParamText view - parametrized text display with dynamic string substitution.
+//! `ParamText` view - parametrized text display with dynamic string substitution.
 
 use super::view::{View, ViewCore, write_line_to_terminal};
 use crate::core::draw::DrawBuffer;
@@ -9,7 +9,7 @@ use crate::core::geometry::Rect;
 use crate::core::palette::PARAM_TEXT_NORMAL;
 use crate::terminal::Terminal;
 
-/// ParamText - Static text with parameter substitution
+/// `ParamText` - Static text with parameter substitution
 /// Displays text with placeholders like "File: %s" or "Total: %d items"
 pub struct ParamText {
     core: ViewCore,
@@ -156,6 +156,49 @@ impl View for ParamText {
     }
 }
 
+/// Builder for creating param texts with a fluent API.
+pub struct ParamTextBuilder {
+    bounds: Option<Rect>,
+    template: Option<String>,
+}
+
+impl ParamTextBuilder {
+    pub fn new() -> Self {
+        Self {
+            bounds: None,
+            template: None,
+        }
+    }
+
+    #[must_use]
+    pub fn bounds(mut self, bounds: Rect) -> Self {
+        self.bounds = Some(bounds);
+        self
+    }
+
+    #[must_use]
+    pub fn template(mut self, template: impl Into<String>) -> Self {
+        self.template = Some(template.into());
+        self
+    }
+
+    pub fn build(self) -> ParamText {
+        let bounds = self.bounds.expect("ParamText bounds must be set");
+        let template = self.template.expect("ParamText template must be set");
+        ParamText::new(bounds, &template)
+    }
+
+    pub fn build_boxed(self) -> Box<ParamText> {
+        Box::new(self.build())
+    }
+}
+
+impl Default for ParamTextBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -224,48 +267,5 @@ mod tests {
             param_text.get_text(),
             "User: admin, Files: 150, Size: 2048 MB (95%)"
         );
-    }
-}
-
-/// Builder for creating param texts with a fluent API.
-pub struct ParamTextBuilder {
-    bounds: Option<Rect>,
-    template: Option<String>,
-}
-
-impl ParamTextBuilder {
-    pub fn new() -> Self {
-        Self {
-            bounds: None,
-            template: None,
-        }
-    }
-
-    #[must_use]
-    pub fn bounds(mut self, bounds: Rect) -> Self {
-        self.bounds = Some(bounds);
-        self
-    }
-
-    #[must_use]
-    pub fn template(mut self, template: impl Into<String>) -> Self {
-        self.template = Some(template.into());
-        self
-    }
-
-    pub fn build(self) -> ParamText {
-        let bounds = self.bounds.expect("ParamText bounds must be set");
-        let template = self.template.expect("ParamText template must be set");
-        ParamText::new(bounds, &template)
-    }
-
-    pub fn build_boxed(self) -> Box<ParamText> {
-        Box::new(self.build())
-    }
-}
-
-impl Default for ParamTextBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }

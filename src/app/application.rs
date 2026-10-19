@@ -31,21 +31,21 @@ pub struct Application {
     pub desktop: Desktop,
     pub running: bool,
     needs_redraw: bool, // Track if full redraw is needed
-    /// One-slot pending event queue (Borland: TProgram::putEvent/pending):
+    /// One-slot pending event queue (Borland: `TProgram::putEvent/pending)`:
     /// returned by the event loops before polling the terminal
     pending_event: Option<Event>,
     /// Overlay widgets that need idle processing and are drawn on top of everything
     /// These widgets continue to animate even during modal dialogs
-    /// Matches Borland: TProgram::idle() continues running during execView()
+    /// Matches Borland: `TProgram::idle()` continues running during `execView()`
     pub(crate) overlay_widgets: Vec<Box<dyn View>>,
     // Note: Command set is now stored in thread-local static (command_set module)
     // This matches Borland's architecture where TView::curCommandSet is static
     /// Help file for F1 context-sensitive help
-    /// Matches Borland: TProgram::helpFile (tprogram.cc)
+    /// Matches Borland: `TProgram::helpFile` (tprogram.cc)
     help_file: Option<Rc<RefCell<HelpFile>>>,
     /// Help context mappings (context ID to topic ID)
     help_context: HelpContext,
-    /// Current help context driving StatusDef switching (Borland: the
+    /// Current help context driving `StatusDef` switching (Borland: the
     /// focused view's helpCtx; set explicitly in this architecture)
     current_help_ctx: u16,
     /// True between a mouse press and its release. While it is set, `idle`
@@ -250,7 +250,7 @@ impl Application {
 
     /// Add an overlay widget that needs idle processing and is drawn on top of everything
     /// These widgets continue to animate even during modal dialogs
-    /// Matches Borland: TProgram::idle() continues running during execView()
+    /// Matches Borland: `TProgram::idle()` continues running during `execView()`
     ///
     /// # Examples
     /// ```rust,no_run
@@ -278,7 +278,7 @@ impl Application {
     }
 
     /// Update Desktop bounds to exclude menu bar and status line areas
-    /// Matches Borland: TProgram::initDeskTop() calculates bounds based on menuBar/statusLine
+    /// Matches Borland: `TProgram::initDeskTop()` calculates bounds based on menuBar/statusLine
     fn update_desktop_bounds(&mut self) {
         let (width, height) = self.terminal.size();
         let mut desktop_bounds = Rect::new(0, 0, width, height);
@@ -376,7 +376,7 @@ impl Application {
 
     /// Queue an event to be returned before the next terminal poll.
     ///
-    /// Matches Borland TProgram::putEvent: a single-slot pending event that
+    /// Matches Borland `TProgram::putEvent`: a single-slot pending event that
     /// the event loops consume first (used e.g. to re-enter a command from
     /// event handlers).
     pub fn put_event(&mut self, event: Event) {
@@ -411,13 +411,13 @@ impl Application {
     }
 
     /// Get an event (with drawing)
-    /// Matches Borland/Magiblot: TProgram::getEvent() (tprogram.cc:105-174)
-    /// This is called by modal views' execute() methods.
+    /// Matches Borland/Magiblot: `TProgram::getEvent()` (tprogram.cc:105-174)
+    /// This is called by modal views' `execute()` methods.
     ///
     /// Key behavior (matches magiblot):
     /// - Draws the screen first
     /// - Blocks waiting for events (default 20ms timeout)
-    /// - Only calls idle() when there are NO events after timeout
+    /// - Only calls `idle()` when there are NO events after timeout
     /// - This gives true event-driven behavior with minimal CPU usage
     pub fn get_event(&mut self) -> Option<Event> {
         // Draw everything (this is the key: drawing happens BEFORE getting events)
@@ -427,29 +427,26 @@ impl Application {
 
         // Poll for event with 20ms timeout (matches magiblot's eventTimeoutMs)
         // This blocks until an event arrives or timeout occurs
-        match self.poll_event_or_quit() {
-            Some(event) => {
-                // Event received - return it immediately without calling idle()
-                // Matches magiblot: idle() is NOT called when events are present
-                Some(event)
-            }
-            None => {
-                // Timeout occurred with no events - now we call idle()
-                // Matches magiblot: idle() only called when truly idle
-                // This is where animations update, command sets broadcast, etc.
-                self.idle();
-                None
-            }
+        if let Some(event) = self.poll_event_or_quit() {
+            // Event received - return it immediately without calling idle()
+            // Matches magiblot: idle() is NOT called when events are present
+            Some(event)
+        } else {
+            // Timeout occurred with no events - now we call idle()
+            // Matches magiblot: idle() only called when truly idle
+            // This is where animations update, command sets broadcast, etc.
+            self.idle();
+            None
         }
     }
 
     /// Execute a view (modal or modeless)
-    /// Matches Borland: TProgram::execView() (tprogram.cc:177-197)
+    /// Matches Borland: `TProgram::execView()` (tprogram.cc:177-197)
     ///
-    /// If the view has State::MODAL flag set, runs a modal event loop.
+    /// If the view has `State::MODAL` flag set, runs a modal event loop.
     /// Otherwise, adds the view to the desktop and returns immediately.
     ///
-    /// Returns the view's end_state (the command that closed the modal view)
+    /// Returns the view's `end_state` (the command that closed the modal view)
     pub fn exec_view<V: View + 'static>(&mut self, view: V) -> CommandId {
         let view: Box<dyn View> = Box::new(view);
 
@@ -514,15 +511,14 @@ impl Application {
                     .desktop
                     .child_by_id(view_id)
                     .and_then(|child| child.as_group())
-                    .map_or(0, |group| group.end_state());
+                    .map_or(0, super::super::views::group::GroupLike::end_state);
                 if end_state != 0 {
                     // A failing validator vetoes the close (Borland:
                     // do { ... } while( !valid(endState) ))
                     let close_ok = self
                         .desktop
                         .child_by_id_mut(view_id)
-                        .map(|child| child.valid(end_state))
-                        .unwrap_or(true);
+                        .is_none_or(|child| child.valid(end_state));
                     if close_ok {
                         self.desktop.remove_child_by_id(view_id);
                         return end_state;
@@ -559,7 +555,7 @@ impl Application {
     ///
     /// While the loop runs, `view` is the selected window, so its window
     /// commands are enabled; the command set from before is put back
-    /// afterwards (Borland: TGroup::execView saves and restores it).
+    /// afterwards (Borland: `TGroup::execView` saves and restores it).
     pub fn execute_modal<V, F>(&mut self, view: &mut V, tick: F) -> CommandId
     where
         V: WindowLike + ?Sized,
@@ -755,37 +751,34 @@ impl Application {
     /// [`step`](Self::step), which calls it first.
     fn iterate<H: AppHandler>(&mut self, handler: &mut H, event: Option<Event>) {
         // The event the caller polled; `None` means the poll timed out
-        match event {
-            Some(mut event) => {
-                // Event received - handle it immediately without calling idle()
-                // Matches magiblot: idle() is NOT called when events are present
-                handler.pre_event(self, &mut event);
-                self.handle_event(&mut event);
-                if event.what == EventType::Command
-                    && handler.handle_command(self, event.command, &event)
-                {
-                    event.clear();
-                }
-
-                // Event occurred: do full redraw for content changes
-                // This could be optimized further by tracking which views changed
-                self.draw();
-                let _ = self.terminal.flush();
+        if let Some(mut event) = event {
+            // Event received - handle it immediately without calling idle()
+            // Matches magiblot: idle() is NOT called when events are present
+            handler.pre_event(self, &mut event);
+            self.handle_event(&mut event);
+            if event.what == EventType::Command
+                && handler.handle_command(self, event.command, &event)
+            {
+                event.clear();
             }
-            None => {
-                // Timeout with no events - call idle() to update animations, etc.
-                // Matches magiblot: idle() only called when truly idle
-                self.idle();
-                handler.idle(self);
 
-                // After idle, draw overlay widgets (animations) if any
-                // Don't redraw everything, just flush overlay widget changes
-                if !self.overlay_widgets.is_empty() {
-                    for widget in &mut self.overlay_widgets {
-                        widget.draw(&mut self.terminal);
-                    }
-                    let _ = self.terminal.flush();
+            // Event occurred: do full redraw for content changes
+            // This could be optimized further by tracking which views changed
+            self.draw();
+            let _ = self.terminal.flush();
+        } else {
+            // Timeout with no events - call idle() to update animations, etc.
+            // Matches magiblot: idle() only called when truly idle
+            self.idle();
+            handler.idle(self);
+
+            // After idle, draw overlay widgets (animations) if any
+            // Don't redraw everything, just flush overlay widget changes
+            if !self.overlay_widgets.is_empty() {
+                for widget in &mut self.overlay_widgets {
+                    widget.draw(&mut self.terminal);
                 }
+                let _ = self.terminal.flush();
             }
         }
 
@@ -905,7 +898,7 @@ impl Application {
                 code @ crate::core::event::KB_ALT_1..=crate::core::event::KB_ALT_9 => {
                     // Alt+digit selects the numbered window
                     // (Borland: TProgram::handleEvent -> cmSelectWindowNum)
-                    let num = ((code - crate::core::event::KB_ALT_1) >> 8) as u16 + 1;
+                    let num = ((code - crate::core::event::KB_ALT_1) >> 8) + 1;
                     *event =
                         Event::broadcast_with_info(crate::core::command::CM_SELECT_WINDOW_NUM, num);
                 }
@@ -1086,7 +1079,7 @@ impl Application {
     // Matches Borland: TProgram help support (tprogram.cc)
 
     /// Set the help file for F1 context-sensitive help
-    /// Matches Borland: TApplication::helpFile initialization
+    /// Matches Borland: `TApplication::helpFile` initialization
     ///
     /// # Arguments
     /// * `path` - Path to a markdown help file
@@ -1110,7 +1103,7 @@ impl Application {
     }
 
     /// Register a help context mapping (context ID to topic ID)
-    /// This allows views to have help_context set, and F1 will open the corresponding topic
+    /// This allows views to have `help_context` set, and F1 will open the corresponding topic
     ///
     /// # Arguments
     /// * `context_id` - Numeric context ID (assigned to views)
@@ -1145,7 +1138,7 @@ impl Application {
 
     /// Show context-sensitive help
     /// Looks up the focused view's help context and opens the appropriate topic
-    /// Matches Borland: TProgram::getEvent() F1 handling
+    /// Matches Borland: `TProgram::getEvent()` F1 handling
     pub fn show_help(&mut self) {
         // For now, show default topic. In future, this would:
         // 1. Get the focused view's help context
@@ -1168,21 +1161,21 @@ impl Application {
     // Matches Borland: TApplication tile/cascade methods (tapplica.cpp:75-127)
 
     /// Tile all tileable windows in a grid pattern
-    /// Matches Borland: TApplication::tile() (tapplica.cpp:123-127)
+    /// Matches Borland: `TApplication::tile()` (tapplica.cpp:123-127)
     pub fn tile(&mut self) {
         let rect = self.get_tile_rect();
         self.desktop.tile_with_rect(rect);
     }
 
     /// Cascade all tileable windows in a staircase pattern
-    /// Matches Borland: TApplication::cascade() (tapplica.cpp:75-79)
+    /// Matches Borland: `TApplication::cascade()` (tapplica.cpp:75-79)
     pub fn cascade(&mut self) {
         let rect = self.get_tile_rect();
         self.desktop.cascade_with_rect(rect);
     }
 
     /// Get the rectangle to use for tiling/cascading operations
-    /// Matches Borland: TApplication::getTileRect() (tapplica.cpp:94-97)
+    /// Matches Borland: `TApplication::getTileRect()` (tapplica.cpp:94-97)
     /// Default implementation returns the full desktop extent
     /// Can be overridden to customize the tile area
     pub fn get_tile_rect(&self) -> Rect {
@@ -1194,19 +1187,19 @@ impl Application {
     // Matches Borland's TView command set methods (tview.cc:161-389, 672-677)
 
     /// Check if a command is currently enabled
-    /// Matches Borland: TView::commandEnabled(ushort command) (tview.cc:142-147)
+    /// Matches Borland: `TView::commandEnabled(ushort` command) (tview.cc:142-147)
     pub fn command_enabled(&self, command: CommandId) -> bool {
         command_set::command_enabled(command)
     }
 
     /// Enable a single command
-    /// Matches Borland: TView::enableCommand(ushort command) (tview.cc:384-389)
+    /// Matches Borland: `TView::enableCommand(ushort` command) (tview.cc:384-389)
     pub fn enable_command(&mut self, command: CommandId) {
         command_set::enable_command(command);
     }
 
     /// Disable a single command
-    /// Matches Borland: TView::disableCommand(ushort command) (tview.cc:161-166)
+    /// Matches Borland: `TView::disableCommand(ushort` command) (tview.cc:161-166)
     pub fn disable_command(&mut self, command: CommandId) {
         command_set::disable_command(command);
     }
@@ -1231,7 +1224,7 @@ impl Application {
     }
 
     /// Emit a beep sound
-    /// Matches Borland: TScreen::makeBeep() - provides audio feedback for errors/alerts
+    /// Matches Borland: `TScreen::makeBeep()` - provides audio feedback for errors/alerts
     /// Commonly used in dialog validation failures and error messages
     pub fn beep(&mut self) {
         let _ = self.terminal.beep();
@@ -1259,12 +1252,9 @@ impl Application {
     /// # }
     /// ```
     pub fn set_esc_timeout(&mut self, timeout_ms: u64) -> Result<()> {
-        if timeout_ms < 250 || timeout_ms > 1500 {
+        if !(250..=1500).contains(&timeout_ms) {
             return Err(crate::core::error::TurboVisionError::invalid_input(
-                format!(
-                    "ESC timeout must be between 250 and 1500 milliseconds, got {}",
-                    timeout_ms
-                ),
+                format!("ESC timeout must be between 250 and 1500 milliseconds, got {timeout_ms}"),
             ));
         }
         self.terminal.set_esc_timeout(timeout_ms);
@@ -1272,13 +1262,13 @@ impl Application {
     }
 
     /// Idle processing - broadcasts command set changes and updates command states
-    /// Matches Borland: TProgram::idle() (tprogram.cc:248-257)
+    /// Matches Borland: `TProgram::idle()` (tprogram.cc:248-257)
     /// Set the current help context.
     ///
-    /// Matches Borland: TProgram tracks the focused view's helpCtx; since
+    /// Matches Borland: `TProgram` tracks the focused view's helpCtx; since
     /// views here don't carry one, applications set it when the active
-    /// window changes. The status line's TStatusDef item set follows it on
-    /// the next idle tick (see StatusLine::with_defs).
+    /// window changes. The status line's `TStatusDef` item set follows it on
+    /// the next idle tick (see `StatusLine::with_defs`).
     pub fn set_help_context(&mut self, help_ctx: u16) {
         self.current_help_ctx = help_ctx;
     }
@@ -1354,15 +1344,15 @@ impl Application {
     }
 
     /// Suspend the application (for Ctrl+Z handling)
-    /// Matches Borland: TProgram::suspend() - temporarily exits TUI mode
+    /// Matches Borland: `TProgram::suspend()` - temporarily exits TUI mode
     /// Restores terminal to normal mode, allowing user to return to shell
-    /// Call resume() to return to TUI mode
+    /// Call `resume()` to return to TUI mode
     pub fn suspend(&mut self) -> crate::core::error::Result<()> {
         self.terminal.suspend()
     }
 
     /// Resume the application after suspension (for Ctrl+Z handling)
-    /// Matches Borland: TProgram::resume() - returns to TUI mode and redraws
+    /// Matches Borland: `TProgram::resume()` - returns to TUI mode and redraws
     /// Re-enters raw mode and forces a complete screen redraw
     pub fn resume(&mut self) -> crate::core::error::Result<()> {
         self.terminal.resume()?;
@@ -2191,8 +2181,8 @@ mod dropdown_tests {
     /// was drawn (the arrow owns the field's last cell).
     fn drawn_field(app: &Application) -> Rect {
         let (w, h) = app.terminal.size();
-        for y in 0..h as i16 {
-            for x in 0..w as i16 {
+        for y in 0..h {
+            for x in 0..w {
                 if app.terminal.read_cell(x, y).unwrap().ch == '\u{25BC}' {
                     return Rect::new(x - 19, y, x + 1, y + 1);
                 }
@@ -2258,7 +2248,7 @@ mod dropdown_tests {
 
 #[cfg(test)]
 mod window_key_tests {
-    //! Borland's default window keys (TProgram's status line): Alt+F3 close,
+    //! Borland's default window keys (`TProgram`'s status line): Alt+F3 close,
     //! F5 zoom, Ctrl+F5 move/resize, F6 / Shift+F6 next / previous window.
     //! They are fallbacks: a focused view that wants the key keeps it.
     use super::*;
@@ -2771,8 +2761,8 @@ mod cursor_tests {
     /// Where `text` was drawn on screen.
     fn drawn_at(app: &Application, text: &str) -> (u16, u16) {
         let (w, h) = app.terminal.size();
-        for y in 0..h as i16 {
-            let row: String = (0..w as i16)
+        for y in 0..h {
+            let row: String = (0..w)
                 .map(|x| app.terminal.read_cell(x, y).unwrap().ch)
                 .collect();
             if let Some(i) = row.find(text) {

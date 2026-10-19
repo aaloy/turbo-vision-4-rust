@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! HelpViewer view - scrollable help content viewer with cross-reference navigation.
+//! `HelpViewer` view - scrollable help content viewer with cross-reference navigation.
 // HelpViewer - Help content viewer based on TextView
 //
 // Matches Borland: THelpViewer (help.h)
@@ -19,9 +19,9 @@ use crate::core::geometry::{Point, Rect};
 use crate::core::state::State;
 use crate::terminal::Terminal;
 
-/// HelpViewer - Displays help topic content with cross-reference navigation
+/// `HelpViewer` - Displays help topic content with cross-reference navigation
 ///
-/// Matches Borland: THelpViewer (help.cc)
+/// Matches Borland: `THelpViewer` (help.cc)
 /// Features:
 /// - Scrollable content display
 /// - Cross-reference links highlighted in different color
@@ -112,11 +112,8 @@ impl HelpViewer {
 
     /// Get the currently selected cross-reference (if any)
     pub fn get_selected_cross_ref(&self) -> Option<&CrossRef> {
-        if self.selected > 0 && self.selected <= self.cross_refs.len() {
-            Some(&self.cross_refs[self.selected - 1])
-        } else {
-            None
-        }
+        (self.selected > 0 && self.selected <= self.cross_refs.len())
+            .then(|| &self.cross_refs[self.selected - 1])
     }
 
     /// Get the target topic ID of the currently selected link
@@ -125,7 +122,7 @@ impl HelpViewer {
     }
 
     /// Make the selected cross-reference visible by scrolling if needed
-    /// Matches Borland: THelpViewer::makeSelectVisible()
+    /// Matches Borland: `THelpViewer::makeSelectVisible()`
     fn make_select_visible(&mut self) {
         if let Some(cross_ref) = self.get_selected_cross_ref() {
             let key_point_y = cross_ref.line;
@@ -209,7 +206,7 @@ impl HelpViewer {
 
     /// Find cross-reference at the given screen position
     /// Returns 1-based index (like Borland) or 0 if none found
-    /// Matches Borland: THelpViewer::getNumRows() pattern for hit testing
+    /// Matches Borland: `THelpViewer::getNumRows()` pattern for hit testing
     fn get_cross_ref_at(&self, screen_x: i16, screen_y: i16) -> usize {
         // Convert screen coordinates to view-relative coordinates
         let rel_x = screen_x;
@@ -226,14 +223,14 @@ impl HelpViewer {
 
         // Calculate the line number (1-based) and the column in the line,
         // both accounting for scroll; `draw` skips `delta.x` columns.
-        let line_num = (self.delta.y + rel_y + 1) as i16;
+        let line_num = self.delta.y + rel_y + 1;
         let col = self.delta.x + rel_x;
 
         // Search cross-refs for one that matches this position
         for (i, cross_ref) in self.cross_refs.iter().enumerate() {
             if cross_ref.line == line_num {
                 let start = cross_ref.offset;
-                let end = start + cross_ref.length as i16;
+                let end = start + i16::from(cross_ref.length);
                 if col >= start && col < end {
                     return i + 1; // Return 1-based index
                 }
@@ -243,7 +240,7 @@ impl HelpViewer {
         0 // No cross-ref at this position
     }
 
-    /// Check if a cross-reference exists at screen position (public API for HelpWindow).
+    /// Check if a cross-reference exists at screen position (public API for `HelpWindow`).
     /// Returns 1-based index or 0 if none found.
     pub fn get_cross_ref_at_public(&self, screen_x: i16, screen_y: i16) -> usize {
         self.get_cross_ref_at(screen_x, screen_y)
@@ -290,10 +287,10 @@ impl HelpViewer {
             let size = self.core.bounds.height();
 
             sb.set_params(
-                self.delta.y as i32,
+                i32::from(self.delta.y),
                 0,
-                self.limit.y as i32,
-                (size - 1) as i32,
+                i32::from(self.limit.y),
+                i32::from(size - 1),
                 1,
             );
         }
@@ -482,29 +479,25 @@ impl View for HelpViewer {
             EventType::Keyboard => {
                 match event.key_code {
                     KB_UP => {
-                        if !self.cross_refs.is_empty() {
-                            if let Some(prev) = self.find_visible_cross_ref(false) {
-                                self.selected = prev;
-                                self.make_select_visible();
-                            } else {
-                                // At first visible link or no visible links — scroll up
-                                self.scroll_by(0, -1);
-                            }
+                        if self.cross_refs.is_empty() {
+                            self.scroll_by(0, -1);
+                        } else if let Some(prev) = self.find_visible_cross_ref(false) {
+                            self.selected = prev;
+                            self.make_select_visible();
                         } else {
+                            // At first visible link or no visible links — scroll up
                             self.scroll_by(0, -1);
                         }
                         event.clear();
                     }
                     KB_DOWN => {
-                        if !self.cross_refs.is_empty() {
-                            if let Some(next) = self.find_visible_cross_ref(true) {
-                                self.selected = next;
-                                self.make_select_visible();
-                            } else {
-                                // At last visible link or no visible links — scroll down
-                                self.scroll_by(0, 1);
-                            }
+                        if self.cross_refs.is_empty() {
+                            self.scroll_by(0, 1);
+                        } else if let Some(next) = self.find_visible_cross_ref(true) {
+                            self.selected = next;
+                            self.make_select_visible();
                         } else {
+                            // At last visible link or no visible links — scroll down
                             self.scroll_by(0, 1);
                         }
                         event.clear();
@@ -550,14 +543,13 @@ impl View for HelpViewer {
                         self.select_prev();
                         event.clear();
                     }
-                    KB_ENTER => {
+                    KB_ENTER
                         // Follow selected link - convert to command for HelpWindow to handle
                         // Matches Borland: THelpViewer::handleEvent() kbEnter case (help.cc:189-194)
-                        if self.selected > 0 && self.selected <= self.cross_refs.len() {
+                        if self.selected > 0 && self.selected <= self.cross_refs.len() => {
                             // Don't clear the event - let HelpWindow intercept and navigate
                             // HelpWindow will call get_selected_target() to get the destination
                         }
-                    }
                     _ => {}
                 }
             }
@@ -587,13 +579,12 @@ impl View for HelpViewer {
                     event.clear();
                 }
             }
-            EventType::MouseWheelDown => {
+            EventType::MouseWheelDown
                 // Scroll down on mouse wheel
-                if self.extent().contains(event.mouse.pos) {
+                if self.extent().contains(event.mouse.pos) => {
                     self.scroll_by(0, 3);
                     event.clear();
                 }
-            }
             _ => {}
         }
     }
@@ -730,7 +721,7 @@ mod tests {
 
     /// The cells a cross-ref covers, read back from the screen.
     fn cells_under(terminal: &Terminal, r: &CrossRef) -> String {
-        (r.offset..r.offset + r.length as i16)
+        (r.offset..r.offset + i16::from(r.length))
             .map(|x| terminal.read_cell(x, r.line - 1).unwrap().ch)
             .collect()
     }
@@ -751,7 +742,9 @@ mod tests {
         let header = viewer
             .styled_lines
             .iter()
-            .position(|l| l.first().map(|s| s.text()) == Some("See also:"))
+            .position(|l| {
+                l.first().map(super::super::help_file::TextSegment::text) == Some("See also:")
+            })
             .unwrap() as i16
             + 1;
         viewer

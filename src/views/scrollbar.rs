@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! ScrollBar view - vertical or horizontal scrollbar with draggable indicator.
+//! `ScrollBar` view - vertical or horizontal scrollbar with draggable indicator.
 
 use super::view::{View, ViewCore, write_line_to_terminal};
 use crate::core::draw::DrawBuffer;
@@ -13,7 +13,7 @@ use crate::core::palette::{SCROLLBAR_INDICATOR, SCROLLBAR_PAGE};
 use crate::terminal::Terminal;
 use std::time::{Duration, Instant};
 
-/// Scroll bar part codes (used by getPartCode() method)
+/// Scroll bar part codes (used by `getPartCode()` method)
 const SB_INDICATOR: i16 = 0;
 const SB_UP_ARROW: i16 = 1;
 const SB_DOWN_ARROW: i16 = 2;
@@ -150,9 +150,9 @@ impl ScrollBar {
     /// Get the size of the scrollbar track (not including arrows)
     fn get_size(&self) -> i32 {
         if self.is_vertical {
-            (self.core.bounds.height() - 2).max(1) as i32
+            i32::from((self.core.bounds.height() - 2).max(1))
         } else {
-            (self.core.bounds.width() - 2).max(1) as i32
+            i32::from((self.core.bounds.width() - 2).max(1))
         }
     }
 
@@ -164,7 +164,7 @@ impl ScrollBar {
         if self.total <= 0 || self.max_val <= self.min_val {
             return 0;
         }
-        let thumb = (track as i64 / self.total as i64) as i32;
+        let thumb = (i64::from(track) / i64::from(self.total)) as i32;
         thumb.max(1).min(track)
     }
 
@@ -177,9 +177,9 @@ impl ScrollBar {
         if range <= 0 || usable <= 0 {
             0
         } else {
-            ((self.value - self.min_val) as i64 * usable as i64 / range as i64)
+            (i64::from(self.value - self.min_val) * i64::from(usable) / i64::from(range))
                 .max(0)
-                .min(usable as i64) as i32
+                .min(i64::from(usable)) as i32
         }
     }
 
@@ -199,12 +199,10 @@ impl ScrollBar {
                 SB_DOWN_ARROW
             } else {
                 let pos = self.get_pos();
-                if rel_y - 1 == pos as i16 {
-                    SB_INDICATOR
-                } else if rel_y - 1 < pos as i16 {
-                    SB_PAGE_UP
-                } else {
-                    SB_PAGE_DOWN
+                match (rel_y - 1).cmp(&(pos as i16)) {
+                    std::cmp::Ordering::Equal => SB_INDICATOR,
+                    std::cmp::Ordering::Less => SB_PAGE_UP,
+                    std::cmp::Ordering::Greater => SB_PAGE_DOWN,
                 }
             }
         } else if rel_x == 0 {
@@ -213,12 +211,10 @@ impl ScrollBar {
             SB_DOWN_ARROW // Right arrow for horizontal
         } else {
             let pos = self.get_pos();
-            if rel_x - 1 == pos as i16 {
-                SB_INDICATOR
-            } else if rel_x - 1 < pos as i16 {
-                SB_PAGE_UP // Page left
-            } else {
-                SB_PAGE_DOWN // Page right
+            match (rel_x - 1).cmp(&(pos as i16)) {
+                std::cmp::Ordering::Equal => SB_INDICATOR,
+                std::cmp::Ordering::Less => SB_PAGE_UP, // Page left
+                std::cmp::Ordering::Greater => SB_PAGE_DOWN, // Page right
             }
         }
     }
@@ -293,7 +289,7 @@ impl ScrollBar {
         if self.is_vertical {
             // Update thumb position based on mouse Y
             let mouse_y = event.mouse.pos.y;
-            let rel_y = (mouse_y - 1) as i32; // Relative to track start
+            let rel_y = i32::from(mouse_y - 1); // Relative to track start
             let range = self.max_val - self.min_val + 1;
             let s = self.get_size();
             log::debug!(
@@ -306,13 +302,13 @@ impl ScrollBar {
             );
             if s > 0 && range > 0 {
                 let new_pos = rel_y.max(0).min(s);
-                log::debug!("Calculated new thumb position: {}", new_pos);
+                log::debug!("Calculated new thumb position: {new_pos}");
                 self.value = (new_pos * range / s) + self.min_val;
             }
         } else {
             // Horizontal scrollbar
             let mouse_x = event.mouse.pos.x;
-            let rel_x = (mouse_x - 1) as i32; // Relative to track start
+            let rel_x = i32::from(mouse_x - 1); // Relative to track start
             let range = self.max_val - self.min_val + 1;
             let s = self.get_size();
             log::debug!(
@@ -325,7 +321,7 @@ impl ScrollBar {
             );
             if s > 0 && range > 0 {
                 let new_pos = rel_x.max(0).min(s);
-                log::debug!("Calculated new thumb position: {}", new_pos);
+                log::debug!("Calculated new thumb position: {new_pos}");
                 self.value = (new_pos * range / s) + self.min_val;
             }
         }
@@ -410,41 +406,39 @@ impl ScrollBar {
                     }
                 }
             }
-        } else {
-            if mouse_pos.y >= 0
-                && mouse_pos.y < self.extent().b.y
-                && mouse_pos.x >= 0
-                && mouse_pos.x < self.extent().b.x
-            {
-                let rel_x = mouse_pos.x;
-                let width = self.core.bounds.width();
+        } else if mouse_pos.y >= 0
+            && mouse_pos.y < self.extent().b.y
+            && mouse_pos.x >= 0
+            && mouse_pos.x < self.extent().b.x
+        {
+            let rel_x = mouse_pos.x;
+            let width = self.core.bounds.width();
 
-                if rel_x == 0 {
-                    self.apply(RepeatAction::StepBack);
-                    self.arm_repeat(RepeatAction::StepBack);
-                    event.clear();
-                } else if rel_x == width - 1 {
-                    self.apply(RepeatAction::StepForward);
-                    self.arm_repeat(RepeatAction::StepForward);
-                    event.clear();
-                } else {
-                    let range = self.max_val - self.min_val;
-                    if range > 0 {
-                        let thumb_pos = self.get_pos() as i16;
-                        let thumb_sz = self.get_thumb_size() as i16;
-                        let track_x = rel_x - 1;
+            if rel_x == 0 {
+                self.apply(RepeatAction::StepBack);
+                self.arm_repeat(RepeatAction::StepBack);
+                event.clear();
+            } else if rel_x == width - 1 {
+                self.apply(RepeatAction::StepForward);
+                self.arm_repeat(RepeatAction::StepForward);
+                event.clear();
+            } else {
+                let range = self.max_val - self.min_val;
+                if range > 0 {
+                    let thumb_pos = self.get_pos() as i16;
+                    let thumb_sz = self.get_thumb_size() as i16;
+                    let track_x = rel_x - 1;
 
-                        if track_x < thumb_pos {
-                            self.apply(RepeatAction::PageBack);
-                            self.arm_repeat(RepeatAction::PageBack);
-                        } else if track_x >= thumb_pos + thumb_sz {
-                            self.apply(RepeatAction::PageForward);
-                            self.arm_repeat(RepeatAction::PageForward);
-                        } else {
-                            self.dragging_thumb = true;
-                        }
-                        event.clear();
+                    if track_x < thumb_pos {
+                        self.apply(RepeatAction::PageBack);
+                        self.arm_repeat(RepeatAction::PageBack);
+                    } else if track_x >= thumb_pos + thumb_sz {
+                        self.apply(RepeatAction::PageForward);
+                        self.arm_repeat(RepeatAction::PageForward);
+                    } else {
+                        self.dragging_thumb = true;
                     }
+                    event.clear();
                 }
             }
         }
@@ -522,7 +516,7 @@ impl View for ScrollBar {
     }
 
     fn handle_event(&mut self, event: &mut Event) {
-        log::debug!("ScrollBar received event: {:?}", event);
+        log::debug!("ScrollBar received event: {event:?}");
         match event.what {
             EventType::MouseMove => {
                 if self.dragging_thumb {
@@ -546,12 +540,10 @@ impl View for ScrollBar {
                     event.clear();
                 }
             }
-            EventType::Broadcast => {
-                if event.command == crate::core::command::CM_MOUSE_AUTO_REPEAT {
-                    self.tick_repeat();
-                    // The broadcast is left alone: other views may be repeating
-                    // too, and a broadcast reaches every child.
-                }
+            EventType::Broadcast if event.command == crate::core::command::CM_MOUSE_AUTO_REPEAT => {
+                self.tick_repeat();
+                // The broadcast is left alone: other views may be repeating
+                // too, and a broadcast reaches every child.
             }
             _ => {}
         }
@@ -603,7 +595,7 @@ pub struct ScrollBarBuilder {
 }
 
 impl ScrollBarBuilder {
-    /// Creates a new ScrollBarBuilder with default values (vertical orientation).
+    /// Creates a new `ScrollBarBuilder` with default values (vertical orientation).
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -684,7 +676,7 @@ impl ScrollBarBuilder {
         self
     }
 
-    /// Builds the ScrollBar.
+    /// Builds the `ScrollBar`.
     ///
     /// # Panics
     ///
@@ -716,7 +708,7 @@ impl ScrollBarBuilder {
         }
     }
 
-    /// Builds the ScrollBar as a Box.
+    /// Builds the `ScrollBar` as a Box.
     pub fn build_boxed(self) -> Box<ScrollBar> {
         Box::new(self.build())
     }

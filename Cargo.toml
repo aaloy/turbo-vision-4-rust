@@ -110,6 +110,16 @@ module_name_repetitions = "allow"  # e.g., button::Button is standard Rust
 missing_errors_doc = "allow"  # We have # Errors sections where needed
 must_use_candidate = "allow"  # Too many false positives
 missing_panics_doc = "allow"  # We document panics where they occur
+cast_possible_truncation = "allow"  # Coordinate math converts i32/i16/u16 within terminal bounds
+cast_possible_wrap = "allow"  # ditto
+cast_sign_loss = "allow"  # ditto
+cast_precision_loss = "allow"  # ditto
+items_after_statements = "allow"  # fn/type declarations after statements read fine here
+return_self_not_must_use = "allow"  # Builder methods (with_*) are fine to ignore
+too_many_lines = "allow"  # Large draw/handle/event functions are inherent to a TUI port
+match_same_arms = "allow"  # Key/mouse dispatch arms share bodies by design
+struct_excessive_bools = "allow"  # State flag structs mirror Borland's State sets
+multiple_crate_versions = "allow"  # Transitive deps (image/crossterm tree) we don't control
 
 # Restriction lints (opt-in lints for specific patterns)
 allow_attributes_without_reason = "warn"
@@ -127,7 +137,6 @@ map_err_ignore = "warn"
 redundant_type_annotations = "warn"
 renamed_function_params = "warn"
 semicolon_outside_block = "warn"
-string_to_string = "warn"
 undocumented_unsafe_blocks = "warn"
 unnecessary_safety_comment = "warn"
 unnecessary_safety_doc = "warn"

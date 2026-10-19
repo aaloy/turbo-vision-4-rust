@@ -2,7 +2,7 @@
 
 //! Help Table of Contents - hierarchical topic browser
 //!
-//! Matches Borland: THelpToc
+//! Matches Borland: `THelpToc`
 //!
 //! Provides a tree view of help topics organized hierarchically.
 
@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 /// Help Table of Contents
-/// Matches Borland: THelpToc
+/// Matches Borland: `THelpToc`
 pub struct HelpToc {
     dialog: Dialog,
     _outline_viewer_id: ViewId,

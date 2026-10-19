@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! ListBox view - scrollable list with single or multiple selection.
+//! `ListBox` view - scrollable list with single or multiple selection.
 //!
 //! By default one item is focused and that is the selection. Turning on
 //! [`ListBox::set_multi_select`] adds a second, independent notion: marked
@@ -65,10 +65,10 @@ impl Items {
     }
 }
 
-/// ListBox - A scrollable list of selectable items
+/// `ListBox` - A scrollable list of selectable items
 ///
-/// Now implements ListViewer trait for standard navigation behavior.
-/// Matches Borland: TListBox (extends TListViewer)
+/// Now implements `ListViewer` trait for standard navigation behavior.
+/// Matches Borland: `TListBox` (extends `TListViewer`)
 pub struct ListBox {
     core: ViewCore,
     items: Items,

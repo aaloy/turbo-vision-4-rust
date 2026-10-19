@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! MenuViewer - base trait and state management for menu view implementations.
+//! `MenuViewer` - base trait and state management for menu view implementations.
 // Menu Viewer - Base trait and state for menu views
 //
 // Matches Borland: TMenuView (menuview.h, tmenuvie.cc)
@@ -26,22 +26,22 @@ use crate::core::menu_data::{Menu, MenuItem};
 
 /// State management for menu viewer components
 ///
-/// Matches Borland: TMenuView fields
+/// Matches Borland: `TMenuView` fields
 ///
 /// This struct holds the common state for all menu-based views.
-/// Components embed this and expose it via the MenuViewer trait.
+/// Components embed this and expose it via the `MenuViewer` trait.
 #[derive(Clone, Debug)]
 pub struct MenuViewerState {
     /// The menu being displayed
-    /// Matches Borland: TMenuView::menu
+    /// Matches Borland: `TMenuView::menu`
     pub menu: Option<Menu>,
 
     /// Index of currently selected/highlighted item
-    /// Matches Borland: TMenuView::current (as index)
+    /// Matches Borland: `TMenuView::current` (as index)
     pub current: Option<usize>,
 
     /// Whether menu is in compact mode (less spacing)
-    /// Matches Borland: TMenuView::compactMenu
+    /// Matches Borland: `TMenuView::compactMenu`
     pub compact_menu: bool,
 }
 
@@ -60,7 +60,7 @@ impl MenuViewerState {
         let has_items = !menu.items.is_empty();
         Self {
             menu: Some(menu),
-            current: if has_items { Some(0) } else { None },
+            current: has_items.then_some(0),
             compact_menu: false,
         }
     }
@@ -110,7 +110,7 @@ impl MenuViewerState {
 
     /// Move to next selectable item
     ///
-    /// Matches Borland: TMenuView::nextItem()
+    /// Matches Borland: `TMenuView::nextItem()`
     pub fn select_next(&mut self) {
         if let Some(menu) = &self.menu {
             if menu.items.is_empty() {
@@ -135,7 +135,7 @@ impl MenuViewerState {
 
     /// Move to previous selectable item
     ///
-    /// Matches Borland: TMenuView::prevItem()
+    /// Matches Borland: `TMenuView::prevItem()`
     pub fn select_prev(&mut self) {
         if let Some(menu) = &self.menu {
             if menu.items.is_empty() {
@@ -168,7 +168,7 @@ impl MenuViewerState {
 
     /// Find item by accelerator character
     ///
-    /// Matches Borland: TMenuView::findItem(char ch)
+    /// Matches Borland: `TMenuView::findItem(char` ch)
     pub fn find_item_by_char(&self, ch: char) -> Option<usize> {
         if let Some(menu) = &self.menu {
             let ch_lower = ch.to_ascii_lowercase();
@@ -185,7 +185,7 @@ impl MenuViewerState {
 
     /// Find item by hot key (keyboard shortcut)
     ///
-    /// Matches Borland: TMenuView::hotKey(ushort keyCode)
+    /// Matches Borland: `TMenuView::hotKey(ushort` keyCode)
     pub fn find_item_by_hotkey(&self, key_code: KeyCode) -> Option<usize> {
         if let Some(menu) = &self.menu {
             for (i, item) in menu.items.iter().enumerate() {
@@ -204,10 +204,8 @@ impl MenuViewerState {
                         }
                         MenuItem::SubMenu {
                             key_code: item_key, ..
-                        } => {
-                            if *item_key == key_code {
-                                return Some(i);
-                            }
+                        } if *item_key == key_code => {
+                            return Some(i);
                         }
                         _ => {}
                     }
@@ -219,7 +217,7 @@ impl MenuViewerState {
 
     /// Get the number of items in the menu
     pub fn item_count(&self) -> usize {
-        self.menu.as_ref().map(|m| m.items.len()).unwrap_or(0)
+        self.menu.as_ref().map_or(0, |m| m.items.len())
     }
 }
 
@@ -231,10 +229,10 @@ impl Default for MenuViewerState {
 
 /// Trait for menu viewer components
 ///
-/// Matches Borland: TMenuView virtual methods
+/// Matches Borland: `TMenuView` virtual methods
 ///
 /// This trait provides the common interface for all menu-based views.
-/// Components implement this trait and embed MenuViewerState for shared logic.
+/// Components implement this trait and embed `MenuViewerState` for shared logic.
 pub trait MenuViewer: View {
     /// Get the menu viewer state (read-only)
     fn menu_state(&self) -> &MenuViewerState;
@@ -244,7 +242,7 @@ pub trait MenuViewer: View {
 
     /// Get the rectangle for a specific menu item
     ///
-    /// Matches Borland: TMenuView::getItemRect()
+    /// Matches Borland: `TMenuView::getItemRect()`
     /// Subclasses must implement based on their layout
     fn get_item_rect(&self, item_index: usize) -> Rect;
 
@@ -285,7 +283,7 @@ pub trait MenuViewer: View {
 
     /// Handle standard menu navigation events
     ///
-    /// Matches Borland: TMenuView::handleEvent() navigation logic
+    /// Matches Borland: `TMenuView::handleEvent()` navigation logic
     /// Returns true if event was handled
     fn handle_menu_event(&mut self, event: &mut Event) -> bool {
         match event.what {

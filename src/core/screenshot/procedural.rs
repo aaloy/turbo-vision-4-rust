@@ -280,8 +280,8 @@ fn round_corner(arms: Arms) -> GlyphMask {
     let mut mask = box_glyph(arms);
     let (x0, x1) = columns(W::S)[0];
     let (y0, y1) = rows(W::S)[0];
-    let x = if arms.right != W::N { x0 } else { x1 - 1 };
-    let y = if arms.down != W::N { y0 } else { y1 - 1 };
+    let x = if arms.right == W::N { x1 - 1 } else { x0 };
+    let y = if arms.down == W::N { y1 - 1 } else { y0 };
     mask[y] &= !(1 << (7 - x));
     mask
 }

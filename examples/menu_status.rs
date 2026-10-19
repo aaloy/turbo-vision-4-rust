@@ -55,7 +55,7 @@ fn main() -> turbo_vision::core::error::Result<()> {
     redraw_screen(&mut app);
 
     // Main event loop
-    run_event_loop(&mut app)?;
+    run_event_loop(&mut app);
 
     Ok(())
 }
@@ -206,7 +206,7 @@ fn redraw_screen(app: &mut Application) {
 }
 
 /// Main event loop - handles user input and dispatches commands
-fn run_event_loop(app: &mut Application) -> turbo_vision::core::error::Result<()> {
+fn run_event_loop(app: &mut Application) {
     app.running = true;
     while app.running {
         // Redraw screen
@@ -251,8 +251,6 @@ fn run_event_loop(app: &mut Application) -> turbo_vision::core::error::Result<()
             }
         }
     }
-
-    Ok(())
 }
 
 /// Convert global keyboard shortcuts to command events

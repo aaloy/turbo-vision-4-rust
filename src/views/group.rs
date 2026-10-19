@@ -12,7 +12,7 @@ use crate::core::state::{Grow, State};
 use crate::terminal::Terminal;
 
 /// Group - a container for child views
-/// Matches Borland: TGroup (tgroup.h/tgroup.cc)
+/// Matches Borland: `TGroup` (tgroup.h/tgroup.cc)
 pub struct Group {
     core: ViewCore,
     children: Vec<Box<dyn View>>,
@@ -144,7 +144,7 @@ impl Group {
         }
     }
 
-    /// Focus a child view by its ViewId
+    /// Focus a child view by its `ViewId`
     /// Returns true if the view was found and focused, false otherwise
     pub fn focus_by_view_id(&mut self, view_id: ViewId) -> bool {
         if let Some(index) = self.view_ids.iter().position(|&id| id == view_id) {
@@ -159,7 +159,7 @@ impl Group {
     }
 
     /// Bring a child view to the front (top of z-order)
-    /// Matches Borland: TGroup::selectView() which reorders views
+    /// Matches Borland: `TGroup::selectView()` which reorders views
     /// Returns the new index of the moved child
     pub fn bring_to_front(&mut self, index: usize) -> usize {
         if index >= self.children.len() || index == self.children.len() - 1 {
@@ -215,14 +215,14 @@ impl Group {
         1 // Always returns 1 (the back position after index 0)
     }
 
-    /// Get the ViewId of a child at the given index.
+    /// Get the `ViewId` of a child at the given index.
     /// Returns None if the index is out of bounds.
     pub fn view_id_at(&self, index: usize) -> Option<ViewId> {
         self.view_ids.get(index).copied()
     }
 
     /// Remove a child at the specified index
-    /// Matches Borland: TGroup::remove(TView *p) or TGroup::shutDown()
+    /// Matches Borland: `TGroup::remove(TView` *p) or `TGroup::shutDown()`
     pub fn remove(&mut self, index: usize) {
         if index < self.children.len() {
             let removed_focused = self.focused == index;
@@ -269,8 +269,8 @@ impl Group {
         }
     }
 
-    /// Get an immutable reference to a child by its ViewId
-    /// Returns None if the ViewId is not found
+    /// Get an immutable reference to a child by its `ViewId`
+    /// Returns None if the `ViewId` is not found
     pub fn child_by_id(&self, view_id: ViewId) -> Option<&dyn View> {
         self.view_ids
             .iter()
@@ -278,8 +278,8 @@ impl Group {
             .map(|index| &*self.children[index])
     }
 
-    /// Get a mutable reference to a child by its ViewId
-    /// Returns None if the ViewId is not found
+    /// Get a mutable reference to a child by its `ViewId`
+    /// Returns None if the `ViewId` is not found
     pub fn child_by_id_mut(&mut self, view_id: ViewId) -> Option<&mut (dyn View + '_)> {
         if let Some(index) = self.view_ids.iter().position(|&id| id == view_id) {
             Some(&mut *self.children[index])
@@ -288,7 +288,7 @@ impl Group {
         }
     }
 
-    /// Remove a child by its ViewId
+    /// Remove a child by its `ViewId`
     /// Returns true if a child was found and removed, false otherwise
     pub fn remove_by_id(&mut self, view_id: ViewId) -> bool {
         if let Some(index) = self.view_ids.iter().position(|&id| id == view_id) {
@@ -303,29 +303,29 @@ impl Group {
     }
 
     /// End the modal event loop with a result code
-    /// Matches Borland: TView::endModal(ushort command) (tview.cc:391-395)
+    /// Matches Borland: `TView::endModal(ushort` command) (tview.cc:391-395)
     ///
-    /// In Borland, views call endModal() to set endState and break out of
-    /// the execute() event loop. This is typically called in response to
-    /// button clicks (CM_OK, CM_CANCEL, etc.)
+    /// In Borland, views call `endModal()` to set endState and break out of
+    /// the `execute()` event loop. This is typically called in response to
+    /// button clicks (`CM_OK`, `CM_CANCEL`, etc.)
     pub fn end_modal(&mut self, command: crate::core::command::CommandId) {
         self.end_state = command;
     }
 
     /// Broadcast an event to all children except the owner
-    /// Matches Borland: TGroup::forEach with message() that takes receiver parameter
+    /// Matches Borland: `TGroup::forEach` with `message()` that takes receiver parameter
     ///
     /// The owner parameter prevents the broadcast from echoing back to the originator.
     /// This is essential for focus-list navigation commands and other broadcast patterns
     /// where the sender shouldn't receive its own message.
     ///
     /// # Arguments
-    /// * `event` - The event to broadcast (typically EventType::Broadcast)
+    /// * `event` - The event to broadcast (typically `EventType::Broadcast`)
     /// * `owner_index` - Optional index of the child that originated the broadcast (will be skipped)
     ///
     /// # Reference
-    /// Borland's message() function: `local-only/borland-tvision/include/tv/tvutil.h`
-    /// TGroup::forEach pattern: `local-only/borland-tvision/classes/tgroup.cc:675-689`
+    /// Borland's `message()` function: `local-only/borland-tvision/include/tv/tvutil.h`
+    /// `TGroup::forEach` pattern: `local-only/borland-tvision/classes/tgroup.cc:675-689`
     pub fn broadcast(&mut self, event: &mut Event, owner_index: Option<usize>) {
         for (i, child) in self.children.iter_mut().enumerate() {
             // Skip the owner if specified
@@ -350,7 +350,7 @@ impl Group {
     /// Draw views starting from a specific index
     /// Used for Borland's drawUnderRect pattern where we only redraw views
     /// that come after (on top of) a moved view
-    /// Matches Borland: TGroup::drawSubViews(TView *p, TView *bottom)
+    /// Matches Borland: `TGroup::drawSubViews(TView` *p, `TView` *bottom)
     /// Redraw the children from `start_index` on that intersect `clip`
     /// (`clip` in this group's space).
     pub fn draw_sub_views(&mut self, terminal: &mut Terminal, start_index: usize, clip: Rect) {
@@ -368,17 +368,13 @@ impl Group {
 
     /// Get a reference to the currently focused child view, if any
     pub fn focused_child(&self) -> Option<&dyn View> {
-        if self.focused < self.children.len() {
-            Some(&*self.children[self.focused])
-        } else {
-            None
-        }
+        (self.focused < self.children.len()).then(|| &*self.children[self.focused])
     }
 
     /// True if the child at `index` can take focus.
     ///
-    /// Matches Borland TGroup::findNext: the view must be selectable and not
-    /// disabled. (State::VISIBLE is not checked because this port never sets it;
+    /// Matches Borland `TGroup::findNext`: the view must be selectable and not
+    /// disabled. (`State::VISIBLE` is not checked because this port never sets it;
     /// hidden views are simply not added to the group.)
     fn child_focusable(&self, index: usize) -> bool {
         let child = &self.children[index];
@@ -686,11 +682,9 @@ pub trait GroupLike: View {
                 if event.key_code == KB_TAB {
                     self.group_mut().select_next();
                     event.clear();
-                    return;
                 } else if event.key_code == KB_SHIFT_TAB {
                     self.group_mut().select_previous();
                     event.clear();
-                    return;
                 }
             }
         } else {
@@ -725,7 +719,7 @@ pub trait GroupLike: View {
     /// Hand a positional event to a child in the child's own coordinate
     /// space, then put the position back into this group's space whatever
     /// the child turned the event into. That last step is how a control
-    /// reports an anchor upward (History, ComboBox) without an owner chain:
+    /// reports an anchor upward (History, `ComboBox`) without an owner chain:
     /// every group on the way back adds its child's origin.
     fn dispatch_to_child(&mut self, index: usize, event: &mut Event) {
         let origin = self.group().children[index].bounds().a;
@@ -750,8 +744,8 @@ pub trait GroupLike: View {
     }
 
     /// Validate group before performing command
-    /// Matches Borland: TGroup::valid(ushort command)
-    /// - If command is CM_RELEASED_FOCUS, validate current focused child if it has Options::VALIDATE
+    /// Matches Borland: `TGroup::valid(ushort` command)
+    /// - If command is `CM_RELEASED_FOCUS`, validate current focused child if it has `Options::VALIDATE`
     /// - Otherwise, validate all children (return false if any child is invalid)
     fn group_valid(&mut self, command: crate::core::command::CommandId) -> bool {
         use crate::core::command::CM_RELEASED_FOCUS;
@@ -781,16 +775,16 @@ pub trait GroupLike: View {
     // ---- modal loop (Borland: TGroup::execute) ----
 
     /// Execute a modal event loop
-    /// Matches Borland: TGroup::execute() (tgroup.cc:182-195)
+    /// Matches Borland: `TGroup::execute()` (tgroup.cc:182-195)
     ///
     /// This is the KEY method that makes modal views work.
-    /// In Borland, TGroup has an execute() method with an event loop that calls
-    /// getEvent() and handleEvent() until endState is set by endModal().
+    /// In Borland, `TGroup` has an `execute()` method with an event loop that calls
+    /// `getEvent()` and `handleEvent()` until endState is set by `endModal()`.
     ///
     /// The event loop:
-    /// 1. Calls app.get_event() which handles drawing and returns events
-    /// 2. Calls self.handle_event() to process the event
-    /// 3. Continues until end_state is set (by endModal)
+    /// 1. Calls `app.get_event()` which handles drawing and returns events
+    /// 2. Calls `self.handle_event()` to process the event
+    /// 3. Continues until `end_state` is set (by endModal)
     ///
     /// This is used by Dialog, Window, and any other container that needs
     /// modal execution.
@@ -825,7 +819,7 @@ pub trait GroupLike: View {
     }
 
     /// End the modal event loop with a result code
-    /// Matches Borland: TView::endModal(ushort command) (tview.cc:391-395)
+    /// Matches Borland: `TView::endModal(ushort` command) (tview.cc:391-395)
     fn end_modal(&mut self, command: crate::core::command::CommandId) {
         self.group_mut().end_state = command;
     }
@@ -922,19 +916,19 @@ impl View for Group {
     }
 
     fn set_bounds(&mut self, bounds: Rect) {
-        self.group_set_bounds(bounds)
+        self.group_set_bounds(bounds);
     }
 
     fn draw(&mut self, terminal: &mut Terminal) {
-        self.group_draw(terminal)
+        self.group_draw(terminal);
     }
 
     fn handle_event(&mut self, event: &mut Event) {
-        self.group_handle_event(event)
+        self.group_handle_event(event);
     }
 
     fn update_cursor(&self, terminal: &mut Terminal) {
-        self.group_update_cursor(terminal)
+        self.group_update_cursor(terminal);
     }
 
     fn valid(&mut self, command: crate::core::command::CommandId) -> bool {
@@ -1127,15 +1121,15 @@ mod tests {
             fn core_mut(&mut self) -> &mut ViewCore {
                 self.group.core_mut()
             }
-            fn draw(&mut self, t: &mut Terminal) {
-                self.group_draw(t)
+            fn draw(&mut self, terminal: &mut Terminal) {
+                self.group_draw(terminal);
             }
-            fn handle_event(&mut self, e: &mut Event) {
+            fn handle_event(&mut self, event: &mut Event) {
                 self.seen.set(self.seen.get() + 1);
-                self.group_handle_event(e); // base call
-                if e.what == EventType::Command && e.command == 42 {
+                self.group_handle_event(event); // base call
+                if event.what == EventType::Command && event.command == 42 {
                     self.end_modal(42);
-                    e.clear();
+                    event.clear();
                 }
             }
             fn get_palette(&self) -> Option<crate::core::palette::Palette> {
@@ -1276,7 +1270,7 @@ mod tests {
 
         let mut group = Group::new(Rect::new(0, 0, 80, 25));
         let child = RecorderView::new(Rect::new(0, 0, 10, 5));
-        let events = child.events.clone();
+        let events = std::rc::Rc::clone(&child.events);
         group.add(child);
         group.set_initial_focus();
 
@@ -1388,7 +1382,7 @@ mod tests {
         });
         // Second child records what it receives
         let recorder = RecorderView::new(Rect::new(0, 2, 5, 3));
-        let events = recorder.events.clone();
+        let events = std::rc::Rc::clone(&recorder.events);
         group.add(recorder);
 
         let mut event = Event::broadcast(9999);
@@ -1463,7 +1457,7 @@ mod tests {
     }
 
     /// Writes one marker character at its own local (0, 0) and records the
-    /// local mouse position of every MouseDown it receives.
+    /// local mouse position of every `MouseDown` it receives.
     struct Probe {
         core: ViewCore,
         marker: char,
@@ -1508,7 +1502,7 @@ mod tests {
             Probe {
                 core: ViewCore::new(bounds),
                 marker,
-                clicks: clicks.clone(),
+                clicks: std::rc::Rc::clone(&clicks),
             },
             clicks,
         )

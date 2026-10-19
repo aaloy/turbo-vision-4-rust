@@ -2,7 +2,7 @@
 
 //! Color Dialog - dialog for selecting foreground and background colors
 //!
-//! Matches Borland: TColorDialog
+//! Matches Borland: `TColorDialog`
 //!
 //! Provides a dialog for interactive color selection with live preview.
 
@@ -19,7 +19,7 @@ use crate::core::geometry::Rect;
 use crate::core::palette::Attr;
 
 /// Color Dialog
-/// Matches Borland: TColorDialog (simplified implementation)
+/// Matches Borland: `TColorDialog` (simplified implementation)
 pub struct ColorDialog {
     dialog: Dialog,
     _fg_selector_id: ViewId,
@@ -53,13 +53,15 @@ impl ColorDialog {
         let fg_color = std::rc::Rc::new(std::cell::RefCell::new(initial_byte & 0x0F));
         let bg_color = std::rc::Rc::new(std::cell::RefCell::new((initial_byte >> 4) & 0x0F));
 
-        let fg_selector = ColorSelector::with_shared(Rect::new(2, 5, 26, 8), fg_color.clone());
+        let fg_selector =
+            ColorSelector::with_shared(Rect::new(2, 5, 26, 8), std::rc::Rc::clone(&fg_color));
         let fg_selector_id = dialog.add(fg_selector);
 
         // Background color selector
         dialog.add(StaticText::new(Rect::new(2, 9, 20, 10), "Background:"));
 
-        let bg_selector = ColorSelector::with_shared(Rect::new(2, 10, 26, 13), bg_color.clone());
+        let bg_selector =
+            ColorSelector::with_shared(Rect::new(2, 10, 26, 13), std::rc::Rc::clone(&bg_color));
         let bg_selector_id = dialog.add(bg_selector);
 
         // Preview area (would show the colors in action)
@@ -113,16 +115,14 @@ impl ColorDialog {
     pub fn execute(&mut self, app: &mut crate::app::Application) -> Option<Attr> {
         let result = self.dialog.execute(app);
 
-        if result == CM_OK {
+        (result == CM_OK).then(|| {
             // Read the selections back from the shared selector values
             let fg = *self.fg_color.borrow() & 0x0F;
             let bg = *self.bg_color.borrow() & 0x0F;
             let attr = Attr::from_u8((bg << 4) | fg);
             self.selected_attr = Some(attr);
-            Some(attr)
-        } else {
-            None
-        }
+            attr
+        })
     }
 
     /// Get the selected color attribute
@@ -194,7 +194,7 @@ pub struct ColorDialogBuilder {
 }
 
 impl ColorDialogBuilder {
-    /// Creates a new ColorDialogBuilder with default values.
+    /// Creates a new `ColorDialogBuilder` with default values.
     pub fn new() -> Self {
         use crate::core::palette::TvColor;
         Self {
@@ -225,7 +225,7 @@ impl ColorDialogBuilder {
         self
     }
 
-    /// Builds the ColorDialog.
+    /// Builds the `ColorDialog`.
     ///
     /// # Panics
     ///
@@ -236,7 +236,7 @@ impl ColorDialogBuilder {
         ColorDialog::new(bounds, &title, self.initial_attr)
     }
 
-    /// Builds the ColorDialog as a Box.
+    /// Builds the `ColorDialog` as a Box.
     pub fn build_boxed(self) -> Box<ColorDialog> {
         Box::new(self.build())
     }

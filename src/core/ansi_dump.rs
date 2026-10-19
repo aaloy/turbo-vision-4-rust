@@ -59,15 +59,15 @@ fn write_style_transition<W: Write>(
         let was = from.contains(flag);
         let now = to.contains(flag);
         if now && !was {
-            write!(writer, "\x1b[{}m", on)?;
+            write!(writer, "\x1b[{on}m")?;
         } else if was && !now {
-            write!(writer, "\x1b[{}m", off)?;
+            write!(writer, "\x1b[{off}m")?;
         }
     }
     Ok(())
 }
 
-/// Convert TvColor to RGB values for 24-bit ANSI codes
+/// Convert `TvColor` to RGB values for 24-bit ANSI codes
 fn color_to_rgb(color: TvColor) -> (u8, u8, u8) {
     match color {
         TvColor::Black => (0, 0, 0),
@@ -130,9 +130,7 @@ pub fn dump_buffer<W: Write>(
         let mut last_bg = None;
         let mut last_style = crate::core::palette::Style::empty();
 
-        for x in 0..width.min(row.len()) {
-            let cell = row[x];
-
+        for cell in row.iter().copied().take(width.min(row.len())) {
             // Only emit color codes when colors change
             let need_fg_change = Some(cell.attr.fg) != last_fg;
             let need_bg_change = Some(cell.attr.bg) != last_bg;
@@ -143,15 +141,14 @@ pub fn dump_buffer<W: Write>(
                     let (bg_r, bg_g, bg_b) = color_to_rgb(cell.attr.bg);
                     write!(
                         writer,
-                        "\x1b[38;2;{};{};{};48;2;{};{};{}m",
-                        fg_r, fg_g, fg_b, bg_r, bg_g, bg_b
+                        "\x1b[38;2;{fg_r};{fg_g};{fg_b};48;2;{bg_r};{bg_g};{bg_b}m"
                     )?;
                 } else if need_fg_change {
                     let (fg_r, fg_g, fg_b) = color_to_rgb(cell.attr.fg);
-                    write!(writer, "\x1b[38;2;{};{};{}m", fg_r, fg_g, fg_b)?;
+                    write!(writer, "\x1b[38;2;{fg_r};{fg_g};{fg_b}m")?;
                 } else {
                     let (bg_r, bg_g, bg_b) = color_to_rgb(cell.attr.bg);
-                    write!(writer, "\x1b[48;2;{};{};{}m", bg_r, bg_g, bg_b)?;
+                    write!(writer, "\x1b[48;2;{bg_r};{bg_g};{bg_b}m")?;
                 }
                 last_fg = Some(cell.attr.fg);
                 last_bg = Some(cell.attr.bg);
@@ -196,9 +193,7 @@ pub fn dump_buffer_region<W: Write>(
         let mut last_bg = None;
         let mut last_style = crate::core::palette::Style::empty();
 
-        for col in x..(x + width).min(row.len()) {
-            let cell = row[col];
-
+        for cell in row.iter().copied().skip(x).take(width) {
             let need_fg_change = Some(cell.attr.fg) != last_fg;
             let need_bg_change = Some(cell.attr.bg) != last_bg;
 
@@ -208,15 +203,14 @@ pub fn dump_buffer_region<W: Write>(
                     let (bg_r, bg_g, bg_b) = color_to_rgb(cell.attr.bg);
                     write!(
                         writer,
-                        "\x1b[38;2;{};{};{};48;2;{};{};{}m",
-                        fg_r, fg_g, fg_b, bg_r, bg_g, bg_b
+                        "\x1b[38;2;{fg_r};{fg_g};{fg_b};48;2;{bg_r};{bg_g};{bg_b}m"
                     )?;
                 } else if need_fg_change {
                     let (fg_r, fg_g, fg_b) = color_to_rgb(cell.attr.fg);
-                    write!(writer, "\x1b[38;2;{};{};{}m", fg_r, fg_g, fg_b)?;
+                    write!(writer, "\x1b[38;2;{fg_r};{fg_g};{fg_b}m")?;
                 } else {
                     let (bg_r, bg_g, bg_b) = color_to_rgb(cell.attr.bg);
-                    write!(writer, "\x1b[48;2;{};{};{}m", bg_r, bg_g, bg_b)?;
+                    write!(writer, "\x1b[48;2;{bg_r};{bg_g};{bg_b}m")?;
                 }
                 last_fg = Some(cell.attr.fg);
                 last_bg = Some(cell.attr.bg);

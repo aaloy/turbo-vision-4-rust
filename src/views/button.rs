@@ -25,7 +25,7 @@ pub struct Button {
     /// default role (cmGrabDefault); when it loses focus the role reverts to
     /// the statically flagged default button (cmReleaseDefault).
     am_default: bool,
-    /// Whether a MouseDown was armed inside this button (fires on MouseUp).
+    /// Whether a `MouseDown` was armed inside this button (fires on `MouseUp`).
     pressed: bool,
     is_broadcast: bool,
 }
@@ -392,7 +392,7 @@ pub struct ButtonBuilder {
 }
 
 impl ButtonBuilder {
-    /// Creates a new ButtonBuilder with default values.
+    /// Creates a new `ButtonBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,

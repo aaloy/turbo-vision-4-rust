@@ -3,9 +3,9 @@
 //!
 //! ## Current Implementation
 //!
-//! The FileDialog provides a classic file selection interface with:
+//! The `FileDialog` provides a classic file selection interface with:
 //! - Input line for typing filenames
-//! - ListBox showing files and directories in the current path
+//! - `ListBox` showing files and directories in the current path
 //! - **Mouse support**: Click on files to select, double-click to open
 //! - **Keyboard navigation**: Arrow keys, PgUp/PgDn, Home/End
 //! - Directory navigation (double-click directories or select and press Enter)
@@ -42,10 +42,10 @@
 //!
 //! ## Implementation Notes
 //!
-//! The FileDialog tracks ListBox selection state by intercepting keyboard and mouse
+//! The `FileDialog` tracks `ListBox` selection state by intercepting keyboard and mouse
 //! events before passing them to the dialog. This allows it to:
 //! - Maintain a shadow selection index
-//! - Update the InputLine when files are selected
+//! - Update the `InputLine` when files are selected
 //! - Handle directory navigation seamlessly
 //!
 //! ### Architecture
@@ -56,11 +56,11 @@
 //! - Modify child views dynamically
 //! - Create more sophisticated interactions between parent and child views
 //!
-//! The current FileDialog implementation uses event interception for simplicity and
+//! The current `FileDialog` implementation uses event interception for simplicity and
 //! performance, but could alternatively use direct child access if needed for more
 //! complex scenarios.
 
-/// FileDialog - A file selection dialog for opening/saving files
+/// `FileDialog` - A file selection dialog for opening/saving files
 ///
 /// ## Usage
 ///
@@ -82,8 +82,8 @@
 ///
 /// ## Dialog Close Behavior
 ///
-/// The FileDialog closes (returns a file path) for exactly 3 reasons:
-/// 1. **File is double-clicked** in the ListBox → Dialog closes, returns file path
+/// The `FileDialog` closes (returns a file path) for exactly 3 reasons:
+/// 1. **File is double-clicked** in the `ListBox` → Dialog closes, returns file path
 /// 2. **File is selected and Enter/OK is pressed** → Dialog closes, returns file path
 /// 3. **User cancels** (close button, Cancel button, or double ESC) → Dialog closes, returns None
 ///
@@ -416,7 +416,7 @@ impl FileDialog {
     /// The file-dialog reaction to an event the inner `Dialog` has already
     /// processed: mirror the list selection into the input, apply wildcard
     /// filters, navigate into directories, or record the chosen file.
-    /// (Borland: TFileDialog::handleEvent / valid(cmFileOpen).)
+    /// (Borland: `TFileDialog::handleEvent` / valid(cmFileOpen).)
     fn after_event(&mut self, event: &mut Event) {
         // Check if dialog wants to close (e.g., close button clicked)
         // Dialog::handle_event() calls end_modal() which sets the end_state
@@ -459,12 +459,17 @@ impl FileDialog {
                     // User clicked OK button or pressed Enter (while not in listbox)
                     // Matches Borland: TFileDialog::valid(cmFileOpen) (tfiledia.cc:251-302)
                     let file_name = self.file_name_text();
-                    if !file_name.is_empty() {
+                    if file_name.is_empty() {
+                        // If input is empty, do nothing (don't close dialog)
+                        // This effectively disables the OK button when input is empty
+                        // Clear end_state so dialog stays open
+                        self.dialog.end_modal(0);
+                    } else {
                         // Check if input contains wildcards (*.txt, *.rs, etc)
-                        if self.contains_wildcards(&file_name) {
+                        if Self::contains_wildcards(&file_name) {
                             // Borland pattern: Update wildcard and reload list, keep dialog open
                             // Matches: strcpy(wildCard, name); fileList->readDirectory()
-                            self.wildcard = file_name.clone();
+                            self.wildcard.clone_from(&file_name);
                             self.read_directory();
 
                             // Update ListBox items directly (don't rebuild entire dialog)
@@ -508,11 +513,6 @@ impl FileDialog {
                         // Dialog called end_modal(CM_OK) but we're navigating into folder
                         self.dialog.end_modal(0);
                         // Loop continues with new directory contents
-                    } else {
-                        // If input is empty, do nothing (don't close dialog)
-                        // This effectively disables the OK button when input is empty
-                        // Clear end_state so dialog stays open
-                        self.dialog.end_modal(0);
                     }
                 }
                 CM_CANCEL | crate::core::command::CM_CLOSE => {
@@ -544,9 +544,9 @@ impl FileDialog {
         }
     }
 
-    /// Sync the InputLine with the current ListBox selection
-    /// Matches Borland: TFileList::focusItem() broadcasts cmFileFocused when selection changes
-    /// We read the ListBox selection after it has processed events
+    /// Sync the `InputLine` with the current `ListBox` selection
+    /// Matches Borland: `TFileList::focusItem()` broadcasts cmFileFocused when selection changes
+    /// We read the `ListBox` selection after it has processed events
     fn sync_inputline_with_listbox(&mut self) {
         // Get the current selection from the ListBox
         if CHILD_LISTBOX >= self.dialog.child_count() {
@@ -635,10 +635,10 @@ impl FileDialog {
                 if let Some(parent) = path.parent() {
                     self.current_path = parent.to_path_buf();
                 }
-                let name = path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| file_name.to_string());
+                let name = path.file_name().map_or_else(
+                    || file_name.to_string(),
+                    |n| n.to_string_lossy().to_string(),
+                );
                 self.set_file_name_text(name);
                 Some(path)
             }
@@ -703,7 +703,14 @@ impl FileDialog {
         // CRITICAL: Broadcast initial selection after directory navigation
         // Matches Borland: TFileList::readDirectory() broadcasts cmFileFocused after newList()
         // (tfilelis.cc:588-595) and TFileList::setState() broadcasts on focus (tfilelis.cc:146-149)
-        if !self.files.is_empty() {
+        if self.files.is_empty() {
+            // No files - show the wildcard pattern if one was applied
+            if self.wildcard.contains('*') || self.wildcard.contains('?') {
+                self.set_file_name_text(self.wildcard.clone());
+            } else {
+                self.set_file_name_text(String::new());
+            }
+        } else {
             let first_item = self.files[0].clone();
 
             // Format the display text for the input field
@@ -737,13 +744,6 @@ impl FileDialog {
             // Broadcast to notify InputLine to update its display
             let mut broadcast = Event::broadcast(CM_FILE_FOCUSED);
             self.dialog.handle_event(&mut broadcast);
-        } else {
-            // No files - show the wildcard pattern if one was applied
-            if self.wildcard.contains('*') || self.wildcard.contains('?') {
-                self.set_file_name_text(self.wildcard.clone());
-            } else {
-                self.set_file_name_text(String::new());
-            }
         }
     }
 
@@ -768,7 +768,7 @@ impl FileDialog {
                     }
 
                     if metadata.is_dir() {
-                        dirs.push(format!("[{}]", name));
+                        dirs.push(format!("[{name}]"));
                     } else if self.matches_wildcard(&name) {
                         regular_files.push(name);
                     }
@@ -829,7 +829,7 @@ impl FileDialog {
         self.needs_full_redraw = true;
     }
 
-    fn contains_wildcards(&self, name: &str) -> bool {
+    fn contains_wildcards(name: &str) -> bool {
         // Check if the name contains wildcard characters
         // Matches Borland: IsWild() checks for '*' and '?' (tfiledia.cc:42-47)
         name.contains('*') || name.contains('?')
@@ -849,15 +849,11 @@ impl FileDialog {
 
     pub fn get_selected_file(&self) -> Option<PathBuf> {
         let file_name = self.file_name_text();
-        if !file_name.is_empty() {
-            Some(self.current_path.join(file_name))
-        } else {
-            None
-        }
+        (!file_name.is_empty()).then(|| self.current_path.join(file_name))
     }
 
     /// Get the current directory being browsed
-    /// Useful for ChDirDialog to get the selected directory
+    /// Useful for `ChDirDialog` to get the selected directory
     pub fn get_current_directory(&self) -> PathBuf {
         self.current_path.clone()
     }
@@ -953,7 +949,7 @@ pub struct FileDialogBuilder {
 }
 
 impl FileDialogBuilder {
-    /// Creates a new FileDialogBuilder with default values.
+    /// Creates a new `FileDialogBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -1028,7 +1024,7 @@ impl FileDialogBuilder {
         self
     }
 
-    /// Builds the FileDialog.
+    /// Builds the `FileDialog`.
     ///
     /// # Panics
     ///
@@ -1045,7 +1041,7 @@ impl FileDialogBuilder {
         fd
     }
 
-    /// Builds the FileDialog as a Box.
+    /// Builds the `FileDialog` as a Box.
     pub fn build_boxed(self) -> Box<FileDialog> {
         Box::new(self.build())
     }

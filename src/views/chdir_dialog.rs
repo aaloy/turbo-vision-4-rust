@@ -2,7 +2,7 @@
 
 //! Change Directory Dialog - specialized dialog for directory selection
 //!
-//! Matches Borland: TChDirDialog (tchdirdi.cc)
+//! Matches Borland: `TChDirDialog` (tchdirdi.cc)
 //!
 //! A dialog for navigating and selecting directories with a tree view,
 //! input line, and control buttons.
@@ -46,8 +46,8 @@ const CM_REVERT: CommandId = 125;
 // Matches Borland: histId parameter in TChDirDialog constructor
 const DEFAULT_HISTORY_ID: u16 = 10;
 
-/// Wrapper that allows DirListBox to be a child view with shared access
-/// Also broadcasts CM_FILE_FOCUSED when focused item changes (like FileList does)
+/// Wrapper that allows `DirListBox` to be a child view with shared access
+/// Also broadcasts `CM_FILE_FOCUSED` when focused item changes (like `FileList` does)
 /// Manages scrollbars connected to the listbox
 struct SharedDirListBox {
     inner: Rc<RefCell<DirListBox>>,
@@ -97,7 +97,7 @@ impl SharedDirListBox {
             total_items = list_state.range;
             top_item = list_state.top_item;
             visible_items = listbox.bounds().height_clamped() as usize;
-        }
+        };
 
         // Update vertical scrollbar
         // Matches Borland: TScrollBar::setParams(value, min, max, pgSize, arStep)
@@ -166,7 +166,7 @@ impl View for SharedDirListBox {
                 {
                     let mut listbox = self.inner.borrow_mut();
                     listbox.list_state_mut().top_item = new_top;
-                }
+                };
 
                 // Update scrollbars to reflect new position
                 self.update_scrollbars();
@@ -270,7 +270,7 @@ impl View for SharedDirListBox {
     }
 
     fn set_palette_chain(&mut self, node: Option<crate::core::palette_chain::PaletteChainNode>) {
-        self.core.palette_chain = node.clone();
+        self.core.palette_chain.clone_from(&node);
         self.inner.borrow_mut().set_palette_chain(node);
     }
 
@@ -289,7 +289,7 @@ impl View for SharedDirListBox {
 
 /// Change Directory Dialog
 ///
-/// Matches Borland: TChDirDialog (tchdirdi.cc)
+/// Matches Borland: `TChDirDialog` (tchdirdi.cc)
 ///
 /// Dialog for selecting and changing to a directory. Shows a hierarchical
 /// directory tree and allows navigation through directories.
@@ -298,9 +298,9 @@ pub struct ChDirDialog {
     history_id: u16,
     dir_list_id: ViewId,
     dir_input: Handle<InputLine>,
-    #[allow(dead_code)] // Will be used for button state management
+    #[allow(dead_code, reason = "Will be used for button state management")]
     ok_button_id: ViewId,
-    #[allow(dead_code)] // Will be used for button state management
+    #[allow(dead_code, reason = "Will be used for button state management")]
     chdir_button_id: ViewId,
     selected_directory: Option<PathBuf>,
 }
@@ -315,17 +315,17 @@ impl ChDirDialog {
     /// `TChDirDialog::TChDirDialog( ushort opts, ushort histId )`
     ///
     /// Dialog layout (widened from Borland for more space):
-    /// - Dialog: TRect( 5, 2, 75, 21 ) = 70 wide x 19 tall (widened for more space)
-    /// - Input line: TRect( 3, 3, 48, 4 )
+    /// - Dialog: `TRect`( 5, 2, 75, 21 ) = 70 wide x 19 tall (widened for more space)
+    /// - Input line: `TRect`( 3, 3, 48, 4 )
     /// - Label "Directory name": (2, 2)
-    /// - History button: TRect( 48, 3, 51, 4 )
-    /// - Vertical scrollbar: TRect( 50, 6, 51, 16 )
-    /// - Horizontal scrollbar: TRect( 3, 16, 50, 17 )
-    /// - Dir listbox: TRect( 3, 6, 50, 16 )
+    /// - History button: `TRect`( 48, 3, 51, 4 )
+    /// - Vertical scrollbar: `TRect`( 50, 6, 51, 16 )
+    /// - Horizontal scrollbar: `TRect`( 3, 16, 50, 17 )
+    /// - Dir listbox: `TRect`( 3, 6, 50, 16 )
     /// - Label "Directory tree": (2, 5)
-    /// - OK button: TRect( 53, 6, 63, 8 )
-    /// - Chdir button: TRect( 53, 9, 63, 11 )
-    /// - Revert button: TRect( 53, 12, 63, 14 )
+    /// - OK button: `TRect`( 53, 6, 63, 8 )
+    /// - Chdir button: `TRect`( 53, 9, 63, 11 )
+    /// - Revert button: `TRect`( 53, 12, 63, 14 )
     pub fn new(history_id: Option<u16>) -> Self {
         let history_id = history_id.unwrap_or(DEFAULT_HISTORY_ID);
         // Widened dialog bounds: TRect( 5, 2, 75, 21 ) - 70 columns instead of 48
@@ -422,7 +422,7 @@ impl ChDirDialog {
     /// Returns the selected directory if OK was pressed, None if cancelled
     ///
     /// Matches Borland: user interacts with dialog, OK/Cancel to exit
-    /// The valid() method validates the directory before closing
+    /// The `valid()` method validates the directory before closing
     /// Copy the path the directory list wants shown into the input line
     /// (Borland: `message(owner, evBroadcast, cmFileFocused, this)` answered by
     /// the input; here the owner resolves the link).
@@ -461,7 +461,7 @@ impl ChDirDialog {
                 if let Err(e) = std::env::set_current_dir(&path) {
                     // Invalid directory - show error and re-execute dialog
                     // Matches Borland: valid() returns False, shows error, and keeps dialog open
-                    let error_msg = format!("Invalid directory\n\n{}", e);
+                    let error_msg = format!("Invalid directory\n\n{e}");
                     message_box_error(app, &error_msg);
 
                     // Re-execute the dialog to let user try again
@@ -531,7 +531,7 @@ pub struct ChDirDialogBuilder {
 }
 
 impl ChDirDialogBuilder {
-    /// Creates a new ChDirDialogBuilder
+    /// Creates a new `ChDirDialogBuilder`
     pub fn new() -> Self {
         Self { history_id: None }
     }
@@ -543,12 +543,12 @@ impl ChDirDialogBuilder {
         self
     }
 
-    /// Builds the ChDirDialog with Borland standard layout
+    /// Builds the `ChDirDialog` with Borland standard layout
     pub fn build(self) -> ChDirDialog {
         ChDirDialog::new(self.history_id)
     }
 
-    /// Builds the ChDirDialog as a Box
+    /// Builds the `ChDirDialog` as a Box
     pub fn build_boxed(self) -> Box<ChDirDialog> {
         Box::new(self.build())
     }

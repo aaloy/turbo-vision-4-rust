@@ -24,19 +24,19 @@ use crate::core::palette::{CLUSTER_FOCUSED, CLUSTER_NORMAL, CLUSTER_SHORTCUT};
 
 /// State management for cluster (button group) components
 ///
-/// Matches Borland: TCluster fields
+/// Matches Borland: `TCluster` fields
 ///
 /// This struct holds the common state for all button group controls.
 /// Components embed this and expose it via the Cluster trait.
 #[derive(Clone, Debug)]
 pub struct ClusterState {
     /// Current selection value
-    /// For CheckBox: 0 = unchecked, 1 = checked
-    /// For RadioButton: index of selected button in group
+    /// For `CheckBox`: 0 = unchecked, 1 = checked
+    /// For `RadioButton`: index of selected button in group
     pub value: u32,
 
     /// Group ID for radio button groups
-    /// Radio buttons with same group_id are mutually exclusive
+    /// Radio buttons with same `group_id` are mutually exclusive
     pub group_id: u16,
 
     /// Whether to enable keyboard selection with space
@@ -74,7 +74,7 @@ impl ClusterState {
 
     /// Toggle selection (for checkboxes)
     pub fn toggle(&mut self) {
-        self.value = if self.value == 0 { 1 } else { 0 };
+        self.value = u32::from(self.value == 0);
     }
 }
 
@@ -86,10 +86,10 @@ impl Default for ClusterState {
 
 /// Trait for button group (cluster) components
 ///
-/// Matches Borland: TCluster virtual methods
+/// Matches Borland: `TCluster` virtual methods
 ///
 /// This trait provides the common interface for all button group controls.
-/// Components implement this trait and embed ClusterState for shared logic.
+/// Components implement this trait and embed `ClusterState` for shared logic.
 pub trait Cluster: View {
     /// Get the cluster state (read-only)
     fn cluster_state(&self) -> &ClusterState;
@@ -103,10 +103,10 @@ pub trait Cluster: View {
     /// Get the marker string for this control
     ///
     /// Examples:
-    /// - CheckBox unchecked: "[ ] "
-    /// - CheckBox checked: `[X] `
-    /// - RadioButton unselected: "( ) "
-    /// - RadioButton selected: "(•) "
+    /// - `CheckBox` unchecked: "[ ] "
+    /// - `CheckBox` checked: `[X] `
+    /// - `RadioButton` unselected: "( ) "
+    /// - `RadioButton` selected: "(•) "
     fn get_marker(&self) -> &str;
 
     /// Get the current selection value
@@ -136,7 +136,7 @@ pub trait Cluster: View {
 
     /// Get colors based on focus state
     ///
-    /// Returns (normal_color, hotkey_color)
+    /// Returns (`normal_color`, `hotkey_color`)
     fn get_colors(&self) -> (Attr, Attr) {
         // Cluster palette indices:
         // 1: Normal (unfocused), 2: Focused, 3: Shortcut
@@ -155,7 +155,7 @@ pub trait Cluster: View {
 
     /// Handle standard cluster events
     ///
-    /// Matches Borland: TCluster::handleEvent() keyboard and mouse logic
+    /// Matches Borland: `TCluster::handleEvent()` keyboard and mouse logic
     /// Returns true if event was handled
     fn handle_cluster_event(&mut self, event: &mut Event) -> bool {
         match event.what {

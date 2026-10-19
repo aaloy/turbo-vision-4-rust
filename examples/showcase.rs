@@ -48,47 +48,110 @@ const CM_START_CRAB: u16 = 207;
 const CM_PAUSE_CRAB: u16 = 208;
 
 // Calculator button commands
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_BUTTON: u16 = 200;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_CLEAR: u16 = 200;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_DELETE: u16 = 201;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_PERCENT: u16 = 202;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_PLUSMIN: u16 = 203;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_7: u16 = 204;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_8: u16 = 205;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_9: u16 = 206;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_DIV: u16 = 207;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_4: u16 = 208;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_5: u16 = 209;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_6: u16 = 210;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_MUL: u16 = 211;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_1: u16 = 212;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_2: u16 = 213;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_3: u16 = 214;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_MINUS: u16 = 215;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_0: u16 = 216;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_DECIMAL: u16 = 217;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_EQUAL: u16 = 218;
-#[allow(dead_code)]
+#[allow(
+    dead_code,
+    reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
+)]
 const CM_CALC_PLUS: u16 = 219;
 
 // ClockView - displays live time on menu bar
@@ -204,7 +267,10 @@ impl CrabWidget {
         self.last_update = Instant::now();
     }
 
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "accessor kept for completeness; pause state is read inside toggle"
+    )]
     fn is_paused(&self) -> bool {
         self.paused
     }
@@ -468,7 +534,7 @@ impl View for AsciiTable {
                         } else {
                             '·' // Placeholder for extended ASCII
                         };
-                        let text = format!(" {}   {:3}  {:02X}", ch, ascii_val, ascii_val);
+                        let text = format!(" {ch}   {ascii_val:3}  {ascii_val:02X}");
                         buf.move_str(x, &text, colors::EDITOR_NORMAL);
                     }
                 }
@@ -591,7 +657,7 @@ impl CalcDisplay {
             self.number = format!("{:.10}", -r);
         } else {
             self.sign = ' ';
-            self.number = format!("{:.10}", r);
+            self.number = format!("{r:.10}");
         }
 
         // Remove trailing zeros after decimal point
@@ -690,7 +756,7 @@ impl CalcDisplay {
             'C', '\x08', '%', '_', '7', '8', '9', '/', '4', '5', '6', '*', '1', '2', '3', '-', '0',
             '.', '=', '+',
         ];
-        if command >= CM_CALC_BUTTON && command < CM_CALC_BUTTON + 20 {
+        if (CM_CALC_BUTTON..CM_CALC_BUTTON + 20).contains(&command) {
             let idx = (command - CM_CALC_BUTTON) as usize;
             if idx < keys.len() {
                 self.calc_key(keys[idx]);
@@ -743,14 +809,13 @@ impl View for CalcDisplay {
                 self.calc_key(key_char.to_ascii_uppercase());
                 event.what = EventType::Nothing;
             }
-            EventType::Broadcast => {
+            EventType::Broadcast
                 // Handle broadcasts from calculator buttons
                 // Matches Borland: calcdisp.cc:74-81
-                if event.command >= CM_CALC_BUTTON && event.command < CM_CALC_BUTTON + 20 {
+                if event.command >= CM_CALC_BUTTON && event.command < CM_CALC_BUTTON + 20 => {
                     self.handle_command(event.command);
                     event.what = EventType::Nothing;
                 }
-            }
             _ => {}
         }
     }
@@ -921,11 +986,11 @@ impl CalendarView {
         }
 
         let day = remaining_days + 1;
-        (year as u32, month, day as u32)
+        (year, month, day as u32)
     }
 
     fn is_leap_year(year: u32) -> bool {
-        (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+        (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
     }
 
     fn days_in_month(month: u32, year: u32) -> u32 {
@@ -1050,7 +1115,7 @@ impl View for CalendarView {
                 if current < 1 || current > days_in_month as i32 {
                     buf.move_str(day_of_week * 3, "   ", color);
                 } else {
-                    let day_str = format!("{:2}", current);
+                    let day_str = format!("{current:2}");
                     let day_color = if self.year == self.cur_year
                         && self.month == self.cur_month
                         && current == self.cur_day as i32
@@ -1261,13 +1326,11 @@ impl PuzzleView {
                     }
                 }
             }
-            KB_LEFT => {
-                if empty_x < 3 {
-                    self.board[empty_y][empty_x] = self.board[empty_y][empty_x + 1];
-                    self.board[empty_y][empty_x + 1] = ' ';
-                    if self.moves < 1000 {
-                        self.moves += 1;
-                    }
+            KB_LEFT if empty_x < 3 => {
+                self.board[empty_y][empty_x] = self.board[empty_y][empty_x + 1];
+                self.board[empty_y][empty_x + 1] = ' ';
+                if self.moves < 1000 {
+                    self.moves += 1;
                 }
             }
             _ => {}
@@ -1351,11 +1414,9 @@ impl View for PuzzleView {
 
             for j in 0..4 {
                 let tile = self.board[i][j];
-                let tile_str = format!(" {} ", tile);
+                let tile_str = format!(" {tile} ");
 
-                let color = if tile == ' ' {
-                    color_normal
-                } else if self.solved {
+                let color = if tile == ' ' || self.solved {
                     color_normal
                 } else {
                     let tile_idx = (tile as usize).saturating_sub('A' as usize);
@@ -1497,7 +1558,7 @@ fn show_chdir_dialog(app: &mut Application) {
 }
 
 /// Update menu command states based on current desktop state
-/// Matches Borland: TProgram::idle() checks window count and updates command states
+/// Matches Borland: `TProgram::idle()` checks window count and updates command states
 fn update_menu_states(app: &Application) {
     let has_window = app.desktop.child_count() > 0;
 
@@ -1525,8 +1586,8 @@ fn setup_panic_handler() {
             .unwrap()
             .as_secs();
 
-        writeln!(log_file, "\n=== PANIC at timestamp {} ===", timestamp).unwrap();
-        writeln!(log_file, "{}", panic_info).unwrap();
+        writeln!(log_file, "\n=== PANIC at timestamp {timestamp} ===").unwrap();
+        writeln!(log_file, "{panic_info}").unwrap();
 
         if let Some(location) = panic_info.location() {
             writeln!(
@@ -1540,9 +1601,9 @@ fn setup_panic_handler() {
         }
 
         if let Some(message) = panic_info.payload().downcast_ref::<&str>() {
-            writeln!(log_file, "Message: {}", message).unwrap();
+            writeln!(log_file, "Message: {message}").unwrap();
         } else if let Some(message) = panic_info.payload().downcast_ref::<String>() {
-            writeln!(log_file, "Message: {}", message).unwrap();
+            writeln!(log_file, "Message: {message}").unwrap();
         }
 
         writeln!(log_file, "Backtrace:").unwrap();
@@ -1554,7 +1615,7 @@ fn setup_panic_handler() {
 }
 
 /// Initialize application with menu bar, status line, and widgets
-/// Returns (app, clock, crab_widget)
+/// Returns (app, clock, `crab_widget`)
 fn init_application()
 -> turbo_vision::core::error::Result<(Application, ClockView, Rc<RefCell<CrabWidget>>)> {
     let mut app = Application::new()?;
@@ -1577,7 +1638,7 @@ fn init_application()
         width - CrabWidget::WIDTH,
         height - 1,
     )));
-    app.add_overlay_widget(Shared::new(crab_widget.clone()));
+    app.add_overlay_widget(Shared::new(Rc::clone(&crab_widget)));
 
     Ok((app, clock, crab_widget))
 }

@@ -32,8 +32,8 @@ impl Label {
         }
     }
 
-    /// Set the linked control by its ViewId
-    /// Matches Borland: TLabel constructor takes TView* aLink parameter
+    /// Set the linked control by its `ViewId`
+    /// Matches Borland: `TLabel` constructor takes `TView`* aLink parameter
     /// When label is clicked, focus transfers to the linked control
     pub fn set_link(&mut self, view_id: ViewId) {
         self.link = Some(view_id);
@@ -41,7 +41,7 @@ impl Label {
 
     /// Extract the hotkey character from the label text
     /// Returns the uppercase character following the first '~', or None if no hotkey
-    /// Matches Borland: hotKey() function
+    /// Matches Borland: `hotKey()` function
     fn get_hotkey(&self) -> Option<char> {
         let mut chars = self.text.chars();
         while let Some(ch) = chars.next() {
@@ -89,7 +89,12 @@ impl View for Label {
                 // Check if the pressed key matches our Alt+letter shortcut
                 // The key code for Alt+letter is stored in the high byte (scan code)
                 // We need to check if it matches KB_ALT_{LETTER}
-                use crate::core::event::*;
+                use crate::core::event::{
+                    KB_ALT_A, KB_ALT_B, KB_ALT_C, KB_ALT_D, KB_ALT_E, KB_ALT_F, KB_ALT_G, KB_ALT_H,
+                    KB_ALT_I, KB_ALT_J, KB_ALT_K, KB_ALT_L, KB_ALT_M, KB_ALT_N, KB_ALT_O, KB_ALT_P,
+                    KB_ALT_Q, KB_ALT_R, KB_ALT_S, KB_ALT_T, KB_ALT_U, KB_ALT_V, KB_ALT_W, KB_ALT_X,
+                    KB_ALT_Y, KB_ALT_Z,
+                };
 
                 let alt_code = match hotkey {
                     'A' => Some(KB_ALT_A),
@@ -136,8 +141,8 @@ impl View for Label {
         }
     }
 
-    /// Return the linked control ViewId for this label
-    /// Matches Borland: TLabel::link field
+    /// Return the linked control `ViewId` for this label
+    /// Matches Borland: `TLabel::link` field
     fn label_link(&self) -> Option<ViewId> {
         self.link
     }

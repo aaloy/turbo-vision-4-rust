@@ -12,7 +12,7 @@
 //! | Key | Action |
 //! |-----|--------|
 //! | Up, Down | Step by one step |
-//! | PgUp, PgDn | Step by ten steps |
+//! | `PgUp`, `PgDn` | Step by ten steps |
 //! | Home, End | Jump to the minimum or maximum |
 //! | Digits | Append a digit, clamped to the range |
 //! | Minus | Negate, when the range allows it |
@@ -49,7 +49,7 @@ const UP_ARROW: char = '\u{25B2}'; // ▲
 const DOWN_ARROW: char = '\u{25BC}'; // ▼
 /// Cells the stepper pair occupies at the right edge.
 const STEPPER_WIDTH: usize = 2;
-/// Multiplier applied to the step for PgUp and PgDn.
+/// Multiplier applied to the step for `PgUp` and `PgDn`.
 const PAGE_FACTOR: i64 = 10;
 
 /// A numeric field with up and down steppers.
@@ -183,7 +183,7 @@ impl Spinner {
     /// Later digits extend it, and the result is clamped, so typing into a
     /// small range simply stops growing rather than rejecting the keypress.
     fn push_digit(&mut self, digit: u32) -> bool {
-        let d = digit as i64;
+        let d = i64::from(digit);
         if self.fresh {
             self.fresh = false;
             return self.set_value(d);

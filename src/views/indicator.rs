@@ -31,7 +31,7 @@ impl Indicator {
 
     /// Cursor position text: " line:col " (row first, 1-based).
     ///
-    /// Matches Borland TIndicator::draw ("%d:%d", location.y+1, location.x+1).
+    /// Matches Borland `TIndicator::draw` ("%d:%d", location.y+1, location.x+1).
     fn format_text(&self) -> String {
         format!(" {}:{} ", self.location.y + 1, self.location.x + 1)
     }
