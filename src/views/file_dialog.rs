@@ -165,7 +165,9 @@ fn classify_selection(current: &std::path::Path, file_name: &str) -> SelectionAc
     let base = if dir_part.is_empty() {
         current.to_path_buf()
     } else {
-        current.join(dir_part)
+        // Rebuilt from components so "dir/" does not keep its trailing slash
+        // (it would show in the directory label).
+        current.join(dir_part).components().collect()
     };
 
     // 1. Wildcard → refilter (navigating first if a path was given)
@@ -221,9 +223,10 @@ pub struct FileDialog {
     wildcard: String,
     /// The file-name input, once `build` has added it.
     file_name: Option<Handle<InputLine>>,
+    /// The current-directory label, once `build` has added it.
+    path_label: Option<Handle<Label>>,
     files: Vec<String>,
     selected_file_index: usize, // Track ListBox selection
-    title: String,              // Store title for rebuilds
     button_label: String,       // "Open", "Save", etc.
     /// The file the user picked; `execute` returns it once the modal loop
     /// ends with `CM_OK`.
@@ -252,9 +255,9 @@ impl FileDialog {
             current_path,
             wildcard: wildcard.to_string(),
             file_name: None,
+            path_label: None,
             files: Vec::new(),
             selected_file_index: 0,
-            title: title.to_string(),
             button_label: "~O~pen".to_string(), // Default to "Open"
             selected: None,
             needs_full_redraw: false,
@@ -316,7 +319,7 @@ impl FileDialog {
         // Current path label
         let path_str = format!(" {}", self.current_path.display());
         let path_label = Label::new(Rect::new(2, 3, content_width, 3), &path_str);
-        self.dialog.add(path_label);
+        self.path_label = Some(self.dialog.add_typed(path_label));
 
         // Label for files list
         let files_label = Label::new(Rect::new(2, 5, 12, 5), "~F~iles:");
@@ -611,13 +614,13 @@ impl FileDialog {
             SelectionAction::NavigateParent => {
                 if let Some(parent) = self.current_path.parent() {
                     self.current_path = parent.to_path_buf();
-                    self.rebuild_and_redraw();
+                    self.refresh_directory();
                 }
                 None
             }
             SelectionAction::Navigate(dir) => {
                 self.current_path = dir;
-                self.rebuild_and_redraw();
+                self.refresh_directory();
                 None
             }
             SelectionAction::Refilter { dir, wildcard } => {
@@ -625,7 +628,7 @@ impl FileDialog {
                     self.current_path = dir;
                 }
                 self.wildcard = wildcard;
-                self.rebuild_and_redraw();
+                self.refresh_directory();
                 None
             }
             SelectionAction::SelectFile(path) => {
@@ -662,23 +665,32 @@ impl FileDialog {
         }
     }
 
-    fn rebuild_and_redraw(&mut self) {
-        // Create a new dialog with updated file list
-        let old_bounds = self.dialog.bounds();
-        let old_title = self.title.clone();
-        let old_button_label = self.button_label.clone();
+    /// Reload the list for `current_path`/`wildcard` in place.
+    /// Matches Borland: `TFileList::readDirectory()` refills the existing list
+    /// and the info pane follows (tfilelis.cc); the dialog itself is never
+    /// rebuilt, so it keeps its modal state, bounds and options. Rebuilding it
+    /// dropped `State::MODAL`, after which Open/Save no longer closed it.
+    fn refresh_directory(&mut self) {
+        self.read_directory();
 
-        let (show_hidden, hidden_toggle) = (self.show_hidden, self.hidden_toggle);
-        *self = Self::new(
-            old_bounds,
-            &old_title,
-            &self.wildcard.clone(),
-            Some(self.current_path.clone()),
-        )
-        .with_button_label(&old_button_label)
-        .with_show_hidden(show_hidden)
-        .with_hidden_toggle(hidden_toggle)
-        .build();
+        if CHILD_LISTBOX < self.dialog.child_count() {
+            if let Some(listbox) = self
+                .dialog
+                .child_at_mut(CHILD_LISTBOX)
+                .as_any_mut()
+                .downcast_mut::<ListBox>()
+            {
+                listbox.set_items(self.files.clone());
+            }
+        }
+
+        let path_str = format!(" {}", self.current_path.display());
+        if let Some(label) = self.path_label.and_then(|h| self.dialog.get_mut(h)) {
+            label.set_text(&path_str);
+        }
+
+        // The list contents changed under the double buffer
+        self.needs_full_redraw = true;
 
         // Reset focus to listbox after directory navigation
         // Matches Borland: fileList->select() calls owner->setCurrent(this, normalSelect)
@@ -798,7 +810,7 @@ impl FileDialog {
     }
 
     /// Re-read the directory in place when the "Show hidden" checkbox no
-    /// longer matches `show_hidden`. Unlike `rebuild_and_redraw` this keeps
+    /// longer matches `show_hidden`. Unlike `refresh_directory` this keeps
     /// the dialog (and the checkbox's focus) intact, so Space can flip it
     /// back straight away.
     fn apply_hidden_toggle(&mut self) {
@@ -1126,7 +1138,7 @@ mod tests {
         assert_eq!(
             classify_selection(cur, "src/*.txt"),
             SelectionAction::Refilter {
-                dir: Some(PathBuf::from("/base/src/")),
+                dir: Some(PathBuf::from("/base/src")),
                 wildcard: "*.txt".to_string()
             }
         );
@@ -1264,5 +1276,131 @@ mod tests {
         assert_eq!(listed(&fd), vec!["[.cache]"]);
         let handle = fd.hidden_checkbox.expect("checkbox kept after navigation");
         assert!(fd.dialog.get(handle).unwrap().is_checked());
+    }
+}
+
+#[cfg(test)]
+mod modal_flow_tests {
+    //! Drive the dialog the way `Application::run_modal_loop` does, after
+    //! `execute` has set `State::MODAL`.
+    use super::*;
+    use crate::core::event::{KB_ENTER, MB_LEFT_BUTTON};
+    use crate::core::geometry::Point;
+    use std::path::Path;
+
+    /// One modal-loop iteration (mirrors `Application::run_modal_loop`).
+    fn pump(fd: &mut FileDialog, mut ev: Event) -> Option<CommandId> {
+        View::handle_event(fd, &mut ev);
+        if ev.what == EventType::Command {
+            View::handle_event(fd, &mut ev);
+        }
+        fd.update_ok_button_state();
+        let es = fd.end_state();
+        if es != 0 {
+            if View::valid(fd, es) {
+                return Some(es);
+            }
+            fd.end_modal(0);
+        }
+        None
+    }
+
+    fn click_ok(fd: &mut FileDialog) -> Option<CommandId> {
+        let b = fd.dialog.child_at(CHILD_OK_BUTTON).bounds();
+        // Window-local: the interior is inset by one for the frame.
+        let p = Point::new(b.a.x + 3, b.a.y + 1);
+        pump(
+            fd,
+            Event::mouse(EventType::MouseDown, p, MB_LEFT_BUTTON, false),
+        );
+        pump(fd, Event::mouse(EventType::MouseUp, p, 0, false))
+    }
+
+    fn setup(name: &str) -> PathBuf {
+        let tmp = std::env::temp_dir().join(name);
+        let _ = std::fs::remove_dir_all(&tmp);
+        std::fs::create_dir_all(tmp.join("sub")).unwrap();
+        std::fs::write(tmp.join("a.txt"), b"x").unwrap();
+        std::fs::write(tmp.join("sub").join("b.txt"), b"x").unwrap();
+        tmp
+    }
+
+    fn modal(dir: &Path, label: &str) -> FileDialog {
+        let mut fd = FileDialog::new(Rect::new(0, 0, 60, 20), "t", "*", Some(dir.to_path_buf()))
+            .with_button_label(label)
+            .build();
+        let s = fd.dialog.state();
+        fd.dialog.set_state(s | State::MODAL);
+        fd
+    }
+
+    #[test]
+    fn open_button_on_file_in_start_dir() {
+        let tmp = setup("tv_fd_flow1");
+        let mut fd = modal(&tmp, "~O~pen");
+        fd.set_file_name_text("a.txt".into());
+        assert_eq!(click_ok(&mut fd), Some(CM_OK));
+        assert_eq!(fd.selected, Some(tmp.join("a.txt")));
+    }
+
+    #[test]
+    fn open_button_after_navigating_into_folder() {
+        let tmp = setup("tv_fd_flow2");
+        let mut fd = modal(&tmp, "~O~pen");
+        fd.set_file_name_text("sub".into());
+        assert_eq!(click_ok(&mut fd), None);
+        assert_eq!(fd.get_current_directory(), tmp.join("sub"));
+        fd.set_file_name_text("b.txt".into());
+        assert_eq!(click_ok(&mut fd), Some(CM_OK));
+        assert_eq!(fd.selected, Some(tmp.join("sub").join("b.txt")));
+    }
+
+    fn select_in_list(fd: &mut FileDialog, item: &str) {
+        fd.dialog.set_focus_to_child(CHILD_LISTBOX);
+        let idx = fd.files.iter().position(|f| f == item).unwrap();
+        if let Some(lb) = fd
+            .dialog
+            .child_at_mut(CHILD_LISTBOX)
+            .as_any_mut()
+            .downcast_mut::<ListBox>()
+        {
+            lb.set_selection(idx);
+        }
+    }
+
+    #[test]
+    fn enter_in_list_navigates_then_save_new_name() {
+        let tmp = setup("tv_fd_flow3");
+        let mut fd = modal(&tmp, "~S~ave");
+        select_in_list(&mut fd, "[sub]");
+        assert_eq!(pump(&mut fd, Event::keyboard(KB_ENTER)), None);
+        assert_eq!(fd.get_current_directory(), tmp.join("sub"));
+        fd.set_file_name_text("new.txt".into());
+        assert_eq!(click_ok(&mut fd), Some(CM_OK));
+        assert_eq!(fd.selected, Some(tmp.join("sub").join("new.txt")));
+    }
+
+    #[test]
+    fn enter_on_file_after_navigating_and_back_up() {
+        let tmp = setup("tv_fd_flow4");
+        let mut fd = modal(&tmp, "~O~pen");
+
+        select_in_list(&mut fd, "[sub]");
+        assert_eq!(pump(&mut fd, Event::keyboard(KB_ENTER)), None);
+        assert_eq!(fd.files, vec!["..".to_string(), "b.txt".to_string()]);
+        let label = fd.path_label.and_then(|h| fd.dialog.get(h)).unwrap();
+        assert_eq!(label.text(), format!(" {}", tmp.join("sub").display()));
+
+        select_in_list(&mut fd, "..");
+        assert_eq!(pump(&mut fd, Event::keyboard(KB_ENTER)), None);
+        assert_eq!(fd.get_current_directory(), tmp);
+
+        select_in_list(&mut fd, "[sub]");
+        pump(&mut fd, Event::keyboard(KB_ENTER));
+        select_in_list(&mut fd, "b.txt");
+        assert_eq!(pump(&mut fd, Event::keyboard(KB_ENTER)), Some(CM_OK));
+        assert_eq!(fd.selected, Some(tmp.join("sub").join("b.txt")));
+        // Navigation refreshed in place: the modal state survives.
+        assert!(fd.dialog.state().contains(State::MODAL));
     }
 }
