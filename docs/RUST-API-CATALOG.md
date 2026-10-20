@@ -441,6 +441,7 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 ### Application Hooks (`src/app/application.rs`)
 - `AppHandler` trait: `pre_event(&mut self, app, event)`, `handle_command(&mut self, app, command, event) -> bool`, `idle(&mut self, app)`, `window_closed(&mut self, app, id)`; `Application::run_with(&mut handler)`; `run()` is `run_with(&mut ())`
 - `Application::execute_modal(&mut view: impl WindowLike, tick: FnMut(&mut Application, &mut V) -> ModalTick) -> CommandId` - The single modal loop; `ModalTick::Continue` / `ModalTick::End(CommandId)`
+- `Dialog::prepare_modal(&mut self, app: &mut Application)` - What `execute` does before its loop (modal state, drag limits, first child focused); call it before `Application::execute_modal` when running the loop yourself
 - `Application::add_overlay_widget(impl View)`, `Application::exec_view(impl View) -> CommandId`
 
 ---
@@ -926,6 +927,8 @@ dragging counterpart of `Spinner`.
 #### Dialog Struct
 **Public Methods:**
 - Dialog container that extends Window with common dialog features
+- `execute(&mut self, app: &mut Application) -> CommandId` - Run the dialog modally; returns the command that closed it
+- `prepare_modal(&mut self, app: &mut Application)` - The setup `execute` does first; for callers running `Application::execute_modal` themselves
 - Implements View trait
 
 ---
