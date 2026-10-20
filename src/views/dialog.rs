@@ -114,31 +114,26 @@ impl Dialog {
         self.window.set_resizable(resizable);
     }
 
-    /// Execute the dialog with its own event loop (self-contained pattern)
+    /// Put the dialog into its modal state, as [`execute`](Self::execute)
+    /// does before entering its loop: `State::MODAL` (without it the dialog
+    /// ignores OK and Cancel), dragging limited to the desktop and its
+    /// position kept inside it, and the first focusable child focused.
     ///
-    /// **Two execution patterns supported:**
+    /// Call it yourself when you run [`Application::execute_modal`] on the
+    /// dialog instead of calling `execute`, typically to do some work on
+    /// every turn of the loop, such as refreshing a preview from the
+    /// controls:
     ///
-    /// **Pattern 1: Self-contained (simpler, for direct use):**
     /// ```ignore
-    /// let mut dialog = Dialog::new(bounds, "Title");
-    /// dialog.add(Button::new(...));
-    /// let result = dialog.execute(&mut app);  // Runs own event loop
+    /// dialog.prepare_modal(&mut app);
+    /// let command = app.execute_modal(&mut dialog, |_, dialog| {
+    ///     refresh_preview(dialog);
+    ///     ModalTick::Continue
+    /// });
     /// ```
     ///
-    /// **Pattern 2: Centralized (Borland-style, via `Application::exec_view)`:**
-    /// ```ignore
-    /// let mut dialog = Dialog::new_modal(bounds, "Title");
-    /// dialog.add(Button::new(...));
-    /// let result = app.exec_view(dialog);  // App runs the modal loop
-    /// ```
-    ///
-    /// Both patterns work identically. Pattern 1 is simpler for standalone use.
-    /// Pattern 2 matches Borland's `TProgram::execView()` architecture.
-    /// Put the dialog into its modal state: `State::MODAL`, drag limits from the
-    /// desktop, position constrained to it, first focusable child focused.
-    /// `execute` does this before entering the loop; a type wrapping a `Dialog`
-    /// that runs `Application::execute_modal` on itself calls it directly.
-    pub(crate) fn prepare_modal(&mut self, app: &mut crate::app::Application) {
+    /// [`Application::execute_modal`]: crate::app::Application::execute_modal
+    pub fn prepare_modal(&mut self, app: &mut crate::app::Application) {
         self.result = CM_CANCEL;
 
         // Set modal flag - dialogs are modal by default
@@ -161,6 +156,26 @@ impl Dialog {
         self.set_initial_focus();
     }
 
+    /// Execute the dialog with its own event loop (self-contained pattern)
+    ///
+    /// **Two execution patterns supported:**
+    ///
+    /// **Pattern 1: Self-contained (simpler, for direct use):**
+    /// ```ignore
+    /// let mut dialog = Dialog::new(bounds, "Title");
+    /// dialog.add(Button::new(...));
+    /// let result = dialog.execute(&mut app);  // Runs own event loop
+    /// ```
+    ///
+    /// **Pattern 2: Centralized (Borland-style, via `Application::exec_view)`:**
+    /// ```ignore
+    /// let mut dialog = Dialog::new_modal(bounds, "Title");
+    /// dialog.add(Button::new(...));
+    /// let result = app.exec_view(dialog);  // App runs the modal loop
+    /// ```
+    ///
+    /// Both patterns work identically. Pattern 1 is simpler for standalone use.
+    /// Pattern 2 matches Borland's `TProgram::execView()` architecture.
     pub fn execute(&mut self, app: &mut crate::app::Application) -> CommandId {
         self.prepare_modal(app);
 
@@ -542,6 +557,27 @@ mod tests {
         let mut ev = Event::command(5000);
         d.handle_event(&mut ev);
         assert_eq!(d.end_state(), 5000);
+    }
+
+    #[test]
+    fn prepare_modal_lets_a_loop_run_from_outside_end_on_ok() {
+        // What a caller running Application::execute_modal itself relies on:
+        // before prepare_modal the dialog ignores OK, after it OK ends it.
+        use crate::core::command::CM_OK;
+        let mut app =
+            crate::app::Application::with_terminal(crate::test_util::test_terminal(80, 25));
+        let mut d = Dialog::new(Rect::new(0, 0, 30, 8), "t");
+        d.add(Button::new(Rect::new(1, 4, 11, 6), "OK", CM_OK, true));
+
+        let mut ev = Event::command(CM_OK);
+        d.handle_event(&mut ev);
+        assert_eq!(d.end_state(), 0, "not modal yet");
+
+        d.prepare_modal(&mut app);
+        assert!(d.state().contains(State::MODAL));
+        let mut ev = Event::command(CM_OK);
+        d.handle_event(&mut ev);
+        assert_eq!(d.end_state(), CM_OK);
     }
 
     #[test]
