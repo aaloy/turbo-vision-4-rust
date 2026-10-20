@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `Dialog::prepare_modal` is public. Call it before running
+  `Application::execute_modal` on a dialog yourself, for work on every turn
+  of the loop such as refreshing a preview: it does what `Dialog::execute`
+  does first (modal state, so OK and Cancel end the loop; centred on the
+  desktop; drag limits; first child focused).
 - `cargo run --example gallery`: a component gallery. A list of components,
   grouped by kind (controls, text entry, lists and tables, display,
   containers, dialogs, menus and status) and by name within a group; for
