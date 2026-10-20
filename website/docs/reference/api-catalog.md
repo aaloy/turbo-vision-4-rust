@@ -578,6 +578,14 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 
 ---
 
+### GroupBox (`src/views/group_box.rs`)
+
+A titled single-line box drawn around related controls; it only draws (never focused). The controls are its siblings, added after it.
+- `GroupBox::new(bounds: Rect, title: &str) -> Self` - `~` in the title is dropped
+- `title(&self) -> &str`
+
+---
+
 ### CheckBox (`src/views/checkbox.rs`)
 
 #### CheckBox Struct

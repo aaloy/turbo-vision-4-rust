@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `core::timed_event`: `post_after` / `post_at` queue an event to arrive
   later; `Terminal::poll_event` delivers it once due, to the application's
   loops and hand-written ones alike, and waits no longer than the next one.
+- `GroupBox` (`views::group_box`), a titled single-line box drawn around
+  related controls. It only draws; the controls are its siblings, added
+  after it, so they keep the dialog's focus order.
 - Frozen panes for `Table`, like a spreadsheet's.
   `Table::set_frozen_cols` / `TableBuilder::frozen_cols` keep the first
   columns at the left while the others scroll sideways, with a
