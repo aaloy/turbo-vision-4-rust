@@ -51,6 +51,7 @@ cargo build --examples           # build all 39
 - **`sorted_listbox`** &mdash; a sorted list with binary search and type-ahead.
 - **`tree_view`** &mdash; a hierarchical outline view.
 - **`progress_bar`** &mdash; determinate and marquee bars, animated as overlay widgets.
+- **`gallery`** &mdash; the component gallery: a list of components grouped by kind and, for the one under the focus, the live component, how it works with its parameters, links to related components, and the code that built it (the demo's own source file). Arrows browse, F6 switches to the component to try it.
 - **`label_link`** &mdash; labels that focus the input field they are linked to.
 - **`validator`** &mdash; every validator type in one dialog: filter, range and picture.
 
