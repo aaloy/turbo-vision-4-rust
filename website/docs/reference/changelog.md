@@ -57,6 +57,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- A button answers Alt plus its `~` letter, as Borland's does, not only the
+  letter alone. In a dialog whose focus is in an input line the plain letter
+  is typed into the field, so Alt+O was the only way to press **~O~K** from
+  the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
+  `getAltCode`) gives the key code; `Label` uses it too.
 - Non-ASCII text can be typed. `InputLine`, `Memo`, `SortedListBox`'s
   type-ahead and menu letters accepted only ASCII 32–126 (the editor a
   little more): `é`, `ñ`, `ç`, `€`, `ł`, Greek, Cyrillic and the rest now

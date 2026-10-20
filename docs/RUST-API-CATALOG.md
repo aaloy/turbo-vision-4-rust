@@ -116,6 +116,7 @@ Generated: 2025-11-06
 - KB_ALT_X, KB_ALT_F, KB_ALT_H, KB_ALT_O, KB_ALT_A, KB_ALT_F3
 - KB_ESC_F, KB_ESC_H, KB_ESC_X, KB_ESC_A, KB_ESC_O, KB_ESC_E, KB_ESC_S, KB_ESC_V, KB_ESC_ESC
 - KB_TEXT - Key code of a typed character past U+00FF; the character is in `Event::ch`
+- `alt_code(letter: char) -> Option<KeyCode>` - Alt plus an ASCII letter, either case (Borland `getAltCode`); `None` otherwise
 
 #### EventType Enum
 **Variants:** Nothing, Keyboard, MouseDown, MouseUp, MouseMove, MouseAuto, MouseWheelUp, MouseWheelDown, Command, Broadcast
