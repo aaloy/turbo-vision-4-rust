@@ -76,6 +76,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- `ComboBox` with no choice made: the first Down (or Up) picks the first
+  item. It stepped from item 0 to item 1, so the first item could not be
+  reached with the arrow keys.
 - A button answers Alt plus its `~` letter, as Borland's does, not only the
   letter alone. In a dialog whose focus is in an input line the plain letter
   is typed into the field, so Alt+O was the only way to press **~O~K** from
