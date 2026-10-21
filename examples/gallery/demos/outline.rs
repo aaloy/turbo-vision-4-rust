@@ -30,7 +30,7 @@ pub fn build(panel: &mut Panel) {
                 branch("views", vec![leaf("button.rs"), leaf("table.rs")]),
             ],
         ),
-        branch("docs", vec![leaf("FORMS.md"), leaf("AGENTS.md")]),
+        branch("docs", vec![leaf("MORE-CONTROLS.md"), leaf("AGENTS.md")]),
         leaf("Cargo.toml"),
     ]);
     panel.add(tree);

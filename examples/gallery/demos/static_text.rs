@@ -12,7 +12,7 @@
 //!   names the view that Alt and the letter, or a click, focuses.
 //!   `set_error(true)` shows it in the error colour.
 //!
-//! See also: InputLine, GroupBox, Form
+//! See also: InputLine, GroupBox
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

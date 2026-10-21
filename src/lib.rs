@@ -60,8 +60,8 @@
 //! ```
 //!
 //! For the Turbo Vision way of working, a component index and recipes, read
-//! `AGENTS.md` in the repository; dialogs and record editors are covered in
-//! `docs/FORMS.md`.
+//! `AGENTS.md` in the repository. Dialogs laid out from labelled fields, and
+//! record editors, live in the companion crate `tv-extensions`.
 //!
 //! # Architecture
 //!

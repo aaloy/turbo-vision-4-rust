@@ -3,7 +3,7 @@ TURBO VISION RUST - QUICK CODE REFERENCE
 
 A cheat sheet. The full guide, with compiled examples, the component index and
 the rules to follow, is AGENTS.md at the repository root. Dialog layout and
-record editors: docs/FORMS.md.
+record editors: the companion crate tv-extensions (tv_extensions::forms).
 
 
 THE APPLICATION SHAPE
@@ -83,36 +83,21 @@ MESSAGE BOXES AND QUESTIONS
     let name: Option<String> = input_box(&mut app, "Rename", "~N~ame", "old", 40);
 
 
-A DIALOG OF FIELDS (use Form; no coordinates)
-=============================================
+A DIALOG OF FIELDS (place the controls by hand)
+===============================================
 
-    use turbo_vision::views::GroupLike;               // for dialog.get(..)
-    use turbo_vision::views::form::{Form, size};
-
-    let mut form = Form::new("Search");
-    let text = form.field("~T~ext", InputLine::new(Rect::default(), 80));  // stretches
-    let max  = form.field("~M~ax", InputLine::new(size(6, 1), 5));        // 6 columns
-    form.ok_cancel();
-    let mut dialog = form.build();                    // sized and centred
+    let mut dialog = Dialog::new(Rect::new(0, 0, 44, 10), "Search");
+    // Children are placed inside the frame: (0, 0) is the inner corner.
+    dialog.add(Label::new(Rect::new(2, 2, 12, 3), "~T~ext"));
+    let text = dialog.add_typed(InputLine::new(Rect::new(12, 2, 40, 3), 80));
+    dialog.add(Button::new(Rect::new(10, 6, 20, 8), "~O~K", CM_OK, true));
+    dialog.add(Button::new(Rect::new(24, 6, 34, 8), "Cancel", CM_CANCEL, false));
     if dialog.execute(&mut app) == CM_OK {
         let text = dialog.get(text).map(|f| f.text().to_string());
     }
 
-Lines of fields: form.line(); groups: form.group("Title") .. form.end_group();
-labels above: form.label_position(LabelPosition::Above).
-
-
-EDITING A STRUCT (record forms: typed fields, validation, saving)
-=================================================================
-
-    let mut form = Form::<Customer>::for_record("Customer");
-    form.input("~N~ame", |c| &mut c.name).required();
-    form.input("~A~ge", |c| &mut c.age);              // u32: must be a whole number
-    form.check("~V~IP", |c| &mut c.vip);
-    form.ok_cancel();
-    let mut editor = form.build_editor();
-    let edited: Option<Customer> = editor.edit(&mut app, customer);
-    // or editor.edit_with(&mut app, customer, |c| db.save(c).map_err(..))
+Laying out fields without coordinates, and editing a struct with typed fields
+and validation, is tv_extensions::forms (the tv-extensions crate).
 
 
 WINDOWS ON THE DESKTOP
@@ -196,7 +181,7 @@ RECT AND POINT (core::geometry)
     r.grow(-1, -1);                       // shrink one cell on every side
 
 Positions are relative to the owner view. Rect::default() means "no size":
-Form stretches such views to fit.
+a layout helper can stretch such views to fit.
 
 
 TILDE (~) HOT KEYS

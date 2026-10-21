@@ -21,7 +21,6 @@ pub mod color_dialog;
 pub mod combo_box;
 pub mod editor;
 pub mod file_dialogs;
-pub mod form;
 pub mod group_box;
 pub mod help;
 pub mod history;

@@ -7,7 +7,6 @@ Start with the guide for AI assistants: it explains the Turbo Vision way of work
 ## Docs
 
 - [Guide for AI assistants and new developers](https://tv.enzolombardi.net/reference/agents/): the model, the application skeleton, the component index, recipes, rules and pitfalls
-- [Building forms with Form](https://tv.enzolombardi.net/tutorials/forms/): dialogs from labelled fields with no coordinates; record editors with typed fields, validation and a save step for databases
 - [API catalog](https://tv.enzolombardi.net/reference/api-catalog/): every public type and method, by module
 - [User guide](https://tv.enzolombardi.net/guide/): the 18-chapter guide to applications, events, views, windows, dialogs, controls, validation, editors, help and palettes
 

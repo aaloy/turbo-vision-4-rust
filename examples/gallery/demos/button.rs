@@ -16,7 +16,7 @@
 //!   instead of sending it to your handler.
 //! - `set_selectable(false)`: it no longer takes the focus.
 //!
-//! See also: Form, Message boxes, StatusLine
+//! See also: Message boxes, StatusLine
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

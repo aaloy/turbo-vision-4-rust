@@ -13,7 +13,7 @@
 //! - `page_mut(i)`: reach a page's controls later.
 //! - `set_initial_focus()`: focus the first page's first control.
 //!
-//! See also: SplitPane, GroupBox, Form
+//! See also: SplitPane, GroupBox
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

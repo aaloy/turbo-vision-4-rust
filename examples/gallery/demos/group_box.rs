@@ -6,10 +6,8 @@
 //! - `GroupBox::new(bounds, title)`: the frame takes the outer row and
 //!   column of `bounds`, so the controls go one in from each edge; add it
 //!   before them, so they draw on top.
-//! - `Form::group(title)` puts one around the rows that follow it, with no
-//!   coordinates.
 //!
-//! See also: Form, TabbedPane, CheckBoxes
+//! See also: TabbedPane, CheckBoxes
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

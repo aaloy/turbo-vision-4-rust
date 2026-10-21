@@ -15,7 +15,6 @@
 //! - `set_text(text)`, `text()`; `is_valid()` asks the validator about the
 //!   text.
 //! - `Label::set_link(id)`: a label whose ~letter~ focuses the input.
-//! - In a record form, `form.input` reads and writes the field for you.
 //!
 //! See also: History, Memo, ComboBox
 

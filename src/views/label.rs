@@ -53,7 +53,7 @@ impl Label {
     }
 
     /// Mark the label as naming a field with an invalid value: it is drawn in
-    /// red until cleared. `Form` editors set it while showing errors.
+    /// red until cleared. The record editors of `tv-extensions` set it while showing errors.
     pub fn set_error(&mut self, error: bool) {
         self.error = error;
     }

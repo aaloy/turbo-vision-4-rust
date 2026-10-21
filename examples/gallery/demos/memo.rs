@@ -13,7 +13,6 @@
 //!   limit.
 //! - `set_read_only(true)`: shown, not changed. `set_tab_size(n)`: how wide
 //!   a tab is drawn.
-//! - In a record form: `form.memo`.
 //!
 //! See also: InputLine, Editor, TextViewer
 

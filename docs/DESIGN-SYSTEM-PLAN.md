@@ -31,7 +31,7 @@ code, so it cannot drift from the library.
    demo, as `tests/docs_index.rs` already does for `AGENTS.md` and the API
    catalog.
 4. **Idiomatic code only.** Demos use the API the way `AGENTS.md` teaches:
-   commands from `CM_USER`, handles, `Form` for dialogs, no hand-written loops.
+   commands from `CM_USER`, handles, no hand-written loops.
 
 ## Steps
 
@@ -46,7 +46,7 @@ code, so it cannot drift from the library.
       optional `handle(app, command)`. A new demo also needs a `pub mod` line
       in `demos/mod.rs` and an entry in `registry.rs`.
 - [x] First ten demos: Button, InputLine (with validators), CheckBoxes and
-      CheckBox, RadioButtons, ComboBox, ListBox, Table, Form, message boxes,
+      CheckBox, RadioButtons, ComboBox, ListBox, Table, message boxes,
       Window.
 - [x] Tests (`cargo test` runs them): every demo builds inside its panel,
       has a header and something to try, keeps its hot keys unique and its
@@ -83,11 +83,8 @@ code, so it cannot drift from the library.
 
 ### Step 4: foundations document
 
-- [ ] `docs/DESIGN-SYSTEM.md`: palettes and colour roles, spacing (the
-      values `Form` uses), frames and shadows, states (focused, default,
+- [ ] `docs/DESIGN-SYSTEM.md`: palettes and colour roles, spacing, frames and shadows, states (focused, default,
       disabled, pressed, invalid, modal), keyboard conventions, wording.
-- [ ] Expose `Form`'s spacing as public constants so the document and custom
-      layouts use the same numbers (decision O2).
 - [ ] Pictures from the gallery for each rule.
 
 ### Step 5: sample application
@@ -135,7 +132,7 @@ decision by adding a new entry that supersedes it; do not edit old ones.
 | Id | Question | Decide by |
 |----|----------|-----------|
 | O1 | Colour themes beyond the Borland palettes (`app.set_palette`): wanted? If so, the gallery should switch between them. | step 2 |
-| O2 | Make `Form`'s spacing values public constants. | step 4 |
+| O2 | Form's spacing constants: `Form` moved to the `tv-extensions` crate, so this is decided there. | step 4 |
 | O3 | The sample application's domain: contacts and invoices, as proposed? | step 5 |
 | O4 | Run the page renderer in CI, or by hand with `website/sync_docs.py`? | step 2 |
 | O5 | A `Group` inside a dialog never takes the focus (`can_focus` is false), so its controls cannot be reached by keyboard; `TabbedPane` manages its pages itself. Make a group focusable when it holds focusable views (Borland nests groups freely)? It would also let the gallery go back to plain groups. | step 3 |

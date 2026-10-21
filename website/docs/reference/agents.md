@@ -9,8 +9,10 @@ current API.
 - Crate: `turbo-vision` (import as `turbo_vision`), Rust edition 2024.
 - A Rust port of Borland Turbo Vision: windows, dialogs, menus and controls in
   a terminal, with keyboard and mouse.
-- Read next: [`docs/FORMS.md`](../tutorials/forms.md) (dialogs and record editors),
-  `cargo doc --open` (full API), [`examples/`](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples) (44 runnable programs).
+- Read next: `cargo doc --open` (full API), [`examples/`](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples) (runnable programs).
+- Companion crate: [`tv-extensions`](https://github.com/aovestdipaperino/tv-extensions)
+  holds `Form` (dialogs laid out from labelled fields, and record editors),
+  `AutoComplete`, `DualList`, `ScrollPane`, popup menus and more.
 
 ## Contents
 
@@ -46,8 +48,8 @@ Dialog (modal, run on top with dialog.execute(&mut app))
 
 **Coordinates are relative to the owner.** A child's `Rect` is measured from
 its owner's top-left corner. For a window or dialog, that is the corner of the
-area *inside* the frame. You rarely compute them: `Form` lays dialogs out for
-you, and `Rect::default()` plus grow modes handle the rest.
+area *inside* the frame. Inside a dialog you place controls by hand; the
+`Form` of the companion crate `tv-extensions` lays them out for you.
 
 **Commands connect everything.** A command is a `u16` (`CommandId`). Menu items,
 status line items and buttons send commands: OK sends `CM_OK`, Alt-X sends
@@ -198,8 +200,7 @@ What the application does for you, with no code:
 
 Each entry gives the module (under `turbo_vision::`), what the component is
 for, how to create it, and how to use its value. Most views also have a
-`…Builder`. `Rect` arguments are owner-relative; use `Rect::default()` when a
-`Form` places the view.
+`…Builder`. `Rect` arguments are owner-relative.
 
 ### Application shell
 
@@ -220,10 +221,8 @@ for, how to create it, and how to use its value. Most views also have a
 | Component | Module | Use it for | Create / use |
 |-----------|--------|------------|--------------|
 | `Window` | `views::window` | A framed, movable window on the desktop. | `Window::new(rect, "Title")`, `window.add(view)` / `add_typed(view)` |
-| `Dialog` | `views::dialog` | A modal window of controls. | prefer `Form`; else `Dialog::new(rect, "Title")`, `dialog.execute(&mut app)` |
-| `Form`, `Line`, `ButtonAlign`, `LabelPosition`, `LabelAlign` | `views::form` | Builds a dialog from labelled fields with no coordinates: lines, groups, sections, buttons. | `Form::new("Title")`, `field(label, view)`, `line()`, `group(title)`, `ok_cancel()`, `build()`; see `docs/FORMS.md` |
-| Record forms: `Editor`, `Field`, `TextValue`, `ValidationErrors`, `FieldError`, `FieldId` | `views::form` (`form::data`) | Edits a struct of yours: typed fields, required fields, rules, errors in the dialog, a save step. | `Form::<T>::for_record("Title")`, `input(label, \|r\| &mut r.x)`, `build_editor()`, `editor.edit(&mut app, record)` |
-| `GroupBox` | `views::group_box` | A titled box around related controls. | `Form::group` makes one; or `GroupBox::new(rect, "Title")` |
+| `Dialog` | `views::dialog` | A modal window of controls. | `Dialog::new(rect, "Title")`, `dialog.execute(&mut app)`; with no coordinates: `Form` in `tv-extensions` |
+| `GroupBox` | `views::group_box` | A titled box around related controls. | `GroupBox::new(rect, "Title")`; `tv-extensions`' `Form::group` makes one for you |
 | `Group` | `views::group` | A plain container (a tab page, a panel). | `Group::new(rect)`, `add(view)` |
 | `TabbedPane` | `views::tabbed_pane` | Tabs over pages. | `TabbedPane::new(rect)`, `add_page("~G~eneral", group)` |
 | `SplitPane`, `Orientation` | `views::split_pane` | Two panes with a draggable divider. | `SplitPane::new(rect, Orientation::Horizontal, position)` |
@@ -237,7 +236,7 @@ for, how to create it, and how to use its value. Most views also have a
 |-----------|--------|------------|--------------|
 | `InputLine` | `views::input_line` | One line of text. | `InputLine::new(rect, max_len)`; `text()`, `set_text(..)`; `with_validator(..)` |
 | `Memo` | `views::memo` | Several lines of text in a form. | `Memo::new(rect)`; `get_text()`, `set_text(..)` |
-| `Label` | `views::label` | A field's caption; Alt+letter focuses its field. | `Label::new(rect, "~N~ame")`, `set_link(field_id)`; `Form` does this |
+| `Label` | `views::label` | A field's caption; Alt+letter focuses its field. | `Label::new(rect, "~N~ame")`, `set_link(field_id)` |
 | `History`, `HistoryViewer`, `HistoryWindow` | `views::history`, `views::history_viewer`, `views::history_window` | A drop-down of earlier entries for an input line. | `History::new(point, history_id, input_handle)` |
 | `EditorWindow` | `views::editor` | A text editor view: undo, search, selection, syntax colours. | `EditorWindow::new(rect)`; `get_text()`, `set_text(..)` |
 | `EditWindow` | `views::edit_window` | A window holding an editor. | `EditWindow::new(rect, "Title")` |
@@ -252,12 +251,12 @@ for, how to create it, and how to use its value. Most views also have a
 
 | Component | Module | Use it for | Create / use |
 |-----------|--------|------------|--------------|
-| `Button` | `views::button` | Sends a command when pressed (mouse, Enter, Space, Alt+letter). | `Button::new(rect, "~O~K", CM_OK, true)`; in forms: `form.button(..)` |
+| `Button` | `views::button` | Sends a command when pressed (mouse, Enter, Space, Alt+letter). | `Button::new(rect, "~O~K", CM_OK, true)` |
 | `CheckBox` | `views::checkbox` | One on/off option. | `CheckBox::new(rect, "~V~IP")`; `is_checked()`, `set_checked(..)` |
 | `CheckBoxes`, `RadioButtons` | `views::cluster_group` | Several options in one control; one of several. | `CheckBoxes::new(rect, labels)`, `is_checked(i)`; `RadioButtons::new(rect, labels)`, `selected()` |
 | `RadioButton` | `views::radiobutton` | A single radio button in a group (prefer `RadioButtons`). | `RadioButton::new(rect, "~A~", group_id)` |
 | `Cluster`, `ClusterState` | `views::cluster` | The shared base of check and radio controls. | used by the controls above |
-| `ComboBox` | `views::combo_box` | One choice from a drop-down list. | `ComboBox::with_items(rect, unique_id, items)`; `selected()`, `set_selected(..)`; in record forms: `form.choice(..)` |
+| `ComboBox` | `views::combo_box` | One choice from a drop-down list. | `ComboBox::with_items(rect, unique_id, items)`; `selected()`, `set_selected(..)` |
 | `Spinner` | `views::spinner` | A whole number with up/down steppers. | `Spinner::new(rect, min, max)`; `value()`, `set_value(..)` |
 | `Slider` | `views::slider` | A whole number on a track. | `Slider::new(rect, min, max)`; `value()` |
 
@@ -335,65 +334,35 @@ fn ask(app: &mut Application) {
 
 ### A dialog of fields, values read back
 
-Use `Form`, and never place controls by hand. Keep the handles, and read the
-values after `execute`:
+Place the controls inside the frame, keep the handles, and read the values
+after `execute`. (For labelled fields with no coordinates, and for editing a
+struct with validation, use `Form` from the companion crate `tv-extensions`.)
 
 ```rust
 use turbo_vision::app::Application;
-use turbo_vision::core::command::CM_OK;
+use turbo_vision::core::command::{CM_CANCEL, CM_OK};
 use turbo_vision::core::geometry::Rect;
 use turbo_vision::views::GroupLike;
+use turbo_vision::views::button::Button;
 use turbo_vision::views::checkbox::CheckBox;
-use turbo_vision::views::form::{Form, size};
+use turbo_vision::views::dialog::Dialog;
 use turbo_vision::views::input_line::InputLine;
+use turbo_vision::views::label::Label;
 
 fn search_dialog(app: &mut Application) -> Option<(String, bool)> {
-    let mut form = Form::new("Search");
-    let text = form.field("~T~ext", InputLine::new(Rect::default(), 80));
-    let case = form.field("", CheckBox::new(Rect::default(), "~M~atch case"));
-    form.field("~L~imit", InputLine::new(size(6, 1), 5));
-    form.ok_cancel();
-    let mut dialog = form.build();
+    let mut dialog = Dialog::new(Rect::new(0, 0, 46, 11), "Search");
+    // Children are placed inside the frame: (0, 0) is the inner corner.
+    dialog.add(Label::new(Rect::new(2, 1, 10, 2), "~T~ext"));
+    let text = dialog.add_typed(InputLine::new(Rect::new(10, 1, 42, 2), 80));
+    let case = dialog.add_typed(CheckBox::new(Rect::new(10, 3, 42, 4), "~M~atch case"));
+    dialog.add(Button::new(Rect::new(8, 6, 20, 8), "~O~K", CM_OK, true));
+    dialog.add(Button::new(Rect::new(24, 6, 36, 8), "Cancel", CM_CANCEL, false));
     if dialog.execute(app) != CM_OK {
         return None;
     }
     let text = dialog.get(text)?.text().to_string();
     let case = dialog.get(case)?.is_checked();
     Some((text, case))
-}
-```
-
-### Edit a struct, with validation (a database row)
-
-Use a record form. It returns the edited struct only once every rule passes:
-
-```rust
-use turbo_vision::app::Application;
-use turbo_vision::views::form::{FieldError, Form};
-
-#[derive(Clone, Default)]
-struct Customer {
-    id: i64,
-    name: String,
-    email: String,
-    age: Option<u32>,
-}
-
-fn edit_customer(app: &mut Application, row: Customer) -> Option<Customer> {
-    let mut form = Form::<Customer>::for_record("Customer");
-    form.input("~N~ame", |c| &mut c.name).required();
-    let email = form.input("~E~mail", |c| &mut c.email).required().id();
-    form.input("~A~ge", |c| &mut c.age);
-    form.ok_cancel();
-    let mut editor = form.build_editor();
-    // The closure saves; its errors keep the dialog open.
-    editor.edit_with(app, row, |c| {
-        if c.email.ends_with("@example.com") {
-            Err(FieldError::new(email, "That email is already registered").into())
-        } else {
-            Ok(())
-        }
-    })
 }
 ```
 
@@ -628,9 +597,6 @@ fn enter_presses_ok() {
 }
 ```
 
-Record forms can also be tested with no application at all:
-`editor.load(record)`, then `editor.read()` (see `docs/FORMS.md`).
-
 ## 5. Rules and pitfalls
 
 1. **Use `run_with`, never your own loop.** A hand-written loop has to
@@ -644,9 +610,9 @@ Record forms can also be tested with no application at all:
    the other can't be reached by keyboard. Alt+X, F1 and F10 are global.
 4. **A button's plain letter is typed into a focused input line.** Alt+letter
    always reaches the button.
-5. **Lay dialogs out with `Form`.** It sizes and centres the dialog and keeps
-   labels linked. If you place views by hand, a dialog's children are relative
-   to the area inside the frame.
+5. **A dialog's children are relative to the area inside the frame.** Link each
+   `Label` to its field so its Alt+letter focuses it, or use `Form` from
+   `tv-extensions`, which sizes and centres the dialog and links the labels.
 6. **Reach children with handles.** `add_typed` returns a `Handle<T>`; keep it,
    then use `get` / `get_mut`. Do not keep a `ViewId` and downcast unless the
    type is unknown.
@@ -655,8 +621,7 @@ Record forms can also be tested with no application at all:
 8. **Keyboard button presses are delayed 100 ms** so the user sees the button
    go down. The command arrives a moment later, as a queued event. In tests,
    `button::set_press_animation(Duration::ZERO)`.
-9. **`ComboBox` ids must be unique among live combo boxes.** Record forms pick
-   their own ids, counting down from `u16::MAX`.
+9. **`ComboBox` ids must be unique among live combo boxes.**
 10. **Esc, the close box and Cancel all return `CM_CANCEL`** from `execute`.
 11. **Modal dialogs block.** Inside `execute`, your `idle` handler does not run.
     Use `dialog.set_auto_dismiss(timeout, command)` or the tick closure of
@@ -706,12 +671,12 @@ Record forms can also be tested with no application at all:
 
 | Document | What it covers |
 |----------|----------------|
-| [`docs/FORMS.md`](../tutorials/forms.md) | Dialog layout with `Form`, record editors, validation, saving to a database. |
+| [`tv-extensions`](https://github.com/aovestdipaperino/tv-extensions) | The companion crate: `Form` (dialogs with no coordinates, record editors), `AutoComplete`, `DualList`, `ScrollPane`, popup menus, a CSV editor, a log window, graphics. |
 | [`docs/RUST-API-CATALOG.md`](api-catalog.md) | Every public type and method, by module. |
 | [`docs/user-guide/`](../guide/index.md) | The 18-chapter user guide (Borland's, ported): application, events, views, windows, dialogs, controls, validation, editors, help, palettes. |
 | [`docs/OWNER-COORDINATES.md`](owner-coordinates.md) | How owner-relative coordinates work. |
 | [`docs/PALETTE-SYSTEM.md`](palette-system.md) | How colours are looked up by role. |
 | [`docs/MORE-CONTROLS.md`](more-controls.md) | What was added beyond Borland, and the roadmap. |
 | [`examples/gallery/`](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples/gallery) | The component gallery (`cargo run --example gallery`): each component live, grouped by kind, with how it works, its parameters, links to related components, and the code that built it. Each demo in `examples/gallery/demos/` is a short, idiomatic file to copy from. |
-| [`examples/`](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples) | `form_record` (record editor), `form_layout`, `form_labels`, `table_frozen` (window + table + `AppHandler`), `showcase`, `new_controls`, `file_dialog`, `help`, ... |
+| [`examples/`](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples) | `table_frozen` (window + table + `AppHandler`), `showcase`, `new_controls`, `file_dialog`, `help`, ... |
 | [`docs/DESIGN-SYSTEM-PLAN.md`](https://github.com/aovestdipaperino/turbo-vision-4-rust/blob/main/docs/DESIGN-SYSTEM-PLAN.md) | The design system plan and its decision log. |

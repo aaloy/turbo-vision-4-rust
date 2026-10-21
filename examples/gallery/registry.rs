@@ -264,15 +264,6 @@ pub const DEMOS: &[Demo] = &[
         handle: Some(demos::tooltip::handle),
     },
     Demo {
-        name: "Form",
-        group: Group::Containers,
-        module: "views::form",
-        source: include_str!("demos/form.rs"),
-        height: 2,
-        build: demos::form::build,
-        handle: Some(demos::form::handle),
-    },
-    Demo {
         name: "GroupBox",
         group: Group::Containers,
         module: "views::group_box",

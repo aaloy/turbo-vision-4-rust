@@ -162,22 +162,16 @@ generated edit dialog, model menu) would need, so they come first.
 
 ### Forms and data
 
-- [x] **Form layout helper** — done as `Form`, `src/views/form.rs`, guide in
-      `docs/FORMS.md`, example `form_layout`. Label and field columns,
-      full-width rows, sections, a button row, the dialog sized to fit and
-      centred; stretched fields follow a resize through the grow modes.
-      Lines of several fields, titled groups (`GroupBox`, nestable), and
-      labels on the left (left- or right-aligned) or above. Still open:
+- [x] **Form layout helper and form data transfer** — done as `Form` and
+      record forms, then moved out of this crate into the companion crate
+      [tv-extensions](https://github.com/aovestdipaperino/tv-extensions)
+      (`tv_extensions::forms`, guide `docs/forms.md` there, examples
+      `form_layout`, `form_labels`, `form_record`). They build on this
+      crate's `GroupBox`, `Options::CENTER_X` / `CENTER_Y`, the public
+      `Dialog::prepare_modal` and `Label::set_error`. Still open there:
       paging long forms with `TabbedPane`, groups side by side, label
-      settings per group.
-- [x] **Form data transfer** — done as record forms, `src/views/form/data.rs`:
-      in place of Borland's untyped `getData` / `setData` buffers, each field
-      is bound to a struct member through a lens and keeps its Rust type
-      (`TextValue` for input lines; check boxes, memos, choices, any control
-      through `bind`). Required fields, per-field and cross-field rules,
-      errors shown in the dialog, and a save closure whose errors keep it
-      open. Example `form_record`. Still open: dirty tracking ("discard
-      changes?"), live checks while typing.
+      settings per group, dirty tracking ("discard changes?"), live checks
+      while typing.
 - [ ] **Date and time input** — a field with a drop-down calendar. A calendar
       exists only inside `examples/showcase.rs`; `chrono` is already a
       dependency, and the drop-down can reuse `ComboBox`'s two-step popup
