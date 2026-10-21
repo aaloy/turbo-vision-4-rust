@@ -115,7 +115,7 @@ fn main() -> turbo_vision::core::error::Result<()> {
                             input_box(&mut app, "Input Demo", "Enter your name:", "", 50)
                         {
                             if !text.trim().is_empty() {
-                                let msg = format!("Hello, {}!", text);
+                                let msg = format!("Hello, {text}!");
                                 message_box(
                                     &mut app,
                                     &msg,
@@ -128,9 +128,7 @@ fn main() -> turbo_vision::core::error::Result<()> {
                         // message_box is fixed in sized 40x9 => 3 lines of 32 chars max.
                         message_box(
                             &mut app,
-                            &format!(
-                                "Change window title dynamically.\nSee examples/dynamic_title.rs"
-                            ),
+                            "Change window title dynamically.\nSee examples/dynamic_title.rs",
                             MsgBox::INFORMATION | MsgBox::OK_BUTTON,
                         );
                     }

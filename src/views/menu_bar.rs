@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! MenuBar view - horizontal top menu bar with dropdown submenus.
+//! `MenuBar` view - horizontal top menu bar with dropdown submenus.
 // MenuBar - Horizontal menu bar
 //
 // Matches Borland: TMenuBar (menubar.h, tmenubar.cc)
@@ -33,7 +33,7 @@ const MENU_SELECTED: u8 = 2; // Selected item text
 const MENU_DISABLED: u8 = 3; // Disabled item text
 const MENU_SHORTCUT: u8 = 4; // Shortcut/accelerator text
 
-/// SubMenu represents a top-level menu with dropdown items
+/// `SubMenu` represents a top-level menu with dropdown items
 pub struct SubMenu {
     pub name: String,
     pub menu: Menu,
@@ -73,9 +73,9 @@ fn extract_hotkey(text: &str) -> Option<char> {
     None
 }
 
-/// MenuBar - Horizontal menu bar at top of screen
+/// `MenuBar` - Horizontal menu bar at top of screen
 ///
-/// Matches Borland: TMenuBar
+/// Matches Borland: `TMenuBar`
 pub struct MenuBar {
     core: ViewCore,
     submenus: Vec<SubMenu>,
@@ -151,7 +151,7 @@ impl MenuBar {
     /// Find a submenu index by matching Alt+Letter hotkey with ~X~ markers in menu names
     ///
     /// Scans all submenus for a name containing ~X~ where X matches the Alt+Letter keypress.
-    /// For example, "~F~ile" matches KB_ALT_F, "~W~indow" matches KB_ALT_W, etc.
+    /// For example, "~F~ile" matches `KB_ALT_F`, "~W~indow" matches `KB_ALT_W`, etc.
     ///
     /// Returns Some(index) if a matching menu is found, None otherwise.
     fn find_menu_by_hotkey(&self, key_code: KeyCode) -> Option<usize> {
@@ -254,7 +254,7 @@ impl MenuBar {
                     ..
                 } => {
                     // Flag items reserve a column for the check mark
-                    let mark = if checked.is_some() { 1 } else { 0 };
+                    let mark = usize::from(checked.is_some());
                     let text_len = text.replace('~', "").len() + mark;
                     max_text_width = max_text_width.max(text_len);
                     if let Some(s) = shortcut {
@@ -367,7 +367,7 @@ impl MenuBar {
                             } else {
                                 shortcut_attr
                             };
-                            while let Some(sc) = chars.next() {
+                            for sc in chars.by_ref() {
                                 if sc == '~' {
                                     break;
                                 }
@@ -407,13 +407,12 @@ impl MenuBar {
                     }
 
                     // Draw text
-                    let mut x = 1;
-                    for ch in text.replace('~', "").chars() {
+                    for (i, ch) in text.replace('~', "").chars().enumerate() {
+                        let x = i + 1;
                         if x >= dropdown_width - 2 {
                             break;
                         }
                         item_buf.put_char(x, ch, attr);
-                        x += 1;
                     }
 
                     // Draw arrow
@@ -491,7 +490,7 @@ impl View for MenuBar {
                     } else {
                         shortcut_attr
                     };
-                    while let Some(shortcut_ch) = chars.next() {
+                    for shortcut_ch in chars.by_ref() {
                         if shortcut_ch == '~' {
                             break;
                         }
@@ -656,11 +655,8 @@ impl View for MenuBar {
                                             } = item
                                             {
                                                 // Also check if command is enabled in global command_set
-                                                if command_set::command_enabled(*command) {
-                                                    Some(*command)
-                                                } else {
-                                                    None
-                                                }
+                                                command_set::command_enabled(*command)
+                                                    .then_some(*command)
                                             } else {
                                                 None
                                             }
@@ -774,11 +770,7 @@ impl View for MenuBar {
                                 } = item
                                 {
                                     // Also check if command is enabled in global command_set
-                                    if command_set::command_enabled(*command) {
-                                        Some(*command)
-                                    } else {
-                                        None
-                                    }
+                                    command_set::command_enabled(*command).then_some(*command)
                                 } else {
                                     None
                                 }

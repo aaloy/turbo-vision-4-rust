@@ -15,17 +15,20 @@ use unicode_width::UnicodeWidthStr;
 pub struct Frame {
     core: ViewCore,
     title: String,
-    /// Window number shown right of the title (Borland: TFrame draws
-    /// TWindow::number for Alt+1..9 selection); None = not numbered
+    /// Window number shown right of the title (Borland: `TFrame` draws
+    /// `TWindow::number` for Alt+1..9 selection); None = not numbered
     number: Option<u8>,
     /// Palette type — retained for API compatibility.
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "kept for API parity with Borland TFrame's palette type"
+    )]
     palette_type: FramePaletteType,
     /// Whether the frame is resizable (matches Borland's wfGrow flag)
     resizable: bool,
-    /// True while a MouseDown that started on the close icon is outstanding.
-    /// CM_CLOSE only fires when the matching MouseUp is also over the icon
-    /// (matches Borland: TFrame tracks press-release on the close icon).
+    /// True while a `MouseDown` that started on the close icon is outstanding.
+    /// `CM_CLOSE` only fires when the matching `MouseUp` is also over the icon
+    /// (matches Borland: `TFrame` tracks press-release on the close icon).
     close_pressed: bool,
     /// Whether the zoom icon is drawn at all (Borland: wfZoom). Defaults to
     /// `resizable`, since a fixed-size window has nothing to zoom to.
@@ -85,7 +88,7 @@ impl Frame {
 
     /// True if the given position is over the close icon `[■]` on the top
     /// frame row (columns 2..=4 relative to the frame's left edge).
-    fn is_on_close_icon(&self, pos: crate::core::geometry::Point) -> bool {
+    fn is_on_close_icon(pos: crate::core::geometry::Point) -> bool {
         pos.y == 0 && pos.x >= 2 && pos.x <= 4
     }
 
@@ -93,7 +96,7 @@ impl Frame {
     /// just inside the top-right corner.
     ///
     /// `None` when the frame is not zoomable or is too narrow to hold both
-    /// icons and a title. Matches Borland TFrame::draw, which places the zoom
+    /// icons and a title. Matches Borland `TFrame::draw`, which places the zoom
     /// icon at `width - 5`.
     fn zoom_icon_x(&self) -> Option<i16> {
         let width = self.core.bounds.width();
@@ -162,19 +165,19 @@ impl Frame {
     }
 
     /// Set the frame title
-    /// Matches Borland: TFrame::setTitle() allows changing window title dynamically
+    /// Matches Borland: `TFrame::setTitle()` allows changing window title dynamically
     pub fn set_title(&mut self, title: &str) {
         self.title = title.to_string();
     }
 
-    /// Set the window number displayed in the frame (Borland: TWindow::number).
+    /// Set the window number displayed in the frame (Borland: `TWindow::number`).
     pub fn set_number(&mut self, number: Option<u8>) {
         self.number = number;
     }
 
     /// Get colors for frame elements based on palette type and state
-    /// Matches Borland's getColor() with palette mapping (tframe.cc:43-64)
-    /// Returns (frame_attr, close_icon_attr, title_attr)
+    /// Matches Borland's `getColor()` with palette mapping (tframe.cc:43-64)
+    /// Returns (`frame_attr`, `close_icon_attr`, `title_attr`)
     fn get_frame_colors(&self) -> (Attr, Attr, Attr) {
         use crate::core::palette::{FRAME_ACTIVE_BORDER, FRAME_ICON, FRAME_INACTIVE, FRAME_TITLE};
 
@@ -347,7 +350,7 @@ impl View for Frame {
             && (event.mouse.buttons & MB_LEFT_BUTTON) != 0
             && event.mouse.double_click
             && event.mouse.pos.y == 0
-            && !self.is_on_close_icon(event.mouse.pos)
+            && !Self::is_on_close_icon(event.mouse.pos)
             && !self.is_on_zoom_icon(event.mouse.pos)
         {
             *event = crate::core::event::Event::command(crate::core::command::CM_ZOOM);
@@ -402,7 +405,6 @@ impl View for Frame {
                 // Set dragging state
                 self.core.state |= State::DRAGGING;
                 // DON'T clear event - let Window handle it to initialize drag_offset
-                return;
             }
         } else if event.what == EventType::MouseUp {
             // Handle close-icon release FIRST (before drag/resize cleanup).
@@ -412,7 +414,7 @@ impl View for Frame {
 
             if self.close_pressed {
                 self.close_pressed = false;
-                if self.is_on_close_icon(mouse_pos) {
+                if Self::is_on_close_icon(mouse_pos) {
                     // Generate close command
                     *event = Event::command(CM_CLOSE);
                 } else {
@@ -495,7 +497,7 @@ pub struct FrameBuilder {
 }
 
 impl FrameBuilder {
-    /// Creates a new FrameBuilder with default values.
+    /// Creates a new `FrameBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -792,7 +794,10 @@ mod tests {
     fn a_frame_with_no_desktop_falls_back_to_what_it_was_told() {
         let mut frame = zoomable_frame();
         assert!(!frame.is_zoomed());
-        #[allow(deprecated)]
+        #[allow(
+            deprecated,
+            reason = "exercising the deprecated zoom override in a test"
+        )]
         frame.set_zoomed(true);
         assert!(frame.is_zoomed(), "no max bounds, so the override stands");
 

@@ -3,9 +3,9 @@
 //!
 //! ## Current Implementation
 //!
-//! The FileDialog provides a classic file selection interface with:
+//! The `FileDialog` provides a classic file selection interface with:
 //! - Input line for typing filenames
-//! - ListBox showing files and directories in the current path
+//! - `ListBox` showing files and directories in the current path
 //! - **Mouse support**: Click on files to select, double-click to open
 //! - **Keyboard navigation**: Arrow keys, PgUp/PgDn, Home/End
 //! - Directory navigation (double-click directories or select and press Enter)
@@ -35,12 +35,17 @@
 //!
 //! **Note**: Directories are always shown regardless of the wildcard pattern.
 //!
+//! Hidden entries (names starting with `.`, the Unix convention) are left
+//! out of the list unless `show_hidden` is set. `hidden_toggle` adds a
+//! "Show hidden" checkbox so the user can flip that while browsing. A
+//! hidden name typed into the input still opens or navigates normally.
+//!
 //! ## Implementation Notes
 //!
-//! The FileDialog tracks ListBox selection state by intercepting keyboard and mouse
+//! The `FileDialog` tracks `ListBox` selection state by intercepting keyboard and mouse
 //! events before passing them to the dialog. This allows it to:
 //! - Maintain a shadow selection index
-//! - Update the InputLine when files are selected
+//! - Update the `InputLine` when files are selected
 //! - Handle directory navigation seamlessly
 //!
 //! ### Architecture
@@ -51,11 +56,11 @@
 //! - Modify child views dynamically
 //! - Create more sophisticated interactions between parent and child views
 //!
-//! The current FileDialog implementation uses event interception for simplicity and
+//! The current `FileDialog` implementation uses event interception for simplicity and
 //! performance, but could alternatively use direct child access if needed for more
 //! complex scenarios.
 
-/// FileDialog - A file selection dialog for opening/saving files
+/// `FileDialog` - A file selection dialog for opening/saving files
 ///
 /// ## Usage
 ///
@@ -77,8 +82,8 @@
 ///
 /// ## Dialog Close Behavior
 ///
-/// The FileDialog closes (returns a file path) for exactly 3 reasons:
-/// 1. **File is double-clicked** in the ListBox → Dialog closes, returns file path
+/// The `FileDialog` closes (returns a file path) for exactly 3 reasons:
+/// 1. **File is double-clicked** in the `ListBox` → Dialog closes, returns file path
 /// 2. **File is selected and Enter/OK is pressed** → Dialog closes, returns file path
 /// 3. **User cancels** (close button, Cancel button, or double ESC) → Dialog closes, returns None
 ///
@@ -103,6 +108,7 @@
 /// The `~` character indicates the hotkey underline in the button text.
 use super::View;
 use super::button::Button;
+use super::checkbox::CheckBox;
 use super::dialog::Dialog;
 use super::group::{Group, GroupLike};
 use super::handle::Handle;
@@ -228,6 +234,12 @@ pub struct FileDialog {
     /// Set when the list contents changed under the double buffer; the
     /// modal tick turns it into `Terminal::force_full_redraw`.
     needs_full_redraw: bool,
+    /// List dot-entries (`.git`, `.env`, ...). Off by default.
+    show_hidden: bool,
+    /// Add a "Show hidden" checkbox bound to `show_hidden`.
+    hidden_toggle: bool,
+    /// The "Show hidden" checkbox, once `build` has added it.
+    hidden_checkbox: Option<Handle<CheckBox>>,
 }
 
 impl FileDialog {
@@ -249,6 +261,9 @@ impl FileDialog {
             button_label: "~O~pen".to_string(), // Default to "Open"
             selected: None,
             needs_full_redraw: false,
+            show_hidden: false,
+            hidden_toggle: false,
+            hidden_checkbox: None,
         }
     }
 
@@ -270,6 +285,19 @@ impl FileDialog {
     /// Set the button label (e.g., "~S~ave" for save dialogs)
     pub fn with_button_label(mut self, label: &str) -> Self {
         self.button_label = label.to_string();
+        self
+    }
+
+    /// List hidden (dot-prefixed) entries from the start.
+    pub fn with_show_hidden(mut self, show: bool) -> Self {
+        self.show_hidden = show;
+        self
+    }
+
+    /// Add a "Show hidden" checkbox next to the file list label so the
+    /// user can reveal or hide dot-prefixed entries while browsing.
+    pub fn with_hidden_toggle(mut self, toggle: bool) -> Self {
+        self.hidden_toggle = toggle;
         self
     }
 
@@ -313,14 +341,8 @@ impl FileDialog {
         // Mirror the initial listbox selection into the file-name input so it
         // field and OK button reflect a real selection on first frame, instead
         // of waiting for the user to click an item.
-        if let Some(first_item) = self.files.first() {
-            let display_text = if first_item.starts_with('[') && first_item.ends_with(']') {
-                let dir_name = &first_item[1..first_item.len() - 1];
-                format!("{}/{}", dir_name, self.wildcard)
-            } else {
-                first_item.clone()
-            };
-            self.set_file_name_text(display_text);
+        if let Some(text) = self.first_item_input_text() {
+            self.set_file_name_text(text);
         }
 
         // Buttons on the right side (vertically stacked)
@@ -346,6 +368,17 @@ impl FileDialog {
             false,
         );
         self.dialog.add(cancel_button);
+
+        // Added after the buttons so CHILD_LISTBOX / CHILD_OK_BUTTON keep
+        // their indices. Sits on the "Files:" label row, right of the label.
+        if self.hidden_toggle {
+            // Exactly as wide as "[ ] Show hidden"; embedded so it sits on
+            // the dialog's background like the labels around it.
+            let mut checkbox = CheckBox::new(Rect::new(14, 5, 29, 6), "Show ~h~idden");
+            checkbox.set_embedded(true);
+            checkbox.set_checked(self.show_hidden);
+            self.hidden_checkbox = Some(self.dialog.add_typed(checkbox));
+        }
 
         // Set focus to the listbox by default (better UX for file selection)
         self.dialog.set_initial_focus();
@@ -386,7 +419,7 @@ impl FileDialog {
     /// The file-dialog reaction to an event the inner `Dialog` has already
     /// processed: mirror the list selection into the input, apply wildcard
     /// filters, navigate into directories, or record the chosen file.
-    /// (Borland: TFileDialog::handleEvent / valid(cmFileOpen).)
+    /// (Borland: `TFileDialog::handleEvent` / valid(cmFileOpen).)
     fn after_event(&mut self, event: &mut Event) {
         // Check if dialog wants to close (e.g., close button clicked)
         // Dialog::handle_event() calls end_modal() which sets the end_state
@@ -409,6 +442,7 @@ impl FileDialog {
         // Matches Borland: TFileList::focusItem() broadcasts cmFileFocused when selection changes
         // We read the ListBox selection after it has processed navigation events
         self.sync_inputline_with_listbox();
+        self.apply_hidden_toggle();
 
         // Effective command: Dialog::handle_event clears `event` for CM_OK/
         // CM_CANCEL/CM_YES/CM_NO and stashes the command in end_state, so we
@@ -428,12 +462,17 @@ impl FileDialog {
                     // User clicked OK button or pressed Enter (while not in listbox)
                     // Matches Borland: TFileDialog::valid(cmFileOpen) (tfiledia.cc:251-302)
                     let file_name = self.file_name_text();
-                    if !file_name.is_empty() {
+                    if file_name.is_empty() {
+                        // If input is empty, do nothing (don't close dialog)
+                        // This effectively disables the OK button when input is empty
+                        // Clear end_state so dialog stays open
+                        self.dialog.end_modal(0);
+                    } else {
                         // Check if input contains wildcards (*.txt, *.rs, etc)
-                        if self.contains_wildcards(&file_name) {
+                        if Self::contains_wildcards(&file_name) {
                             // Borland pattern: Update wildcard and reload list, keep dialog open
                             // Matches: strcpy(wildCard, name); fileList->readDirectory()
-                            self.wildcard = file_name.clone();
+                            self.wildcard.clone_from(&file_name);
                             self.read_directory();
 
                             // Update ListBox items directly (don't rebuild entire dialog)
@@ -477,11 +516,6 @@ impl FileDialog {
                         // Dialog called end_modal(CM_OK) but we're navigating into folder
                         self.dialog.end_modal(0);
                         // Loop continues with new directory contents
-                    } else {
-                        // If input is empty, do nothing (don't close dialog)
-                        // This effectively disables the OK button when input is empty
-                        // Clear end_state so dialog stays open
-                        self.dialog.end_modal(0);
                     }
                 }
                 CM_CANCEL | crate::core::command::CM_CLOSE => {
@@ -513,9 +547,9 @@ impl FileDialog {
         }
     }
 
-    /// Sync the InputLine with the current ListBox selection
-    /// Matches Borland: TFileList::focusItem() broadcasts cmFileFocused when selection changes
-    /// We read the ListBox selection after it has processed events
+    /// Sync the `InputLine` with the current `ListBox` selection
+    /// Matches Borland: `TFileList::focusItem()` broadcasts cmFileFocused when selection changes
+    /// We read the `ListBox` selection after it has processed events
     fn sync_inputline_with_listbox(&mut self) {
         // Get the current selection from the ListBox
         if CHILD_LISTBOX >= self.dialog.child_count() {
@@ -604,10 +638,10 @@ impl FileDialog {
                 if let Some(parent) = path.parent() {
                     self.current_path = parent.to_path_buf();
                 }
-                let name = path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_else(|| file_name.to_string());
+                let name = path.file_name().map_or_else(
+                    || file_name.to_string(),
+                    |n| n.to_string_lossy().to_string(),
+                );
                 self.set_file_name_text(name);
                 Some(path)
             }
@@ -681,7 +715,14 @@ impl FileDialog {
         // CRITICAL: Broadcast initial selection after directory navigation
         // Matches Borland: TFileList::readDirectory() broadcasts cmFileFocused after newList()
         // (tfilelis.cc:588-595) and TFileList::setState() broadcasts on focus (tfilelis.cc:146-149)
-        if !self.files.is_empty() {
+        if self.files.is_empty() {
+            // No files - show the wildcard pattern if one was applied
+            if self.wildcard.contains('*') || self.wildcard.contains('?') {
+                self.set_file_name_text(self.wildcard.clone());
+            } else {
+                self.set_file_name_text(String::new());
+            }
+        } else {
             let first_item = self.files[0].clone();
 
             // Format the display text for the input field
@@ -715,13 +756,6 @@ impl FileDialog {
             // Broadcast to notify InputLine to update its display
             let mut broadcast = Event::broadcast(CM_FILE_FOCUSED);
             self.dialog.handle_event(&mut broadcast);
-        } else {
-            // No files - show the wildcard pattern if one was applied
-            if self.wildcard.contains('*') || self.wildcard.contains('?') {
-                self.set_file_name_text(self.wildcard.clone());
-            } else {
-                self.set_file_name_text(String::new());
-            }
         }
     }
 
@@ -741,9 +775,12 @@ impl FileDialog {
             for entry in entries.flatten() {
                 if let Ok(metadata) = entry.metadata() {
                     let name = entry.file_name().to_string_lossy().to_string();
+                    if !self.show_hidden && name.starts_with('.') {
+                        continue;
+                    }
 
                     if metadata.is_dir() {
-                        dirs.push(format!("[{}]", name));
+                        dirs.push(format!("[{name}]"));
                     } else if self.matches_wildcard(&name) {
                         regular_files.push(name);
                     }
@@ -758,7 +795,53 @@ impl FileDialog {
         }
     }
 
-    fn contains_wildcards(&self, name: &str) -> bool {
+    /// Input-field text for the first list entry: `dir/<wildcard>` for a
+    /// directory, the name itself otherwise. `None` for an empty list.
+    fn first_item_input_text(&self) -> Option<String> {
+        let first_item = self.files.first()?;
+        Some(
+            if first_item.starts_with('[') && first_item.ends_with(']') {
+                let dir_name = &first_item[1..first_item.len() - 1];
+                format!("{}/{}", dir_name, self.wildcard)
+            } else {
+                first_item.clone()
+            },
+        )
+    }
+
+    /// Re-read the directory in place when the "Show hidden" checkbox no
+    /// longer matches `show_hidden`. Unlike `refresh_directory` this keeps
+    /// the dialog (and the checkbox's focus) intact, so Space can flip it
+    /// back straight away.
+    fn apply_hidden_toggle(&mut self) {
+        let Some(checked) = self
+            .hidden_checkbox
+            .and_then(|h| self.dialog.get(h))
+            .map(CheckBox::is_checked)
+        else {
+            return;
+        };
+        if checked == self.show_hidden {
+            return;
+        }
+        self.show_hidden = checked;
+        self.read_directory();
+        if CHILD_LISTBOX < self.dialog.child_count()
+            && let Some(listbox) = self
+                .dialog
+                .child_at_mut(CHILD_LISTBOX)
+                .as_any_mut()
+                .downcast_mut::<ListBox>()
+        {
+            listbox.set_items(self.files.clone());
+            listbox.set_selection(0);
+        }
+        self.selected_file_index = 0;
+        self.set_file_name_text(self.first_item_input_text().unwrap_or_default());
+        self.needs_full_redraw = true;
+    }
+
+    fn contains_wildcards(name: &str) -> bool {
         // Check if the name contains wildcard characters
         // Matches Borland: IsWild() checks for '*' and '?' (tfiledia.cc:42-47)
         name.contains('*') || name.contains('?')
@@ -778,15 +861,11 @@ impl FileDialog {
 
     pub fn get_selected_file(&self) -> Option<PathBuf> {
         let file_name = self.file_name_text();
-        if !file_name.is_empty() {
-            Some(self.current_path.join(file_name))
-        } else {
-            None
-        }
+        (!file_name.is_empty()).then(|| self.current_path.join(file_name))
     }
 
     /// Get the current directory being browsed
-    /// Useful for ChDirDialog to get the selected directory
+    /// Useful for `ChDirDialog` to get the selected directory
     pub fn get_current_directory(&self) -> PathBuf {
         self.current_path.clone()
     }
@@ -877,10 +956,12 @@ pub struct FileDialogBuilder {
     initial_dir: Option<PathBuf>,
     button_label: String,
     resizable: bool,
+    show_hidden: bool,
+    hidden_toggle: bool,
 }
 
 impl FileDialogBuilder {
-    /// Creates a new FileDialogBuilder with default values.
+    /// Creates a new `FileDialogBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -889,6 +970,8 @@ impl FileDialogBuilder {
             initial_dir: None,
             button_label: "~O~pen".to_string(),
             resizable: true, // Resizable by default
+            show_hidden: false,
+            hidden_toggle: false,
         }
     }
 
@@ -938,7 +1021,22 @@ impl FileDialogBuilder {
         self
     }
 
-    /// Builds the FileDialog.
+    /// Lists hidden (dot-prefixed) entries from the start (default: false).
+    #[must_use]
+    pub fn show_hidden(mut self, show: bool) -> Self {
+        self.show_hidden = show;
+        self
+    }
+
+    /// Adds a "Show hidden" checkbox the user can toggle to reveal or hide
+    /// dot-prefixed entries (default: false).
+    #[must_use]
+    pub fn hidden_toggle(mut self, toggle: bool) -> Self {
+        self.hidden_toggle = toggle;
+        self
+    }
+
+    /// Builds the `FileDialog`.
     ///
     /// # Panics
     ///
@@ -948,12 +1046,14 @@ impl FileDialogBuilder {
         let title = self.title.expect("FileDialog title must be set");
         let mut fd = FileDialog::new(bounds, &title, &self.wildcard, self.initial_dir)
             .with_button_label(&self.button_label)
+            .with_show_hidden(self.show_hidden)
+            .with_hidden_toggle(self.hidden_toggle)
             .build();
         fd.dialog.set_resizable(self.resizable);
         fd
     }
 
-    /// Builds the FileDialog as a Box.
+    /// Builds the `FileDialog` as a Box.
     pub fn build_boxed(self) -> Box<FileDialog> {
         Box::new(self.build())
     }
@@ -1087,6 +1187,96 @@ mod tests {
 
         let _ = std::fs::remove_dir_all(&tmp);
     }
+
+    /// A temp dir holding `src/`, `.git/`, `main.rs` and `.env`.
+    fn hidden_fixture() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        fs::create_dir(dir.path().join("src")).unwrap();
+        fs::create_dir(dir.path().join(".git")).unwrap();
+        fs::write(dir.path().join("main.rs"), "").unwrap();
+        fs::write(dir.path().join(".env"), "").unwrap();
+        dir
+    }
+
+    fn listed(fd: &FileDialog) -> Vec<&str> {
+        fd.files
+            .iter()
+            .map(String::as_str)
+            .filter(|f| *f != "..")
+            .collect()
+    }
+
+    #[test]
+    fn hidden_entries_are_left_out_by_default() {
+        let dir = hidden_fixture();
+        let fd = FileDialogBuilder::new()
+            .bounds(Rect::new(0, 0, 60, 20))
+            .title("Open")
+            .initial_dir(dir.path().to_path_buf())
+            .build();
+        assert_eq!(listed(&fd), vec!["[src]", "main.rs"]);
+        assert!(fd.hidden_checkbox.is_none(), "no checkbox unless asked for");
+    }
+
+    #[test]
+    fn show_hidden_lists_dot_entries() {
+        let dir = hidden_fixture();
+        let fd = FileDialogBuilder::new()
+            .bounds(Rect::new(0, 0, 60, 20))
+            .title("Open")
+            .initial_dir(dir.path().to_path_buf())
+            .show_hidden(true)
+            .build();
+        assert_eq!(listed(&fd), vec!["[.git]", "[src]", ".env", "main.rs"]);
+    }
+
+    #[test]
+    fn hidden_checkbox_toggles_the_listing_in_place() {
+        let dir = hidden_fixture();
+        let mut fd = FileDialogBuilder::new()
+            .bounds(Rect::new(0, 0, 60, 20))
+            .title("Open")
+            .initial_dir(dir.path().to_path_buf())
+            .hidden_toggle(true)
+            .build();
+        let handle = fd.hidden_checkbox.expect("checkbox added");
+        assert!(!fd.dialog.get(handle).unwrap().is_checked());
+        let children = fd.dialog.child_count();
+
+        fd.dialog.get_mut(handle).unwrap().set_checked(true);
+        fd.apply_hidden_toggle();
+        assert_eq!(listed(&fd), vec!["[.git]", "[src]", ".env", "main.rs"]);
+        let items = fd
+            .dialog
+            .child_at(CHILD_LISTBOX)
+            .as_any()
+            .downcast_ref::<ListBox>()
+            .unwrap()
+            .item_count();
+        assert_eq!(items, fd.files.len(), "list box shows the new listing");
+        assert_eq!(fd.dialog.child_count(), children, "dialog not rebuilt");
+
+        fd.dialog.get_mut(handle).unwrap().set_checked(false);
+        fd.apply_hidden_toggle();
+        assert_eq!(listed(&fd), vec!["[src]", "main.rs"]);
+    }
+
+    #[test]
+    fn hidden_setting_survives_directory_navigation() {
+        let dir = hidden_fixture();
+        fs::create_dir(dir.path().join("src/.cache")).unwrap();
+        let mut fd = FileDialogBuilder::new()
+            .bounds(Rect::new(0, 0, 60, 20))
+            .title("Open")
+            .initial_dir(dir.path().to_path_buf())
+            .hidden_toggle(true)
+            .show_hidden(true)
+            .build();
+        fd.handle_selection("src");
+        assert_eq!(listed(&fd), vec!["[.cache]"]);
+        let handle = fd.hidden_checkbox.expect("checkbox kept after navigation");
+        assert!(fd.dialog.get(handle).unwrap().is_checked());
+    }
 }
 
 #[cfg(test)]
@@ -1098,7 +1288,7 @@ mod modal_flow_tests {
     use crate::core::geometry::Point;
     use std::path::Path;
 
-    /// One modal-loop iteration (mirrors Application::run_modal_loop).
+    /// One modal-loop iteration (mirrors `Application::run_modal_loop`).
     fn pump(fd: &mut FileDialog, mut ev: Event) -> Option<CommandId> {
         View::handle_event(fd, &mut ev);
         if ev.what == EventType::Command {

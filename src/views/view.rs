@@ -16,20 +16,23 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 pub struct ViewId(usize);
 
 impl ViewId {
-    /// Generate a new unique ViewId
+    /// Generate a new unique `ViewId`
     pub(crate) fn new() -> Self {
         static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
         ViewId(NEXT_ID.fetch_add(1, Ordering::Relaxed))
     }
 
-    /// Get the ViewId as a u16 for embedding in event fields.
-    /// ViewId values are small sequential numbers that fit in u16.
-    #[allow(clippy::cast_possible_truncation)]
+    /// Get the `ViewId` as a u16 for embedding in event fields.
+    /// `ViewId` values are small sequential numbers that fit in u16.
+    #[allow(
+        clippy::cast_possible_truncation,
+        reason = "ViewIds are small sequential numbers that fit in u16"
+    )]
     pub fn as_u16(self) -> u16 {
         self.0 as u16
     }
 
-    /// Reconstruct a ViewId from a u16 value.
+    /// Reconstruct a `ViewId` from a u16 value.
     pub fn from_u16(val: u16) -> Self {
         ViewId(val as usize)
     }
@@ -79,7 +82,7 @@ impl ViewCore {
 ///
 /// ## Owner/Parent Communication Pattern
 ///
-/// Unlike Borland's TView which stores an `owner` pointer to the parent TGroup,
+/// Unlike Borland's `TView` which stores an `owner` pointer to the parent `TGroup`,
 /// Rust views communicate with parents through event propagation:
 ///
 /// **Borland Pattern:**
@@ -127,25 +130,25 @@ pub trait View {
         false
     }
 
-    /// Set focus state - default implementation uses State::FOCUSED flag
+    /// Set focus state - default implementation uses `State::FOCUSED` flag
     /// Views should override only if they need custom focus behavior
     fn set_focus(&mut self, focused: bool) {
         self.set_state_flag(State::FOCUSED, focused);
     }
 
-    /// Window number for Alt+1..9 selection (Borland: TWindow::number).
+    /// Window number for Alt+1..9 selection (Borland: `TWindow::number`).
     ///
     /// `None` for views that aren't numbered windows (Borland wnNoNumber).
     fn window_number(&self) -> Option<u8> {
         None
     }
 
-    /// Check if view is focused - reads State::FOCUSED flag
+    /// Check if view is focused - reads `State::FOCUSED` flag
     fn is_focused(&self) -> bool {
         self.get_state_flag(State::FOCUSED)
     }
 
-    /// Get view option flags (Options::SELECTABLE, Options::PRE_PROCESS, Options::POST_PROCESS, etc.)
+    /// Get view option flags (`Options::SELECTABLE`, `Options::PRE_PROCESS`, `Options::POST_PROCESS`, etc.)
     fn options(&self) -> Options {
         self.core().options
     }
@@ -165,7 +168,7 @@ pub trait View {
         self.core_mut().state = state;
     }
 
-    /// Get this view's grow mode flags (Borland: TView::growMode).
+    /// Get this view's grow mode flags (Borland: `TView::growMode`).
     ///
     /// Controls how the view's edges move when its parent Group is resized.
     /// See `Grow::LO_X`, `Grow::LO_Y`, `Grow::HI_X`, `Grow::HI_Y`
@@ -176,7 +179,7 @@ pub trait View {
         self.core().grow_mode
     }
 
-    /// Set this view's grow mode flags (Borland: TView::growMode).
+    /// Set this view's grow mode flags (Borland: `TView::growMode`).
     ///
     /// The default implementation is a no-op; views that participate in
     /// parent-resize layout store the flags in a field and override both
@@ -186,7 +189,7 @@ pub trait View {
     }
 
     /// Set or clear specific state flag(s)
-    /// Matches Borland's TView::setState(ushort aState, Boolean enable)
+    /// Matches Borland's `TView::setState(ushort` aState, Boolean enable)
     /// If enable is true, sets the flag(s), otherwise clears them
     fn set_state_flag(&mut self, flag: StateFlags, enable: bool) {
         let current = self.state();
@@ -198,7 +201,7 @@ pub trait View {
     }
 
     /// Check if specific state flag(s) are set
-    /// Matches Borland's TView::getState(ushort aState)
+    /// Matches Borland's `TView::getState(ushort` aState)
     fn get_state_flag(&self, flag: StateFlags) -> bool {
         (self.state() & flag) == flag
     }
@@ -226,19 +229,19 @@ pub trait View {
     }
 
     /// Zoom (maximize/restore) the view with given maximum bounds
-    /// Matches Borland: TWindow::zoom() toggles between current and max size
+    /// Matches Borland: `TWindow::zoom()` toggles between current and max size
     /// Default implementation does nothing (only windows support zoom)
     fn zoom(&mut self, _max_bounds: Rect) {
         // Default: do nothing (only Window implements zoom)
     }
 
     /// Validate the view before performing a command (usually closing)
-    /// Matches Borland: TView::valid(ushort command) - returns Boolean
+    /// Matches Borland: `TView::valid(ushort` command) - returns Boolean
     /// Returns true if the view's state is valid for the given command
     /// Used for "Save before closing?" type scenarios and input validation
     ///
     /// # Arguments
-    /// * `command` - The command being performed (CM_OK, CM_CANCEL, CM_RELEASED_FOCUS, etc.)
+    /// * `command` - The command being performed (`CM_OK`, `CM_CANCEL`, `CM_RELEASED_FOCUS`, etc.)
     ///
     /// # Returns
     /// * `true` - View state is valid, command can proceed
@@ -288,7 +291,7 @@ pub trait View {
     }
 
     /// Get the union rect of previous and current bounds for redrawing
-    /// Matches Borland: TView::locate() calculates union of old and new bounds
+    /// Matches Borland: `TView::locate()` calculates union of old and new bounds
     /// Returns None if the view hasn't moved since last redraw
     /// Used by Desktop to implement Borland's drawUnderRect pattern
     fn get_redraw_union(&self) -> Option<Rect> {
@@ -373,8 +376,8 @@ pub trait View {
         write_line_to_terminal(terminal, bounds.a.x + ss.0, bounds.b.y, &bottom_buf);
     }
 
-    /// Get the linked control ViewId for labels
-    /// Matches Borland: TLabel::link field
+    /// Get the linked control `ViewId` for labels
+    /// Matches Borland: `TLabel::link` field
     /// Returns Some(ViewId) if this is a label with a linked control, None otherwise
     /// Used by Group to implement focus transfer when clicking labels
     fn label_link(&self) -> Option<ViewId> {
@@ -391,7 +394,7 @@ pub trait View {
     }
 
     /// Initialize internal owner pointers after view is added to parent and won't move
-    /// This is called by parent's add() method after the view is in its final position
+    /// This is called by parent's `add()` method after the view is in its final position
     /// Views that contain other views by value should override this to set up owner chains
     /// Default implementation does nothing
     fn init_after_add(&mut self) {
@@ -400,7 +403,7 @@ pub trait View {
 
     /// Constrain view bounds to parent/owner bounds
     /// Used after positioning (e.g., centering) to ensure view stays within valid area
-    /// Matches Borland: TView::locate() constrains position to owner bounds
+    /// Matches Borland: `TView::locate()` constrains position to owner bounds
     fn constrain_to_parent_bounds(&mut self) {
         // Default: no action needed (only windows need this)
     }
@@ -425,7 +428,7 @@ pub trait View {
     }
 
     /// Get this view's palette for the Borland indirect palette system
-    /// Matches Borland: TView::getPalette()
+    /// Matches Borland: `TView::getPalette()`
     ///
     /// Returns a Palette that maps this view's logical color indices to the parent's indices.
     /// When resolving colors, the system walks up the owner chain remapping through palettes
@@ -437,7 +440,7 @@ pub trait View {
     fn get_palette(&self) -> Option<crate::core::palette::Palette>;
 
     /// Map a logical color index to an actual color attribute
-    /// Matches Borland: TView::mapColor(uchar index)
+    /// Matches Borland: `TView::mapColor(uchar` index)
     ///
     /// Walks up the owner chain, remapping the color index through each view's palette
     /// until reaching a view with no owner (Application), which provides actual attributes.
@@ -509,7 +512,7 @@ pub fn draw_child(terminal: &mut Terminal, child: &mut (impl View + ?Sized)) {
 /// Hand an event to a child view in the child's coordinate space and put
 /// the mouse position back into the owner's space afterwards, whatever the
 /// child turned the event into. The unconditional restore is how a control
-/// reports a screen anchor upward (History, ComboBox) without an owner chain.
+/// reports a screen anchor upward (History, `ComboBox`) without an owner chain.
 pub fn dispatch_to_child(child: &mut (impl View + ?Sized), event: &mut Event) {
     let origin = child.bounds().a;
     event.mouse.pos.x -= origin.x;

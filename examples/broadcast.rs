@@ -87,7 +87,7 @@ impl View for BroadcastButton {
                 buf.move_str(0, &text, colors::MENU_NORMAL);
             }
 
-            turbo_vision::views::view::write_line_to_terminal(terminal, 0, y as i16, &buf);
+            turbo_vision::views::view::write_line_to_terminal(terminal, 0, y, &buf);
         }
     }
 
@@ -107,12 +107,10 @@ impl View for BroadcastButton {
                     *event = Event::command(self.command);
                 }
             }
-            EventType::Broadcast => {
-                if event.command == CMD_BROADCAST_TEST {
-                    // Received a broadcast from a sibling!
-                    self.broadcast_count.set(self.broadcast_count.get() + 1);
-                    // Don't clear - let it continue to other siblings
-                }
+            EventType::Broadcast if event.command == CMD_BROADCAST_TEST => {
+                // Received a broadcast from a sibling!
+                self.broadcast_count.set(self.broadcast_count.get() + 1);
+                // Don't clear - let it continue to other siblings
             }
             _ => {}
         }

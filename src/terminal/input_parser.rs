@@ -70,21 +70,18 @@ impl InputParser {
         let mut events = Vec::new();
 
         while !self.buffer.is_empty() {
-            match self.try_parse() {
-                Some((event, consumed)) => {
-                    events.push(event);
-                    self.buffer.drain(..consumed);
+            if let Some((event, consumed)) = self.try_parse() {
+                events.push(event);
+                self.buffer.drain(..consumed);
+            } else {
+                // Incomplete sequence: wait for more data — unless it has
+                // already exceeded any legitimate sequence length, in
+                // which case drop the leading byte to resynchronize
+                if self.buffer.len() > MAX_PENDING_SEQUENCE {
+                    self.buffer.remove(0);
+                    continue;
                 }
-                None => {
-                    // Incomplete sequence: wait for more data — unless it has
-                    // already exceeded any legitimate sequence length, in
-                    // which case drop the leading byte to resynchronize
-                    if self.buffer.len() > MAX_PENDING_SEQUENCE {
-                        self.buffer.remove(0);
-                        continue;
-                    }
-                    break;
-                }
+                break;
             }
         }
         events
@@ -117,7 +114,7 @@ impl InputParser {
             0x7f | 0x08 => Some((Event::keyboard(KB_BACKSPACE), 1)),
             0x01..=0x1a => {
                 // Control characters (Ctrl+A = 0x01, Ctrl+B = 0x02, etc.)
-                let ctrl_code = buf[0] as u16;
+                let ctrl_code = u16::from(buf[0]);
                 Some((Event::keyboard(ctrl_code), 1))
             }
             c if c >= 0x20 => self.parse_utf8(),
@@ -241,8 +238,8 @@ impl InputParser {
         }
 
         let cb = self.buffer[3].wrapping_sub(32);
-        let cx = self.buffer[4].wrapping_sub(32).saturating_sub(1) as i16;
-        let cy = self.buffer[5].wrapping_sub(32).saturating_sub(1) as i16;
+        let cx = i16::from(self.buffer[4].wrapping_sub(32).saturating_sub(1));
+        let cy = i16::from(self.buffer[5].wrapping_sub(32).saturating_sub(1));
         let pos = Point::new(cx, cy);
 
         let event = if cb & 0x40 != 0 {
@@ -281,8 +278,8 @@ impl InputParser {
         let mut parts = params.split(';');
 
         let cb: u8 = parts.next()?.parse().ok()?;
-        let cx: i16 = parts.next()?.parse::<i16>().ok()?.saturating_sub(1);
-        let cy: i16 = parts.next()?.parse::<i16>().ok()?.saturating_sub(1);
+        let cx = parts.next()?.parse::<i16>().ok()?.saturating_sub(1);
+        let cy = parts.next()?.parse::<i16>().ok()?.saturating_sub(1);
         let pressed = self.buffer[end - 1] == b'M';
         let pos = Point::new(cx, cy);
 
@@ -614,7 +611,7 @@ mod tests {
         let mut parser = InputParser::new();
         // CSI with parameter bytes but never a final byte
         let mut junk = vec![0x1b, b'['];
-        junk.extend(std::iter::repeat(b';').take(500));
+        junk.extend(std::iter::repeat_n(b';', 500));
         let _ = parser.parse(&junk);
         assert!(parser.buffer.len() <= 65);
         // Parser recovers: a normal key still comes through

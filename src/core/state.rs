@@ -205,10 +205,10 @@ static SHADOW_SIZE_CELL: OnceLock<(i16, i16)> = OnceLock::new();
 /// The value is cached after first call for consistency throughout the session.
 #[inline]
 pub fn shadow_size() -> (i16, i16) {
-    *SHADOW_SIZE_CELL.get_or_init(|| crate::terminal::Terminal::query_cell_aspect_ratio())
+    *SHADOW_SIZE_CELL.get_or_init(crate::terminal::Terminal::query_cell_aspect_ratio)
 }
 
-/// Legacy constant for backwards compatibility - prefer shadow_size() function
+/// Legacy constant for backwards compatibility - prefer `shadow_size()` function
 /// This is kept for code that needs a const value at compile time
 pub const SHADOW_SIZE: (i16, i16) = (2, 1);
 

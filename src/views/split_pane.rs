@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! SplitPane view - two panes divided by a draggable splitter.
+//! `SplitPane` view - two panes divided by a draggable splitter.
 //!
 //! Not part of the Borland Turbo Vision widget set. The roadmap called this a
 //! splitter sitting between two sibling views, but a bare divider cannot resize

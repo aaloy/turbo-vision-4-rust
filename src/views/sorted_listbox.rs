@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! SortedListBox view - automatically sorted list with binary search support.
+//! `SortedListBox` view - automatically sorted list with binary search support.
 // SortedListBox - A sorted list with binary search capability
 //
 // Matches Borland: TSortedListBox (extends TListBox)
@@ -30,17 +30,17 @@ use crate::core::geometry::Rect;
 use crate::core::state::State;
 use crate::terminal::Terminal;
 
-/// SortedListBox - A list that maintains items in sorted order
+/// `SortedListBox` - A list that maintains items in sorted order
 ///
-/// Extends ListBox with automatic sorting and binary search.
-/// Matches Borland: TSortedListBox (extends TListBox)
+/// Extends `ListBox` with automatic sorting and binary search.
+/// Matches Borland: `TSortedListBox` (extends `TListBox`)
 pub struct SortedListBox {
     core: ViewCore,
     items: Vec<String>,
     list_state: ListViewerState,
     _on_select_command: CommandId,
     case_sensitive: bool,
-    /// Incremental type-to-search buffer (Borland: TSortedListBox searchPos)
+    /// Incremental type-to-search buffer (Borland: `TSortedListBox` searchPos)
     search_string: String,
 }
 
@@ -100,7 +100,7 @@ impl SortedListBox {
     pub fn get_selected_item(&self) -> Option<&str> {
         self.list_state
             .focused
-            .and_then(|idx| self.items.get(idx).map(|s| s.as_str()))
+            .and_then(|idx| self.items.get(idx).map(std::string::String::as_str))
     }
 
     /// Set the selected item by index
@@ -169,13 +169,9 @@ impl SortedListBox {
             }
             Err(insertion_point) => {
                 // Check if the item at insertion_point starts with prefix
-                if insertion_point < self.items.len()
-                    && self.items[insertion_point].starts_with(prefix)
-                {
-                    Some(insertion_point)
-                } else {
-                    None
-                }
+                (insertion_point < self.items.len()
+                    && self.items[insertion_point].starts_with(prefix))
+                .then_some(insertion_point)
             }
         }
     }
@@ -206,11 +202,9 @@ impl SortedListBox {
                 // Check if the item at insertion_point starts with prefix
                 if insertion_point < self.items.len() {
                     let item = &self.items[insertion_point];
-                    if item.to_lowercase().starts_with(&prefix_lower) {
-                        Some(insertion_point)
-                    } else {
-                        None
-                    }
+                    item.to_lowercase()
+                        .starts_with(&prefix_lower)
+                        .then_some(insertion_point)
                 } else {
                     None
                 }
@@ -237,8 +231,7 @@ impl SortedListBox {
         if self.case_sensitive {
             self.items.sort();
         } else {
-            self.items
-                .sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+            self.items.sort_by_key(|a| a.to_lowercase());
         }
     }
 

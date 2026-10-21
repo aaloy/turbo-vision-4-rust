@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! CheckBoxes and RadioButtons - one focusable control holding several items.
+//! `CheckBoxes` and `RadioButtons` - one focusable control holding several items.
 //!
 //! This is the Borland shape the port was missing. `TCheckBoxes` and
 //! `TRadioButtons` each hold a list of items in a single view with one bitmask
@@ -129,7 +129,7 @@ struct ClusterGroup {
 }
 
 impl ClusterGroup {
-    fn new(bounds: Rect, kind: Kind, labels: Vec<String>) -> Self {
+    fn new(bounds: Rect, kind: Kind, labels: &[String]) -> Self {
         let mut group = Self {
             core: ViewCore {
                 bounds,
@@ -153,7 +153,7 @@ impl ClusterGroup {
     /// Replace the labels. Items past [`MAX_CLUSTER_ITEMS`] are dropped, since
     /// the value has one bit each and a silently half-stored item would be
     /// worse than a missing one.
-    fn set_labels(&mut self, labels: Vec<String>) {
+    fn set_labels(&mut self, labels: &[String]) {
         self.items = labels
             .iter()
             .take(MAX_CLUSTER_ITEMS)
@@ -425,13 +425,13 @@ macro_rules! cluster_control {
             /// hotkey. At most [`MAX_CLUSTER_ITEMS`] labels are kept.
             pub fn new(bounds: Rect, labels: Vec<String>) -> Self {
                 Self {
-                    inner: ClusterGroup::new(bounds, $kind, labels),
+                    inner: ClusterGroup::new(bounds, $kind, &labels),
                 }
             }
 
             /// Replace the labels, keeping the value bits that still apply.
             pub fn set_labels(&mut self, labels: Vec<String>) {
-                self.inner.set_labels(labels);
+                self.inner.set_labels(&labels);
             }
 
             /// Number of items.

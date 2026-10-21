@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! MsgBox - message box utilities for displaying alerts and confirmations.
+//! `MsgBox` - message box utilities for displaying alerts and confirmations.
 
 use super::button::Button;
 use super::dialog::Dialog;
@@ -96,9 +96,10 @@ pub fn message_box(app: &mut Application, message: &str, options: MsgBox) -> Com
 /// wide. Existing newlines act as hard breaks; words longer than
 /// `max_width` (e.g. file paths) are split character-wise rather than
 /// dropped, so the user always sees the full content.
-#[allow(unused_assignments)] // line_len / first_word_in_line are dead
-// on the last iteration of the inner loop
-// but used on every other.
+#[allow(
+    unused_assignments,
+    reason = "line_len / first_word_in_line are dead on the last iteration of the inner loop but used on every other"
+)]
 fn wrap_message(message: &str, max_width: usize) -> String {
     let max_width = max_width.max(1);
     let mut out = String::new();
@@ -138,7 +139,7 @@ fn wrap_message(message: &str, max_width: usize) -> String {
                     }
                     start = end;
                 }
-                line_len = (word_len % max_width).max(if word_len % max_width == 0 {
+                line_len = (word_len % max_width).max(if word_len.is_multiple_of(max_width) {
                     max_width
                 } else {
                     0
@@ -260,7 +261,7 @@ fn auto_dismiss_command(commands: &[CommandId]) -> CommandId {
 
 /// Display a simple message box with OK button
 ///
-/// Returns CM_OK when dismissed.
+/// Returns `CM_OK` when dismissed.
 ///
 /// # Example
 /// ```ignore
@@ -274,7 +275,7 @@ pub fn message_box_ok(app: &mut Application, message: &str) -> CommandId {
 
 /// Display an error message box with OK button
 ///
-/// Returns CM_OK when dismissed.
+/// Returns `CM_OK` when dismissed.
 ///
 /// # Example
 /// ```ignore
@@ -288,14 +289,14 @@ pub fn message_box_error(app: &mut Application, message: &str) -> CommandId {
 
 /// Display a warning message box with OK button
 ///
-/// Returns CM_OK when dismissed.
+/// Returns `CM_OK` when dismissed.
 pub fn message_box_warning(app: &mut Application, message: &str) -> CommandId {
     message_box(app, message, MsgBox::WARNING | MsgBox::OK_BUTTON)
 }
 
 /// Display a confirmation dialog with Yes/No/Cancel buttons
 ///
-/// Returns CM_YES, CM_NO, or CM_CANCEL based on user choice.
+/// Returns `CM_YES`, `CM_NO`, or `CM_CANCEL` based on user choice.
 ///
 /// # Example
 /// ```ignore
@@ -313,7 +314,7 @@ pub fn confirmation_box(app: &mut Application, message: &str) -> CommandId {
 
 /// Display a confirmation dialog with Yes/No buttons
 ///
-/// Returns CM_YES or CM_NO based on user choice.
+/// Returns `CM_YES` or `CM_NO` based on user choice.
 pub fn confirmation_box_yes_no(app: &mut Application, message: &str) -> CommandId {
     message_box(
         app,
@@ -324,7 +325,7 @@ pub fn confirmation_box_yes_no(app: &mut Application, message: &str) -> CommandI
 
 /// Display a confirmation dialog with OK/Cancel buttons
 ///
-/// Returns CM_OK or CM_CANCEL based on user choice.
+/// Returns `CM_OK` or `CM_CANCEL` based on user choice.
 pub fn confirmation_box_ok_cancel(app: &mut Application, message: &str) -> CommandId {
     message_box(app, message, MsgBox::CONFIRMATION | MsgBox::OK_CANCEL)
 }
@@ -339,7 +340,7 @@ pub fn input_box(
 ) -> Option<String> {
     // Calculate dialog size
     let label_len = label.len();
-    let width = (label_len + max_length + 12).min(60).max(30);
+    let width = (label_len + max_length + 12).clamp(30, 60);
     let height = 8;
 
     // Center on screen
@@ -401,7 +402,7 @@ pub fn input_box_rect(
 
 /// Display a search dialog that prompts the user for search text
 ///
-/// Returns Some(search_text) if OK was pressed, None if cancelled
+/// Returns `Some(search_text)` if OK was pressed, None if cancelled
 ///
 /// # Example
 /// ```ignore
@@ -450,7 +451,7 @@ pub fn search_box(app: &mut Application, title: &str) -> Option<String> {
             .get(input)
             .map(|f| f.text().to_string())
             .unwrap_or_default();
-        if !text.is_empty() { Some(text) } else { None }
+        (!text.is_empty()).then_some(text)
     } else {
         None
     }
@@ -458,7 +459,7 @@ pub fn search_box(app: &mut Application, title: &str) -> Option<String> {
 
 /// Display a search and replace dialog that prompts for find and replace text
 ///
-/// Returns Some((find_text, replace_text)) if OK was pressed, None if cancelled
+/// Returns `Some((find_text`, `replace_text`)) if OK was pressed, None if cancelled
 ///
 /// # Example
 /// ```ignore
@@ -518,12 +519,10 @@ pub fn search_replace_box(app: &mut Application, title: &str) -> Option<(String,
                 .unwrap_or_default()
         };
         let find_text = text_of(find_input);
-        if !find_text.is_empty() {
+        (!find_text.is_empty()).then(|| {
             let replace_text = text_of(replace_input);
-            Some((find_text, replace_text))
-        } else {
-            None
-        }
+            (find_text, replace_text)
+        })
     } else {
         None
     }
@@ -531,7 +530,7 @@ pub fn search_replace_box(app: &mut Application, title: &str) -> Option<(String,
 
 /// Display a goto line dialog that prompts for a line number
 ///
-/// Returns Some(line_number) if OK was pressed, None if cancelled or invalid
+/// Returns `Some(line_number)` if OK was pressed, None if cancelled or invalid
 ///
 /// # Example
 /// ```ignore

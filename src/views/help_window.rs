@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! HelpWindow view - window container for displaying context-sensitive help.
+//! `HelpWindow` view - window container for displaying context-sensitive help.
 // HelpWindow - Help display window
 //
 // Matches Borland: THelpWindow (help.h)
@@ -28,9 +28,9 @@ struct HistoryEntry {
     selected: usize,
 }
 
-/// HelpWindow - Window containing help viewer
+/// `HelpWindow` - Window containing help viewer
 ///
-/// Matches Borland: THelpWindow (parent-child hierarchy)
+/// Matches Borland: `THelpWindow` (parent-child hierarchy)
 pub struct HelpWindow {
     window: Window,
     viewer: Rc<RefCell<HelpViewer>>, // Shared reference for API access
@@ -44,7 +44,7 @@ pub struct HelpWindow {
 impl HelpWindow {
     /// Create a new help window
     ///
-    /// Matches Borland: THelpWindow constructor creates TWindow and inserts THelpViewer as child
+    /// Matches Borland: `THelpWindow` constructor creates `TWindow` and inserts `THelpViewer` as child
     /// Uses cyan window palette (cHelpWindow) for the classic help window appearance
     pub fn new(bounds: Rect, title: &str, help_file: Rc<RefCell<HelpFile>>) -> Self {
         let mut window = Window::new_for_help(bounds, title);
@@ -89,7 +89,10 @@ impl HelpWindow {
 
     /// Get the current topic ID
     pub fn current_topic(&self) -> Option<String> {
-        self.viewer.borrow().current_topic().map(|s| s.to_string())
+        self.viewer
+            .borrow()
+            .current_topic()
+            .map(std::string::ToString::to_string)
     }
 
     /// Shared access to the viewer (Borland: `THelpWindow`'s viewer child).
@@ -113,7 +116,7 @@ impl HelpWindow {
     }
 
     /// Switch to a topic (with history tracking)
-    /// Matches Borland: THelpViewer::switchToTopic()
+    /// Matches Borland: `THelpViewer::switchToTopic()`
     /// This is the method to use for hyperlink navigation
     pub fn switch_to_topic(&mut self, topic_id: &str) -> bool {
         let help = self.help_file.borrow();
@@ -128,7 +131,12 @@ impl HelpWindow {
         }
 
         // Save current topic + scroll state to history before switching
-        if let Some(current) = self.viewer.borrow().current_topic().map(|s| s.to_string()) {
+        if let Some(current) = self
+            .viewer
+            .borrow()
+            .current_topic()
+            .map(std::string::ToString::to_string)
+        {
             let (delta, selected) = self.viewer.borrow().get_scroll_state();
             self.history.push(HistoryEntry {
                 topic_id: current,
@@ -189,7 +197,7 @@ impl HelpWindow {
     }
 
     /// Create and show a topic selection dialog
-    /// Matches Borland: THelpViewer::makeSelectTopic()
+    /// Matches Borland: `THelpViewer::makeSelectTopic()`
     /// Returns the selected topic ID, or None if cancelled
     pub fn make_select_topic(&self) -> Option<String> {
         // Get all available topics from help file
@@ -266,7 +274,7 @@ crate::impl_view_for_window!(HelpWindow {
                             .viewer
                             .borrow()
                             .get_selected_target()
-                            .map(|s| s.to_string());
+                            .map(std::string::ToString::to_string);
                         if let Some(target) = target {
                             self.switch_to_topic(&target);
                             event.clear();
@@ -284,8 +292,8 @@ crate::impl_view_for_window!(HelpWindow {
                     _ => {}
                 }
             }
-            EventType::MouseDown => {
-                if event.mouse.buttons & MB_LEFT_BUTTON != 0 {
+            EventType::MouseDown
+                if event.mouse.buttons & MB_LEFT_BUTTON != 0 => {
                     // Let the window (and viewer) handle the click first
                     self.window_handle_event(event);
 
@@ -294,7 +302,7 @@ crate::impl_view_for_window!(HelpWindow {
                         .viewer
                         .borrow()
                         .get_selected_target()
-                        .map(|s| s.to_string());
+                        .map(std::string::ToString::to_string);
                     if let Some(target) = target {
                         // Check if click was actually on a cross-ref
                         let mouse_pos = event.mouse.pos;
@@ -309,7 +317,6 @@ crate::impl_view_for_window!(HelpWindow {
                     event.clear();
                     return;
                 }
-            }
             _ => {}
         }
 
@@ -323,6 +330,58 @@ crate::impl_view_for_window!(HelpWindow {
     }
 });
 
+/// Builder for creating help windows with a fluent API.
+pub struct HelpWindowBuilder {
+    bounds: Option<Rect>,
+    title: Option<String>,
+    help_file: Option<Rc<RefCell<HelpFile>>>,
+}
+
+impl HelpWindowBuilder {
+    pub fn new() -> Self {
+        Self {
+            bounds: None,
+            title: None,
+            help_file: None,
+        }
+    }
+
+    #[must_use]
+    pub fn bounds(mut self, bounds: Rect) -> Self {
+        self.bounds = Some(bounds);
+        self
+    }
+
+    #[must_use]
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
+        self
+    }
+
+    #[must_use]
+    pub fn help_file(mut self, help_file: Rc<RefCell<HelpFile>>) -> Self {
+        self.help_file = Some(help_file);
+        self
+    }
+
+    pub fn build(self) -> HelpWindow {
+        let bounds = self.bounds.expect("HelpWindow bounds must be set");
+        let title = self.title.expect("HelpWindow title must be set");
+        let help_file = self.help_file.expect("HelpWindow help_file must be set");
+        HelpWindow::new(bounds, &title, help_file)
+    }
+
+    pub fn build_boxed(self) -> Box<HelpWindow> {
+        Box::new(self.build())
+    }
+}
+
+impl Default for HelpWindowBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -334,7 +393,7 @@ mod tests {
     fn create_test_help_file() -> (NamedTempFile, Rc<RefCell<HelpFile>>) {
         let mut file = NamedTempFile::new().unwrap();
         writeln!(file, "# Test Topic {{#test}}").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "This is test content.").unwrap();
         file.flush().unwrap();
 
@@ -403,57 +462,5 @@ mod tests {
             options.contains(Options::TILEABLE),
             "HelpWindow should have Options::TILEABLE"
         );
-    }
-}
-
-/// Builder for creating help windows with a fluent API.
-pub struct HelpWindowBuilder {
-    bounds: Option<Rect>,
-    title: Option<String>,
-    help_file: Option<Rc<RefCell<HelpFile>>>,
-}
-
-impl HelpWindowBuilder {
-    pub fn new() -> Self {
-        Self {
-            bounds: None,
-            title: None,
-            help_file: None,
-        }
-    }
-
-    #[must_use]
-    pub fn bounds(mut self, bounds: Rect) -> Self {
-        self.bounds = Some(bounds);
-        self
-    }
-
-    #[must_use]
-    pub fn title(mut self, title: impl Into<String>) -> Self {
-        self.title = Some(title.into());
-        self
-    }
-
-    #[must_use]
-    pub fn help_file(mut self, help_file: Rc<RefCell<HelpFile>>) -> Self {
-        self.help_file = Some(help_file);
-        self
-    }
-
-    pub fn build(self) -> HelpWindow {
-        let bounds = self.bounds.expect("HelpWindow bounds must be set");
-        let title = self.title.expect("HelpWindow title must be set");
-        let help_file = self.help_file.expect("HelpWindow help_file must be set");
-        HelpWindow::new(bounds, &title, help_file)
-    }
-
-    pub fn build_boxed(self) -> Box<HelpWindow> {
-        Box::new(self.build())
-    }
-}
-
-impl Default for HelpWindowBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }

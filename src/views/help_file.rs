@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! HelpFile - markdown-based help content loader and parser.
+//! `HelpFile` - markdown-based help content loader and parser.
 // HelpFile - Markdown-based help file manager
 //
 // Modern alternative to Borland's THelpFile (binary format)
@@ -77,7 +77,7 @@ fn ref_len(width: usize) -> u8 {
 }
 
 /// Cross-reference link within help content
-/// Matches Borland: TCrossRef (helpbase.h)
+/// Matches Borland: `TCrossRef` (helpbase.h)
 #[derive(Debug, Clone)]
 pub struct CrossRef {
     /// Line number (1-based, matching Borland convention)
@@ -166,7 +166,7 @@ impl HelpTopic {
     }
 
     /// Get formatted content with cross-references extracted
-    /// Returns (formatted_lines, cross_refs)
+    /// Returns (`formatted_lines`, `cross_refs`)
     /// Cross-refs have line numbers relative to the formatted output (1-based)
     pub fn get_content_with_refs(&self) -> (Vec<String>, Vec<CrossRef>) {
         let mut lines = Vec::new();
@@ -291,7 +291,7 @@ impl HelpTopic {
                 }
 
                 if let Some(end) = remaining[1..].find('`') {
-                    let code_text = &remaining[1..1 + end];
+                    let code_text = &remaining[1..=end];
                     segments.push(TextSegment::Code(code_text.to_string()));
                     remaining = &remaining[1 + end + 1..];
                     continue;
@@ -306,7 +306,7 @@ impl HelpTopic {
                 }
 
                 if let Some(text_end) = remaining[1..].find("](#") {
-                    let link_text = &remaining[1..1 + text_end];
+                    let link_text = &remaining[1..=text_end];
                     let after_target = &remaining[1 + text_end + 3..];
 
                     if let Some(target_end) = after_target.find(')') {
@@ -341,7 +341,7 @@ impl HelpTopic {
                 }
 
                 if let Some(end) = found_end {
-                    let italic_text = &remaining[1..1 + end];
+                    let italic_text = &remaining[1..=end];
                     segments.push(TextSegment::Italic(italic_text.to_string()));
                     remaining = &remaining[1 + end + 1..];
                     continue;
@@ -367,7 +367,7 @@ impl HelpTopic {
     }
 
     /// Get content as lines of styled segments for rich text rendering
-    /// Returns (line_segments, cross_refs) where each line is a `Vec<TextSegment>`
+    /// Returns (`line_segments`, `cross_refs`) where each line is a `Vec<TextSegment>`
     pub fn get_styled_content(&self) -> (Vec<Vec<TextSegment>>, Vec<CrossRef>) {
         let mut all_segments = Vec::new();
         let mut refs = Vec::new();
@@ -427,9 +427,9 @@ impl HelpTopic {
     }
 }
 
-/// HelpFile - Manages markdown help files
+/// `HelpFile` - Manages markdown help files
 ///
-/// Modern alternative to Borland's THelpFile
+/// Modern alternative to Borland's `THelpFile`
 pub struct HelpFile {
     /// File path
     path: String,
@@ -477,7 +477,7 @@ impl HelpFile {
 
         for line in content.lines() {
             // Check for topic header: # Title {#topic-id}
-            if let Some(topic) = self.parse_topic_header(line) {
+            if let Some(topic) = Self::parse_topic_header(line) {
                 // Save previous topic if exists
                 if let Some(topic) = current_topic.take() {
                     if self.default_topic.is_none() {
@@ -528,7 +528,7 @@ impl HelpFile {
     }
 
     /// Parse topic header: # Title {#topic-id}
-    fn parse_topic_header(&self, line: &str) -> Option<HelpTopic> {
+    fn parse_topic_header(line: &str) -> Option<HelpTopic> {
         let trimmed = line.trim();
         if !trimmed.starts_with('#') {
             return None;
@@ -596,6 +596,38 @@ impl HelpFile {
     }
 }
 
+/// Builder for creating help files with a fluent API.
+pub struct HelpFileBuilder {
+    path: Option<String>,
+}
+
+impl HelpFileBuilder {
+    pub fn new() -> Self {
+        Self { path: None }
+    }
+
+    #[must_use]
+    pub fn path(mut self, path: impl Into<String>) -> Self {
+        self.path = Some(path.into());
+        self
+    }
+
+    pub fn build(self) -> std::io::Result<HelpFile> {
+        let path = self.path.expect("HelpFile path must be set");
+        HelpFile::new(&path)
+    }
+
+    pub fn build_rc(self) -> std::io::Result<std::rc::Rc<std::cell::RefCell<HelpFile>>> {
+        Ok(std::rc::Rc::new(std::cell::RefCell::new(self.build()?)))
+    }
+}
+
+impl Default for HelpFileBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -605,21 +637,21 @@ mod tests {
     fn create_test_help_file() -> NamedTempFile {
         let mut file = NamedTempFile::new().unwrap();
         writeln!(file, "# Introduction {{#intro}}").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "Welcome to the help system!").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "For more information, see [File Menu](#file-menu).").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "# File Menu {{#file-menu}}").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "The File menu contains:").unwrap();
         writeln!(file, "- Open: Open a file").unwrap();
         writeln!(file, "- Save: Save the file").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "See also [Edit Menu](#edit-menu).").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "# Edit Menu {{#edit-menu}}").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "The Edit menu contains:").unwrap();
         writeln!(file, "- Copy: Copy text").unwrap();
         writeln!(file, "- Paste: Paste text").unwrap();
@@ -657,7 +689,7 @@ mod tests {
 
         let topic = help.get_topic("intro").unwrap();
         assert_eq!(topic.title, "Introduction");
-        assert!(topic.content.len() > 0);
+        assert!(!topic.content.is_empty());
         assert_eq!(topic.links.len(), 1);
         assert_eq!(topic.links[0], "file-menu");
     }
@@ -706,7 +738,7 @@ mod tests {
         assert!(lines[0].contains("Introduction"));
 
         // Should have at least one cross-reference (from inline link and see also)
-        assert!(refs.len() >= 1);
+        assert!(!refs.is_empty());
 
         // Check that inline link "[File Menu](#file-menu)" was processed
         // The link should appear in the content without markdown syntax
@@ -862,37 +894,5 @@ mod tests {
         let segments = HelpTopic::parse_line_segments("");
         assert_eq!(segments.len(), 1);
         assert_eq!(segments[0], TextSegment::Normal(String::new()));
-    }
-}
-
-/// Builder for creating help files with a fluent API.
-pub struct HelpFileBuilder {
-    path: Option<String>,
-}
-
-impl HelpFileBuilder {
-    pub fn new() -> Self {
-        Self { path: None }
-    }
-
-    #[must_use]
-    pub fn path(mut self, path: impl Into<String>) -> Self {
-        self.path = Some(path.into());
-        self
-    }
-
-    pub fn build(self) -> std::io::Result<HelpFile> {
-        let path = self.path.expect("HelpFile path must be set");
-        HelpFile::new(&path)
-    }
-
-    pub fn build_rc(self) -> std::io::Result<std::rc::Rc<std::cell::RefCell<HelpFile>>> {
-        Ok(std::rc::Rc::new(std::cell::RefCell::new(self.build()?)))
-    }
-}
-
-impl Default for HelpFileBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }

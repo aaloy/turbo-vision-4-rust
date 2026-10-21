@@ -248,8 +248,8 @@ fn setup_status_line(app: &mut Application) {
 
 /// Create a window with a text viewer
 ///
-/// This helper function creates a window containing a TextViewer with the given content.
-/// The TextViewer automatically fills the window's client area with appropriate margins.
+/// This helper function creates a window containing a `TextViewer` with the given content.
+/// The `TextViewer` automatically fills the window's client area with appropriate margins.
 fn create_text_window(app: &mut Application, bounds: Rect, title: &str, content: &str) {
     let mut window = WindowBuilder::new().bounds(bounds).title(title).build();
 

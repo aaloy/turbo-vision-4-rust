@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! HistoryViewer view - displays history items in a scrollable list.
+//! `HistoryViewer` view - displays history items in a scrollable list.
 // HistoryViewer - Displays history items in a list
 //
 // Matches Borland: THistoryViewer (extends TListViewer)
@@ -20,10 +20,10 @@ use crate::core::history::HistoryManager;
 use crate::core::state::State;
 use crate::terminal::Terminal;
 
-/// HistoryViewer - Displays history items for a specific history ID
+/// `HistoryViewer` - Displays history items for a specific history ID
 ///
-/// Extends ListViewer trait for standard list navigation.
-/// Matches Borland: THistoryViewer (extends TListViewer)
+/// Extends `ListViewer` trait for standard list navigation.
+/// Matches Borland: `THistoryViewer` (extends `TListViewer`)
 pub struct HistoryViewer {
     core: ViewCore,
     history_id: u16,
@@ -51,7 +51,7 @@ impl HistoryViewer {
         }
     }
 
-    /// Refresh the history items from HistoryManager
+    /// Refresh the history items from `HistoryManager`
     pub fn refresh(&mut self) {
         self.items = HistoryManager::get_list(self.history_id);
         self.list_state.set_range(self.items.len());
@@ -61,7 +61,7 @@ impl HistoryViewer {
     pub fn get_selected_item(&self) -> Option<&str> {
         self.list_state
             .focused
-            .and_then(|idx| self.items.get(idx).map(|s| s.as_str()))
+            .and_then(|idx| self.items.get(idx).map(std::string::String::as_str))
     }
 
     /// Get the number of items
@@ -168,51 +168,6 @@ impl ListViewer for HistoryViewer {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_history_viewer_creation() {
-        // Clear and add test data
-        let _guard = crate::core::history::test_lock();
-        HistoryManager::clear_all();
-        HistoryManager::add(1, "test1".to_string());
-        HistoryManager::add(1, "test2".to_string());
-
-        let viewer = HistoryViewer::new(Rect::new(0, 0, 20, 10), 1);
-        assert_eq!(viewer.item_count(), 2);
-        assert_eq!(viewer.get_selected_item(), Some("test2")); // Most recent is first
-    }
-
-    #[test]
-    fn test_history_viewer_refresh() {
-        let _guard = crate::core::history::test_lock();
-        HistoryManager::clear_all();
-        HistoryManager::add(2, "item1".to_string());
-
-        let mut viewer = HistoryViewer::new(Rect::new(0, 0, 20, 10), 2);
-        assert_eq!(viewer.item_count(), 1);
-
-        // Add more items
-        HistoryManager::add(2, "item2".to_string());
-        HistoryManager::add(2, "item3".to_string());
-
-        viewer.refresh();
-        assert_eq!(viewer.item_count(), 3);
-    }
-
-    #[test]
-    fn test_history_viewer_empty() {
-        let _guard = crate::core::history::test_lock();
-        HistoryManager::clear_all();
-
-        let viewer = HistoryViewer::new(Rect::new(0, 0, 20, 10), 99);
-        assert_eq!(viewer.item_count(), 0);
-        assert_eq!(viewer.get_selected_item(), None);
-    }
-}
-
 /// Builder for creating history viewers with a fluent API.
 pub struct HistoryViewerBuilder {
     bounds: Option<Rect>,
@@ -255,5 +210,50 @@ impl HistoryViewerBuilder {
 impl Default for HistoryViewerBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_history_viewer_creation() {
+        // Clear and add test data
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear_all();
+        HistoryManager::add(1, "test1".to_string());
+        HistoryManager::add(1, "test2".to_string());
+
+        let viewer = HistoryViewer::new(Rect::new(0, 0, 20, 10), 1);
+        assert_eq!(viewer.item_count(), 2);
+        assert_eq!(viewer.get_selected_item(), Some("test2")); // Most recent is first
+    }
+
+    #[test]
+    fn test_history_viewer_refresh() {
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear_all();
+        HistoryManager::add(2, "item1".to_string());
+
+        let mut viewer = HistoryViewer::new(Rect::new(0, 0, 20, 10), 2);
+        assert_eq!(viewer.item_count(), 1);
+
+        // Add more items
+        HistoryManager::add(2, "item2".to_string());
+        HistoryManager::add(2, "item3".to_string());
+
+        viewer.refresh();
+        assert_eq!(viewer.item_count(), 3);
+    }
+
+    #[test]
+    fn test_history_viewer_empty() {
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear_all();
+
+        let viewer = HistoryViewer::new(Rect::new(0, 0, 20, 10), 99);
+        assert_eq!(viewer.item_count(), 0);
+        assert_eq!(viewer.get_selected_item(), None);
     }
 }

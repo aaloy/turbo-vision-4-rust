@@ -565,6 +565,12 @@ impl EscSequenceTracker {
     }
 }
 
+impl Default for EscSequenceTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// Parse a base (non-modifier) key name into a crossterm key code.
 ///
 /// `upper` is the upper-cased token; `original` preserves the original case so
@@ -690,7 +696,7 @@ fn crossterm_to_keycode(key: KeyEvent) -> KeyCode {
             if key.modifiers.contains(KeyModifiers::CONTROL) {
                 // Ctrl + letter produces ASCII control codes (0x01-0x1A for A-Z)
                 let c_lower = c.to_ascii_lowercase();
-                if c_lower >= 'a' && c_lower <= 'z' {
+                if c_lower.is_ascii_lowercase() {
                     return (c_lower as u16) - ('a' as u16) + 1; // Ctrl+A = 0x01, Ctrl+B = 0x02, etc.
                 }
             }

@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! EditorWindow view - advanced multi-line text editor with syntax highlighting support.
+//! `EditorWindow` view - advanced multi-line text editor with syntax highlighting support.
 
 use super::indicator::Indicator;
 use super::scrollbar::ScrollBar;
@@ -118,15 +118,15 @@ impl EditAction {
                 // [delete, insert] sequence means inserting the deleted
                 // text first (last-out, first-in) then deleting the
                 // inserted text.
-                EditAction::Compound(actions.iter().rev().map(|a| a.inverse()).collect())
+                EditAction::Compound(actions.iter().rev().map(EditAction::inverse).collect())
             }
         }
     }
 }
 
-/// EditorWindow - Advanced multi-line text editor with undo/redo and find/replace
+/// `EditorWindow` - Advanced multi-line text editor with undo/redo and find/replace
 ///
-/// Matches Borland: TEditor receives pointers to scrollbars/indicator created by parent window
+/// Matches Borland: `TEditor` receives pointers to scrollbars/indicator created by parent window
 /// How an active selection between `selection_start` and `cursor` is interpreted.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SelectionMode {
@@ -207,7 +207,7 @@ impl EditorWindow {
     }
 
     /// Create with scrollbars and indicator (Borland style)
-    /// Matches Borland: TEditor receives pointers to scrollbars/indicator created by parent
+    /// Matches Borland: `TEditor` receives pointers to scrollbars/indicator created by parent
     pub fn with_scrollbars(
         bounds: Rect,
         h_scrollbar: Option<Rc<RefCell<ScrollBar>>>,
@@ -268,7 +268,7 @@ impl EditorWindow {
     pub fn set_text(&mut self, text: &str) {
         // .lines() strips \r\n and \n; line-ending style is tracked
         // separately (trailing_newline / crlf_line_endings) for saving
-        self.lines = text.lines().map(|s| s.to_string()).collect();
+        self.lines = text.lines().map(std::string::ToString::to_string).collect();
         if self.lines.is_empty() {
             self.lines.push(String::new());
         }
@@ -321,7 +321,11 @@ impl EditorWindow {
 
     /// Get the maximum line width (length of the longest line)
     pub fn max_line_width(&self) -> usize {
-        self.lines.iter().map(|line| line.len()).max().unwrap_or(0)
+        self.lines
+            .iter()
+            .map(std::string::String::len)
+            .max()
+            .unwrap_or(0)
     }
 
     /// Check if vertical scrollbar is needed
@@ -337,7 +341,7 @@ impl EditorWindow {
     }
 
     /// Load file contents into the editor
-    /// Matches Borland's TFileEditor::load()
+    /// Matches Borland's `TFileEditor::load()`
     pub fn load_file(&mut self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
         let path_ref = path.as_ref();
         let content = std::fs::read_to_string(path_ref)?;
@@ -353,20 +357,19 @@ impl EditorWindow {
     }
 
     /// Save editor contents to the associated filename
-    /// Matches Borland's TFileEditor::save()
+    /// Matches Borland's `TFileEditor::save()`
     pub fn save_file(&mut self) -> std::io::Result<()> {
         if let Some(path) = self.filename.clone() {
             self.save_as(&path)
         } else {
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
+            Err(std::io::Error::other(
                 "No filename set - use save_as() first",
             ))
         }
     }
 
     /// Save editor contents to a specific filename
-    /// Matches Borland's TFileEditor::saveAs()
+    /// Matches Borland's `TFileEditor::saveAs()`
     pub fn save_as(&mut self, path: impl AsRef<std::path::Path>) -> std::io::Result<()> {
         let path_ref = path.as_ref();
 
@@ -429,7 +432,7 @@ impl EditorWindow {
     }
 
     /// Find text in the editor with options
-    /// Matches Borland's TEditor::search() (teditor.cc:917-949)
+    /// Matches Borland's `TEditor::search()` (teditor.cc:917-949)
     pub fn find(&mut self, text: &str, options: SearchOptions) -> Option<Point> {
         if text.is_empty() {
             return None;
@@ -461,7 +464,7 @@ impl EditorWindow {
     /// Find text starting from current cursor position.
     ///
     /// Searches forward to the end of the document without wrapping, matching
-    /// Borland's TEditor::search(). All column arithmetic is done in character
+    /// Borland's `TEditor::search()`. All column arithmetic is done in character
     /// space so multibyte lines can't misalign or panic. Case folding is done
     /// per character (first lowercase mapping) to keep columns 1:1.
     fn find_from_cursor(&mut self, text: &str, options: SearchOptions) -> Option<Point> {
@@ -529,8 +532,8 @@ impl EditorWindow {
         }
     }
 
-    /// Replace next occurrence of find_text with replace_text
-    /// Matches Borland's TEditor::doSearchReplace() with efDoReplace
+    /// Replace next occurrence of `find_text` with `replace_text`
+    /// Matches Borland's `TEditor::doSearchReplace()` with efDoReplace
     pub fn replace_next(
         &mut self,
         find_text: &str,
@@ -547,8 +550,8 @@ impl EditorWindow {
         }
     }
 
-    /// Replace all occurrences of find_text with replace_text
-    /// Matches Borland's TEditor::doSearchReplace() with efReplaceAll
+    /// Replace all occurrences of `find_text` with `replace_text`
+    /// Matches Borland's `TEditor::doSearchReplace()` with efReplaceAll
     pub fn replace_all(
         &mut self,
         find_text: &str,
@@ -566,17 +569,13 @@ impl EditorWindow {
         self.last_search_options = options;
 
         // Keep replacing until no more matches
-        loop {
-            if let Some(_pos) = self.find_from_cursor(find_text, options) {
-                self.delete_selection();
-                self.insert_text(replace_text);
-                count += 1;
+        while self.find_from_cursor(find_text, options).is_some() {
+            self.delete_selection();
+            self.insert_text(replace_text);
+            count += 1;
 
-                // Move cursor forward to continue searching
-                // (insert_text already moved cursor, but we need to position for next search)
-            } else {
-                break;
-            }
+            // Move cursor forward to continue searching
+            // (insert_text already moved cursor, but we need to position for next search)
         }
 
         count
@@ -591,7 +590,7 @@ impl EditorWindow {
     }
 
     /// Convert mouse position to cursor position (line, column)
-    /// Matches Borland: TEditor::getMousePtr() (teditor.cc:426-433)
+    /// Matches Borland: `TEditor::getMousePtr()` (teditor.cc:426-433)
     fn mouse_pos_to_cursor(&self, mouse_pos: Point) -> Point {
         let content_area = self.get_content_area();
 
@@ -618,7 +617,7 @@ impl EditorWindow {
     }
 
     /// Set cursor position and handle selection based on mode
-    /// Matches Borland: TEditor::setCurPtr() (teditor.cc:986-1014)
+    /// Matches Borland: `TEditor::setCurPtr()` (teditor.cc:986-1014)
     /// Fix the selection mode at the moment a selection starts. When extending
     /// and no selection is active yet, the global block-edit mode decides the
     /// shape (see `Application::set_block_edit_mode`). A non-extending move
@@ -639,17 +638,17 @@ impl EditorWindow {
     }
 
     fn set_cursor_with_selection(&mut self, pos: Point, extend_selection: bool) {
-        if !extend_selection {
-            // Simple click - clear selection and move cursor
-            self.selection_start = None;
-            self.cursor = pos;
-        } else {
+        if extend_selection {
             // Drag or shift-click - extend selection
             if self.selection_start.is_none() {
                 // Start new selection from current cursor
                 self.selection_start = Some(self.cursor);
             }
             // Move cursor to new position (selection_start stays anchored)
+            self.cursor = pos;
+        } else {
+            // Simple click - clear selection and move cursor
+            self.selection_start = None;
             self.cursor = pos;
         }
 
@@ -670,17 +669,25 @@ impl EditorWindow {
         let max_y = self.lines.len() as i16;
 
         if let Some(ref h_bar) = self.h_scrollbar {
-            h_bar
-                .borrow_mut()
-                .set_params(self.cursor.x as i32, 0, (max_x - 1).max(0) as i32, 1, 1);
-            h_bar.borrow_mut().set_total(max_x as i32);
+            h_bar.borrow_mut().set_params(
+                i32::from(self.cursor.x),
+                0,
+                i32::from((max_x - 1).max(0)),
+                1,
+                1,
+            );
+            h_bar.borrow_mut().set_total(i32::from(max_x));
         }
 
         if let Some(ref v_bar) = self.v_scrollbar {
-            v_bar
-                .borrow_mut()
-                .set_params(self.cursor.y as i32, 0, (max_y - 1).max(0) as i32, 1, 1);
-            v_bar.borrow_mut().set_total(max_y as i32);
+            v_bar.borrow_mut().set_params(
+                i32::from(self.cursor.y),
+                0,
+                i32::from((max_y - 1).max(0)),
+                1,
+                1,
+            );
+            v_bar.borrow_mut().set_total(i32::from(max_y));
         }
     }
 
@@ -754,13 +761,12 @@ impl EditorWindow {
     }
 
     /// Convert character index to byte index for a given line
-    /// This is necessary because Rust strings are UTF-8 and String::remove/insert expect byte indices
+    /// This is necessary because Rust strings are UTF-8 and `String::remove/insert` expect byte indices
     fn char_to_byte_idx(&self, line_idx: usize, char_idx: usize) -> usize {
         self.lines[line_idx]
             .char_indices()
             .nth(char_idx)
-            .map(|(byte_idx, _)| byte_idx)
-            .unwrap_or_else(|| self.lines[line_idx].len())
+            .map_or_else(|| self.lines[line_idx].len(), |(byte_idx, _)| byte_idx)
     }
 
     fn push_undo(&mut self, action: EditAction) {
@@ -1000,11 +1006,11 @@ impl EditorWindow {
 
     /// Position of the previous word boundary (crossing line breaks).
     ///
-    /// Matches Borland TEditor::prevWord: skip separators leftwards, then
+    /// Matches Borland `TEditor::prevWord`: skip separators leftwards, then
     /// skip the word the cursor lands in.
     fn word_left_pos(&self) -> Point {
         let is_word = |c: char| c.is_alphanumeric() || c == '_';
-        let (mut x, mut y) = (self.cursor.x as i32, self.cursor.y as i32);
+        let (mut x, mut y) = (i32::from(self.cursor.x), i32::from(self.cursor.y));
 
         let char_at = |lines: &Vec<String>, y: i32, x: i32| -> Option<char> {
             lines[y as usize].chars().nth(x as usize)
@@ -1049,11 +1055,11 @@ impl EditorWindow {
 
     /// Position of the next word boundary (crossing line breaks).
     ///
-    /// Matches Borland TEditor::nextWord: skip the current word, then skip
+    /// Matches Borland `TEditor::nextWord`: skip the current word, then skip
     /// separators to the start of the next word.
     fn word_right_pos(&self) -> Point {
         let is_word = |c: char| c.is_alphanumeric() || c == '_';
-        let (mut x, mut y) = (self.cursor.x as i32, self.cursor.y as i32);
+        let (mut x, mut y) = (i32::from(self.cursor.x), i32::from(self.cursor.y));
         let last_line = self.lines.len() as i32 - 1;
 
         let line_len = |lines: &Vec<String>, y: i32| lines[y as usize].chars().count() as i32;
@@ -1326,7 +1332,7 @@ impl EditorWindow {
         self.selection_start = Some(Point::zero());
         self.selection_mode = SelectionMode::Stream;
         self.cursor = Point::new(
-            self.lines.last().map(|l| l.chars().count()).unwrap_or(0) as i16,
+            self.lines.last().map_or(0, |l| l.chars().count()) as i16,
             (self.lines.len() - 1) as i16,
         );
         self.ensure_cursor_visible();
@@ -1447,7 +1453,7 @@ impl EditorWindow {
     }
 
     /// Copy selection to clipboard
-    /// Matches Borland: TEditor::clipCopy()
+    /// Matches Borland: `TEditor::clipCopy()`
     pub fn clip_copy(&mut self) -> bool {
         if let Some(text) = self.get_selection() {
             clipboard::set_clipboard(&text);
@@ -1458,7 +1464,7 @@ impl EditorWindow {
     }
 
     /// Cut selection to clipboard (copy + delete)
-    /// Matches Borland: TEditor::clipCut()
+    /// Matches Borland: `TEditor::clipCut()`
     pub fn clip_cut(&mut self) -> bool {
         if self.read_only || !self.has_selection() {
             return false;
@@ -1474,7 +1480,7 @@ impl EditorWindow {
     }
 
     /// Paste from clipboard
-    /// Matches Borland: TEditor::clipPaste()
+    /// Matches Borland: `TEditor::clipPaste()`
     ///
     /// Pushes exactly one undo entry — a `Compound` covering both the
     /// deletion of any active selection and the subsequent insert — so
@@ -1695,11 +1701,11 @@ impl View for EditorWindow {
             // Apply selection highlighting
             // Check each character position in this line to see if it's selected
             if self.has_selection() {
-                let line_y = (self.delta.y + y as i16) as i16;
+                let line_y = self.delta.y + y as i16;
                 let start_col = self.delta.x;
 
                 for x in 0..width {
-                    let col = (start_col + x as i16) as i16;
+                    let col = start_col + x as i16;
                     if self.is_position_selected(line_y, col) {
                         // Highlight this character as selected
                         if x < buf.data.len() {
@@ -1737,8 +1743,8 @@ impl View for EditorWindow {
 
                 let cursor_attr = cursor_color;
                 terminal.write_cell(
-                    cursor_screen_x as i16,
-                    cursor_screen_y as i16,
+                    cursor_screen_x,
+                    cursor_screen_y,
                     crate::core::draw::Cell::new(ch, cursor_attr),
                 );
             }
@@ -2058,7 +2064,7 @@ impl View for EditorWindow {
             let cursor_y = content_area.a.y + (self.cursor.y - self.delta.y);
 
             // Show cursor at the position
-            let _ = terminal.show_cursor(cursor_x as i16, cursor_y as i16);
+            let _ = terminal.show_cursor(cursor_x, cursor_y);
         }
     }
 
@@ -2068,7 +2074,11 @@ impl View for EditorWindow {
         // Matches Borland: cpEditor = [6, 7] for normal and selected text.
         // In a dialog those indices are the controls' colours, so an editor
         // there uses the editor entries at the end of the dialog palette.
-        let needed = palettes::CP_EDITOR_IN_DIALOG.iter().copied().max().unwrap_or(0) as usize;
+        let needed = palettes::CP_EDITOR_IN_DIALOG
+            .iter()
+            .copied()
+            .max()
+            .unwrap_or(0) as usize;
         let in_dialog = self
             .core
             .palette_chain
@@ -2106,7 +2116,10 @@ mod tests {
             let editor = owner.add(EditorWindow::new(Rect::new(0, 0, 20, 3)));
             let mut terminal = crate::test_util::test_terminal(40, 10);
             owner.draw(&mut terminal); // gives the editor its owner chain
-            owner.child_by_id(editor).unwrap().map_color(SYNTAX_KEYWORD_IDX)
+            owner
+                .child_by_id(editor)
+                .unwrap()
+                .map_color(SYNTAX_KEYWORD_IDX)
         }
         // The gray and blue keyword colours (app palette 87 and 65).
         let dialog = Dialog::new(Rect::new(0, 0, 30, 8), "D");
@@ -2622,7 +2635,9 @@ mod tests {
     impl BlockModeGuard {
         fn on() -> Self {
             static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-            let guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+            let guard = LOCK
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
             crate::core::state::set_block_edit_mode(true);
             Self(guard)
         }

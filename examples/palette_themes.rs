@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             CMD_THEME_SOLAR => {
                 app.set_palette(Some(palette_solarized()));
             }
-            CM_QUIT | _ => break,
+            _ => break,
         }
     }
 

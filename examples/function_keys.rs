@@ -27,7 +27,6 @@ fn main() -> turbo_vision::core::error::Result<()> {
     app.set_status_line(status_line);
 
     let (width, _) = app.terminal.size();
-    let width = width as i16;
     let mut last_key = String::from("None");
     app.running = true;
 
@@ -73,7 +72,7 @@ fn main() -> turbo_vision::core::error::Result<()> {
         }
 
         // Draw last key box
-        let key_display = format!(" Last Key: {:15} ", last_key);
+        let key_display = format!(" Last Key: {last_key:15} ");
         let key_y = 12;
         let mut buf = DrawBuffer::new(box_width as usize);
         for j in 0..box_width as usize {
@@ -158,7 +157,7 @@ fn setup_status_line(app: &Application) -> StatusLine {
     let (w, h) = app.terminal.size();
 
     StatusLine::new(
-        Rect::new(0, h as i16 - 1, w as i16, h as i16),
+        Rect::new(0, h - 1, w, h),
         vec![
             StatusItemBuilder::new()
                 .text("~Alt-X~ Exit")

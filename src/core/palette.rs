@@ -4,7 +4,7 @@
 //! Palette index constants for view color mapping
 //!
 //! These constants define the logical color indices used by each view type
-//! when calling map_color(). These indices are mapped through the view's
+//! when calling `map_color()`. These indices are mapped through the view's
 //! palette to determine the actual color attribute.
 // Color Palette
 // Color definitions, attributes, and palette management matching Borland Turbo Vision
@@ -146,7 +146,7 @@ impl TvColor {
         }
     }
 
-    /// Converts TvColor to ANSI 256-color code.
+    /// Converts `TvColor` to ANSI 256-color code.
     ///
     /// Turbo Vision uses CGA/DOS color ordering which differs from ANSI:
     /// - TV: 0=Black, 1=Blue, 2=Green, 3=Cyan, 4=Red, 5=Magenta, 6=Brown, 7=LightGray
@@ -176,7 +176,7 @@ impl TvColor {
         }
     }
 
-    /// Converts TvColor to crossterm Color with RGB values
+    /// Converts `TvColor` to crossterm Color with RGB values
     #[cfg(feature = "native")]
     pub fn to_crossterm(self) -> Color {
         let (r, g, b) = self.to_rgb();
@@ -206,7 +206,7 @@ impl TvColor {
         }
     }
 
-    /// Creates a TvColor from RGB values by finding the closest match
+    /// Creates a `TvColor` from RGB values by finding the closest match
     pub fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         // Find closest color in the palette
         let all_colors = [
@@ -233,9 +233,9 @@ impl TvColor {
 
         for &color in &all_colors {
             let (cr, cg, cb) = color.to_rgb();
-            let distance = (r as i32 - cr as i32).pow(2) as u32
-                + (g as i32 - cg as i32).pow(2) as u32
-                + (b as i32 - cb as i32).pow(2) as u32;
+            let distance = (i32::from(r) - i32::from(cr)).pow(2) as u32
+                + (i32::from(g) - i32::from(cg)).pow(2) as u32
+                + (i32::from(b) - i32::from(cb)).pow(2) as u32;
             if distance < best_distance {
                 best_distance = distance;
                 best_color = color;
@@ -427,9 +427,9 @@ impl Attr {
     pub fn darken(&self, factor: f32) -> Self {
         let darken_color = |color: TvColor| -> TvColor {
             let (r, g, b) = color.to_rgb();
-            let new_r = ((r as f32) * factor).min(255.0) as u8;
-            let new_g = ((g as f32) * factor).min(255.0) as u8;
-            let new_b = ((b as f32) * factor).min(255.0) as u8;
+            let new_r = (f32::from(r) * factor).min(255.0) as u8;
+            let new_g = (f32::from(g) * factor).min(255.0) as u8;
+            let new_b = (f32::from(b) * factor).min(255.0) as u8;
             TvColor::from_rgb(new_r, new_g, new_b)
         };
 
@@ -443,7 +443,7 @@ impl Attr {
 
 /// Standard color pairs for UI elements
 pub mod colors {
-    use super::*;
+    use super::{Attr, TvColor};
 
     pub const NORMAL: Attr = Attr::new(TvColor::LightGray, TvColor::Blue);
     pub const HIGHLIGHTED: Attr = Attr::new(TvColor::Yellow, TvColor::Blue);
@@ -574,11 +574,11 @@ pub mod palettes {
     thread_local! {
         /// Custom application palette that overrides CP_APP_COLOR if set
         /// This allows runtime palette customization for theming
-        static CUSTOM_APP_PALETTE: RefCell<Option<Vec<u8>>> = RefCell::new(None);
+        static CUSTOM_APP_PALETTE: RefCell<Option<Vec<u8>>> = const { RefCell::new(None) };
     }
 
     /// Set a custom application palette
-    /// Pass None to reset to default CP_APP_COLOR
+    /// Pass None to reset to default `CP_APP_COLOR`
     pub fn set_custom_palette(palette: Option<Vec<u8>>) {
         CUSTOM_APP_PALETTE.with(|p| {
             *p.borrow_mut() = palette;
@@ -765,6 +765,15 @@ pub mod palettes {
         16, 17, 18, 18, 31,  // 1-5: Normal, selected, shortcut, shortcut selected, disabled
     ];
 
+    // Embedded cluster palette: a CheckBox / RadioButton drawn on the
+    // dialog's own background instead of the cyan cluster box, borrowing
+    // the label entries (focused text in the label's light colour, so focus
+    // stays visible). Same five slots as CP_CLUSTER.
+    #[rustfmt::skip]
+    pub const CP_CLUSTER_EMBEDDED: &[u8] = &[
+        7, 8, 9, 9, 13,  // 1-5: Normal, selected, shortcut, shortcut selected, disabled
+    ];
+
     // StatusLine palette
     #[rustfmt::skip]
     pub const CP_STATUSLINE: &[u8] = &[
@@ -920,11 +929,20 @@ mod tests {
     fn an_editor_in_a_dialog_gets_the_syntax_colours_of_its_background() {
         // Through CP_EDITOR_IN_DIALOG, then the dialog's palette: the same
         // roles a window's editor gets through CP_EDITOR.
-        let through = |dialog: &[u8], index: usize| app(dialog[CP_EDITOR_IN_DIALOG[index] as usize - 1]);
-        for (dialog, window) in [(CP_GRAY_DIALOG, CP_GRAY_WINDOW), (CP_BLUE_DIALOG, CP_BLUE_WINDOW)] {
+        let through =
+            |dialog: &[u8], index: usize| app(dialog[CP_EDITOR_IN_DIALOG[index] as usize - 1]);
+        for (dialog, window) in [
+            (CP_GRAY_DIALOG, CP_GRAY_WINDOW),
+            (CP_BLUE_DIALOG, CP_BLUE_WINDOW),
+        ] {
             for index in 0..CP_EDITOR.len() {
                 let in_window = app(window[CP_EDITOR[index] as usize - 1]);
-                assert_eq!(through(dialog, index), in_window, "editor entry {}", index + 1);
+                assert_eq!(
+                    through(dialog, index),
+                    in_window,
+                    "editor entry {}",
+                    index + 1
+                );
             }
         }
     }

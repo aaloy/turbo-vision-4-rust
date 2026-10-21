@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! StatusLine view - bottom status bar with keyboard shortcuts and context help.
+//! `StatusLine` view - bottom status bar with keyboard shortcuts and context help.
 
 use super::view::{View, ViewCore, write_line_to_terminal};
 use crate::core::command_set;
@@ -22,8 +22,8 @@ pub struct StatusLine {
     item_positions: Vec<(i16, i16)>, // (start_x, end_x) for each item
     selected_item: Option<usize>,    // Currently hovered/selected item
     hint_text: Option<String>,       // Context-sensitive help text
-    /// Optional help-context-ranged item sets (Borland: TStatusDef chain).
-    /// When set, update() swaps `items` based on the current help context.
+    /// Optional help-context-ranged item sets (Borland: `TStatusDef` chain).
+    /// When set, `update()` swaps `items` based on the current help context.
     defs: Vec<crate::core::status_data::StatusDef>,
     current_help_ctx: u16,
     /// Optional right-aligned mode marker, re-queried on every draw
@@ -81,7 +81,7 @@ impl StatusLine {
 
     /// Switch the visible item set to the def matching `help_ctx`.
     ///
-    /// Matches Borland: TStatusLine::update()/findItems(). No-op when the
+    /// Matches Borland: `TStatusLine::update()/findItems()`. No-op when the
     /// status line was built from a flat item list or the context is
     /// unchanged.
     pub fn update(&mut self, help_ctx: u16) {
@@ -99,7 +99,7 @@ impl StatusLine {
         }
     }
 
-    /// Convert declarative status_data items into the view's item type.
+    /// Convert declarative `status_data` items into the view's item type.
     fn convert_items(items: &[crate::core::status_data::StatusItem]) -> Vec<StatusItem> {
         items
             .iter()
@@ -170,7 +170,7 @@ impl StatusLine {
                 while let Some(ch) = chars.next() {
                     if ch == '~' {
                         // Read all characters until closing ~ in highlight color
-                        while let Some(shortcut_ch) = chars.next() {
+                        for shortcut_ch in chars.by_ref() {
                             if shortcut_ch == '~' {
                                 break; // Found closing tilde
                             }

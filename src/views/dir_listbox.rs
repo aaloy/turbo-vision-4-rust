@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! DirListBox view - directory tree navigation and selection.
+//! `DirListBox` view - directory tree navigation and selection.
 // DirListBox - Directory tree viewer
 //
 // Matches Borland: TDirListBox (views/tdirlist.cc)
@@ -72,9 +72,9 @@ impl DirEntry {
     }
 }
 
-/// DirListBox - Hierarchical directory tree viewer
+/// `DirListBox` - Hierarchical directory tree viewer
 ///
-/// Matches Borland: TDirListBox
+/// Matches Borland: `TDirListBox`
 pub struct DirListBox {
     core: ViewCore,
     list_state: ListViewerState,
@@ -188,18 +188,15 @@ impl DirListBox {
         // Add subdirectories of current directory
         if let Ok(entries) = fs::read_dir(&self.current_path) {
             let mut subdirs: Vec<_> = entries
-                .filter_map(|e| e.ok())
+                .filter_map(std::result::Result::ok)
                 .filter_map(|e| {
                     let path = e.path();
-                    if path.is_dir() {
-                        Some((e.file_name().to_string_lossy().to_string(), path))
-                    } else {
-                        None
-                    }
+                    path.is_dir()
+                        .then(|| (e.file_name().to_string_lossy().to_string(), path))
                 })
                 .collect();
 
-            subdirs.sort_by(|a, b| a.0.to_lowercase().cmp(&b.0.to_lowercase()));
+            subdirs.sort_by_key(|a| a.0.to_lowercase());
 
             let current_level = path_components.len() + 1;
             for (i, (name, path)) in subdirs.iter().enumerate() {
@@ -239,7 +236,7 @@ impl DirListBox {
 
     /// Navigate to parent directory
     pub fn parent_dir(&mut self) -> std::io::Result<()> {
-        let parent = self.current_path.parent().map(|p| p.to_path_buf());
+        let parent = self.current_path.parent().map(std::path::Path::to_path_buf);
         if let Some(parent) = parent {
             self.change_dir(&parent)?;
         }
@@ -258,7 +255,7 @@ impl DirListBox {
             .unwrap_or(0);
 
         // For each parent level, find the ancestor and check if it's not the last child
-        for level in 0..entry.level {
+        for (level, cont) in continues.iter_mut().enumerate() {
             // Find the ancestor at this level by searching backwards from current entry
             if let Some(ancestor) = self.entries[..=entry_idx]
                 .iter()
@@ -266,7 +263,7 @@ impl DirListBox {
                 .find(|e| e.level == level)
             {
                 // Show continuation line if ancestor is not the last child
-                continues[level] = !ancestor.is_last;
+                *cont = !ancestor.is_last;
             }
         }
 
@@ -336,7 +333,7 @@ impl View for DirListBox {
             };
 
             // Pad with spaces to fill width - all chars drawn with same color
-            let padded = format!("{:width$}", text, width = width);
+            let padded = format!("{text:width$}");
 
             for (x, ch) in padded.chars().take(width).enumerate() {
                 terminal.write_cell(x as i16, y as i16, crate::core::draw::Cell::new(ch, color));
@@ -391,62 +388,6 @@ impl View for DirListBox {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::env;
-
-    #[test]
-    fn test_dir_listbox_creation() {
-        let bounds = Rect::new(0, 0, 40, 10);
-        let path = env::current_dir().unwrap();
-        let dlb = DirListBox::new(bounds, &path);
-
-        assert!(dlb.entries.len() > 0, "Should have at least root entry");
-        assert_eq!(dlb.current_path(), path.as_path());
-    }
-
-    #[test]
-    fn test_find_root() {
-        let path = env::current_dir().unwrap();
-        let root = DirListBox::find_root(&path);
-
-        // Root should have no parent
-        assert!(root.parent().is_none());
-    }
-
-    #[test]
-    fn test_dir_entry_display() {
-        let entry = DirEntry {
-            name: "subdir".to_string(),
-            path: PathBuf::from("/path/to/subdir"),
-            level: 1,
-            is_last: false,
-        };
-
-        let continues = vec![true];
-        let text = entry.display_text(&continues);
-        assert!(text.contains("├─") || text.contains("└─"));
-        assert!(text.contains("subdir"));
-    }
-
-    #[test]
-    fn test_parent_navigation() {
-        let path = env::current_dir().unwrap();
-        let bounds = Rect::new(0, 0, 40, 10);
-        let mut dlb = DirListBox::new(bounds, &path);
-
-        let original_path = dlb.current_path().to_path_buf();
-
-        // Try to go to parent
-        if original_path.parent().is_some() {
-            let result = dlb.parent_dir();
-            assert!(result.is_ok());
-            assert_ne!(dlb.current_path(), original_path.as_path());
-        }
-    }
-}
-
 /// Builder for creating directory list boxes with a fluent API.
 pub struct DirListBoxBuilder {
     bounds: Option<Rect>,
@@ -487,5 +428,61 @@ impl DirListBoxBuilder {
 impl Default for DirListBoxBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::env;
+
+    #[test]
+    fn test_dir_listbox_creation() {
+        let bounds = Rect::new(0, 0, 40, 10);
+        let path = env::current_dir().unwrap();
+        let dlb = DirListBox::new(bounds, &path);
+
+        assert!(!dlb.entries.is_empty(), "Should have at least root entry");
+        assert_eq!(dlb.current_path(), path.as_path());
+    }
+
+    #[test]
+    fn test_find_root() {
+        let path = env::current_dir().unwrap();
+        let root = DirListBox::find_root(&path);
+
+        // Root should have no parent
+        assert!(root.parent().is_none());
+    }
+
+    #[test]
+    fn test_dir_entry_display() {
+        let entry = DirEntry {
+            name: "subdir".to_string(),
+            path: PathBuf::from("/path/to/subdir"),
+            level: 1,
+            is_last: false,
+        };
+
+        let continues = vec![true];
+        let text = entry.display_text(&continues);
+        assert!(text.contains("├─") || text.contains("└─"));
+        assert!(text.contains("subdir"));
+    }
+
+    #[test]
+    fn test_parent_navigation() {
+        let path = env::current_dir().unwrap();
+        let bounds = Rect::new(0, 0, 40, 10);
+        let mut dlb = DirListBox::new(bounds, &path);
+
+        let original_path = dlb.current_path().to_path_buf();
+
+        // Try to go to parent
+        if original_path.parent().is_some() {
+            let result = dlb.parent_dir();
+            result.unwrap();
+            assert_ne!(dlb.current_path(), original_path.as_path());
+        }
     }
 }

@@ -49,7 +49,7 @@ pub struct Button {
     /// default role (cmGrabDefault); when it loses focus the role reverts to
     /// the statically flagged default button (cmReleaseDefault).
     am_default: bool,
-    /// Whether a MouseDown was armed inside this button (fires on MouseUp).
+    /// Whether a `MouseDown` was armed inside this button (fires on `MouseUp`).
     pressed: bool,
     /// Whether the button is drawn pushed in: armed and the pointer is still
     /// over it. Dragging off pops it back out (Borland: `drawState(down)`
@@ -500,7 +500,7 @@ pub struct ButtonBuilder {
 }
 
 impl ButtonBuilder {
-    /// Creates a new ButtonBuilder with default values.
+    /// Creates a new `ButtonBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -1094,7 +1094,11 @@ mod tests {
 
         let mut other = Event::keyboard(crate::core::event::KB_ALT_X);
         button.handle_event(&mut other);
-        assert_eq!(other.what, EventType::Keyboard, "another letter is left alone");
+        assert_eq!(
+            other.what,
+            EventType::Keyboard,
+            "another letter is left alone"
+        );
     }
 
     #[test]

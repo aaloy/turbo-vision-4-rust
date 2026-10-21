@@ -58,7 +58,7 @@ impl Scroller {
 
     /// Set the content size limit (total content width/height in cells).
     ///
-    /// Matches Borland TScroller::setLimit: the maximum scroll offset becomes
+    /// Matches Borland `TScroller::setLimit`: the maximum scroll offset becomes
     /// `limit - page`, so the view can't scroll a full page past the end.
     pub fn set_limit(&mut self, x: i16, y: i16) {
         self.limit.x = x.max(0);
@@ -87,14 +87,14 @@ impl Scroller {
         // Matches Borland TScroller::setLimit: the scrollbar's maximum is
         // content size minus one page (you can't scroll a full page past the
         // end) and paging moves size-1 lines so one line of overlap remains
-        let page_w = self.core.bounds.width() as i32;
-        let page_h = self.core.bounds.height() as i32;
+        let page_w = i32::from(self.core.bounds.width());
+        let page_h = i32::from(self.core.bounds.height());
 
         if let Some(ref mut h_bar) = self.h_scrollbar {
             h_bar.set_params(
-                self.delta.x as i32,
+                i32::from(self.delta.x),
                 0,
-                (self.limit.x as i32 - page_w).max(0),
+                (i32::from(self.limit.x) - page_w).max(0),
                 (page_w - 1).max(1),
                 1,
             );
@@ -102,9 +102,9 @@ impl Scroller {
 
         if let Some(ref mut v_bar) = self.v_scrollbar {
             v_bar.set_params(
-                self.delta.y as i32,
+                i32::from(self.delta.y),
                 0,
-                (self.limit.y as i32 - page_h).max(0),
+                (i32::from(self.limit.y) - page_h).max(0),
                 (page_h - 1).max(1),
                 1,
             );
@@ -240,7 +240,7 @@ pub struct ScrollerBuilder {
 }
 
 impl ScrollerBuilder {
-    /// Creates a new ScrollerBuilder with default values.
+    /// Creates a new `ScrollerBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,

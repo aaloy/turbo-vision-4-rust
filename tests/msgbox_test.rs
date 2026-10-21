@@ -57,9 +57,9 @@ fn main() -> turbo_vision::core::error::Result<()> {
     println!("\nTest 5: Input box");
     if let Some(name) = input_box(&mut app, "Enter Name", "~N~ame:", "John Doe", 50) {
         // Show confirmation with the entered name
-        let msg = format!("You entered: {}", name);
+        let msg = format!("You entered: {name}");
         message_box(&mut app, &msg, MsgBox::INFORMATION | MsgBox::OK_BUTTON);
-        println!("User entered: {}", name);
+        println!("User entered: {name}");
     } else {
         println!("User cancelled input");
     }
@@ -67,9 +67,9 @@ fn main() -> turbo_vision::core::error::Result<()> {
     // Test 6: Another input box for email
     println!("\nTest 6: Email input");
     if let Some(email) = input_box(&mut app, "Contact Information", "~E~mail:", "", 100) {
-        let msg = format!("Email saved: {}", email);
+        let msg = format!("Email saved: {email}");
         message_box(&mut app, &msg, MsgBox::INFORMATION | MsgBox::OK_BUTTON);
-        println!("User entered email: {}", email);
+        println!("User entered email: {email}");
     } else {
         println!("User cancelled email input");
     }

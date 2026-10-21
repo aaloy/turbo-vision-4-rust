@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! HistoryWindow view - popup window for selecting from input history.
+//! `HistoryWindow` view - popup window for selecting from input history.
 // HistoryWindow - Popup window displaying history items
 //
 // Matches Borland: THistoryWindow (modal window with THistoryViewer)
@@ -21,9 +21,9 @@ use crate::core::event::{EventType, KB_ENTER, KB_ESC};
 use crate::core::geometry::{Point, Rect};
 use crate::terminal::Terminal;
 
-/// HistoryWindow - Modal popup for selecting from history
+/// `HistoryWindow` - Modal popup for selecting from history
 ///
-/// Matches Borland: THistoryWindow
+/// Matches Borland: `THistoryWindow`
 pub struct HistoryWindow {
     window: Window,
     viewer: HistoryViewer,
@@ -41,7 +41,7 @@ impl HistoryWindow {
 
         // Calculate height based on number of items (max 10, min 3)
         let item_count = HistoryManager::count(history_id);
-        let viewer_height = item_count.min(10).max(1) as i16;
+        let viewer_height = item_count.clamp(1, 10) as i16;
         let window_height = viewer_height + 2; // +2 for frame
 
         let window_bounds = Rect::new(pos.x, pos.y, pos.x + width, pos.y + window_height);
@@ -90,93 +90,23 @@ impl HistoryWindow {
                     EventType::Keyboard => {
                         if event.key_code == KB_ENTER {
                             // Return selected item
-                            return self.viewer.get_selected_item().map(|s| s.to_string());
+                            return self.viewer.get_selected_item().map(std::string::ToString::to_string);
                         } else if event.key_code == KB_ESC {
                             // Cancel
                             return None;
                         }
                     }
-                    EventType::MouseDown => {
+                    EventType::MouseDown
                         // Check if double-click on viewer
                         if event.mouse.double_click
                             && self.viewer.bounds().contains(event.mouse.pos)
-                        {
-                            return self.viewer.get_selected_item().map(|s| s.to_string());
+                        => {
+                            return self.viewer.get_selected_item().map(std::string::ToString::to_string);
                         }
-                    }
                     _ => {}
                 }
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::core::history::HistoryManager;
-
-    #[test]
-    fn test_history_window_creation() {
-        let _guard = crate::core::history::test_lock();
-        HistoryManager::clear(10);
-        HistoryManager::add(10, "test1".to_string());
-        HistoryManager::add(10, "test2".to_string());
-        HistoryManager::add(10, "test3".to_string());
-
-        let window = HistoryWindow::new(Point::new(10, 5), 10, 30);
-
-        // Window should be sized based on items
-        assert_eq!(window.viewer.item_count(), 3);
-    }
-
-    #[test]
-    fn test_history_viewer_bounds_relative_to_window() {
-        let _guard = crate::core::history::test_lock();
-        HistoryManager::clear(11);
-        HistoryManager::add(11, "a".to_string());
-        HistoryManager::add(11, "b".to_string());
-        HistoryManager::add(11, "c".to_string());
-
-        let window = HistoryWindow::new(Point::new(10, 5), 11, 30);
-
-        // The viewer is inset one cell inside the frame, in the window's own
-        // space; the window's position on screen does not enter into it.
-        assert_eq!(window.viewer.bounds(), Rect::new(1, 1, 29, 4));
-    }
-
-    #[test]
-    fn test_history_window_empty() {
-        let _guard = crate::core::history::test_lock();
-        HistoryManager::clear(99);
-
-        let window = HistoryWindow::new(Point::new(10, 5), 99, 30);
-        assert_eq!(window.viewer.item_count(), 0);
-    }
-
-    #[test]
-    fn test_history_window_many_items() {
-        let _guard = crate::core::history::test_lock();
-        HistoryManager::clear(20);
-
-        // Add 15 items
-        for i in 1..=15 {
-            HistoryManager::add(20, format!("item{}", i));
-        }
-
-        let window = HistoryWindow::new(Point::new(10, 5), 20, 30);
-
-        // Should have all 15 items but viewer height capped at 10
-        assert_eq!(window.viewer.item_count(), 15);
-        // Viewer sits inside the window frame, in the window's own space
-        assert_eq!(window.viewer.bounds().a, Point::new(1, 1));
-        // Viewer bounds height should be at most 10
-        let viewer_height = window.viewer.bounds().height();
-        assert!(
-            viewer_height >= 1 && viewer_height <= 11,
-            "viewer height was {}",
-            viewer_height
-        );
     }
 }
 
@@ -230,5 +160,73 @@ impl HistoryWindowBuilder {
 impl Default for HistoryWindowBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::history::HistoryManager;
+
+    #[test]
+    fn test_history_window_creation() {
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear(10);
+        HistoryManager::add(10, "test1".to_string());
+        HistoryManager::add(10, "test2".to_string());
+        HistoryManager::add(10, "test3".to_string());
+
+        let window = HistoryWindow::new(Point::new(10, 5), 10, 30);
+
+        // Window should be sized based on items
+        assert_eq!(window.viewer.item_count(), 3);
+    }
+
+    #[test]
+    fn test_history_viewer_bounds_relative_to_window() {
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear(11);
+        HistoryManager::add(11, "a".to_string());
+        HistoryManager::add(11, "b".to_string());
+        HistoryManager::add(11, "c".to_string());
+
+        let window = HistoryWindow::new(Point::new(10, 5), 11, 30);
+
+        // The viewer is inset one cell inside the frame, in the window's own
+        // space; the window's position on screen does not enter into it.
+        assert_eq!(window.viewer.bounds(), Rect::new(1, 1, 29, 4));
+    }
+
+    #[test]
+    fn test_history_window_empty() {
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear(99);
+
+        let window = HistoryWindow::new(Point::new(10, 5), 99, 30);
+        assert_eq!(window.viewer.item_count(), 0);
+    }
+
+    #[test]
+    fn test_history_window_many_items() {
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear(20);
+
+        // Add 15 items
+        for i in 1..=15 {
+            HistoryManager::add(20, format!("item{i}"));
+        }
+
+        let window = HistoryWindow::new(Point::new(10, 5), 20, 30);
+
+        // Should have all 15 items but viewer height capped at 10
+        assert_eq!(window.viewer.item_count(), 15);
+        // Viewer sits inside the window frame, in the window's own space
+        assert_eq!(window.viewer.bounds().a, Point::new(1, 1));
+        // Viewer bounds height should be at most 10
+        let viewer_height = window.viewer.bounds().height();
+        assert!(
+            (1..=11).contains(&viewer_height),
+            "viewer height was {viewer_height}"
+        );
     }
 }

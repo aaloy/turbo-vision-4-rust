@@ -30,7 +30,7 @@ use turbo_vision::views::{View, ViewCore};
 const CM_BIORHYTHM: u16 = 200;
 const CM_ABOUT: u16 = 201;
 
-/// DateFieldValidator - validates numeric date field input (day, month, year)
+/// `DateFieldValidator` - validates numeric date field input (day, month, year)
 /// Checks values during typing, not just characters
 struct DateFieldValidator {
     min: i64,
@@ -98,7 +98,7 @@ impl Validator for DateFieldValidator {
 
                     // Multi-digit values: check if adding more would exceed max
                     // Build minimum possible by appending one 0
-                    let min_possible_str = format!("{}0", input);
+                    let min_possible_str = format!("{input}0");
                     if let Ok(min_possible) = min_possible_str.parse::<i64>() {
                         // If even adding a 0 exceeds max, reject
                         // Example: "20" -> "200" > 31, but "10" -> "100" > 31 too
@@ -168,7 +168,7 @@ impl Biorhythm {
     /// Calculate sine wave value for a given cycle period and day offset
     fn cycle_value(&self, offset: i32, period: f64) -> f64 {
         let days = self.days_alive as i32 + offset;
-        (2.0 * std::f64::consts::PI * days as f64 / period).sin()
+        (2.0 * std::f64::consts::PI * f64::from(days) / period).sin()
     }
 
     /// Calculate physical cycle value for a given day offset from today
@@ -271,7 +271,8 @@ impl View for BiorhythmChart {
                     line.move_char(today_x, '|', colors::MENU_SHORTCUT, 1);
 
                     // Draw cycles with colored blocks and different scaling factors
-                    let cycles: [(char, Attr, f64, fn(&Biorhythm, i32) -> f64); 3] = [
+                    type Cycle = (char, Attr, f64, fn(&Biorhythm, i32) -> f64);
+                    let cycles: [Cycle; 3] = [
                         // Physical: scale by 1.1 to extend range (taller peaks/troughs)
                         (
                             '■',
@@ -395,9 +396,8 @@ fn create_biorhythm_dialog(
     dialog.add(
         StaticTextBuilder::new()
             .bounds(Rect::new(2, 1, 46, 3))
-            .text(&format!(
-                "Format: DD/MM/YYYY\nRange : 01/01/1900 - {}/{}/{}",
-                today_day, today_month, today_year
+            .text(format!(
+                "Format: DD/MM/YYYY\nRange : 01/01/1900 - {today_day}/{today_month}/{today_year}"
             ))
             .build(),
     );
@@ -485,9 +485,9 @@ fn create_biorhythm_dialog(
 }
 
 /// Validate that birth date is not in the future and year is >= 1900
-fn validate_birth_date(birth_date: &NaiveDate) -> bool {
+fn validate_birth_date(birth_date: NaiveDate) -> bool {
     let today = Local::now().date_naive();
-    birth_date.year() >= 1900 && *birth_date <= today
+    birth_date.year() >= 1900 && birth_date <= today
 }
 
 /// Display application information dialog with biorhythm cycle details
@@ -508,7 +508,7 @@ Semi-graphical ASCII chart";
     message_box(app, message, MsgBox::ABOUT | MsgBox::OK_BUTTON);
 }
 
-/// Parse day, month, year strings into NaiveDate (returns None if invalid)
+/// Parse day, month, year strings into `NaiveDate` (returns None if invalid)
 fn parse_birth_date(day_str: &str, month_str: &str, year_str: &str) -> Option<NaiveDate> {
     if let (Ok(day), Ok(month), Ok(year)) = (
         day_str.parse::<u32>(),
@@ -521,7 +521,7 @@ fn parse_birth_date(day_str: &str, month_str: &str, year_str: &str) -> Option<Na
     }
 }
 
-/// Run modal birth date dialog with standard execute() pattern.
+/// Run modal birth date dialog with standard `execute()` pattern.
 /// This allows nested modals (e.g., F1 help) to work correctly.
 /// Returns a validated date if user clicks OK, None if cancelled.
 fn run_modal_birth_date_dialog(
@@ -575,7 +575,7 @@ fn run_modal_birth_date_dialog(
         match parse_birth_date(&day_str, &month_str, &year_str) {
             Some(date) => {
                 // Date parsed successfully - now validate it's not in the future
-                if validate_birth_date(&date) {
+                if validate_birth_date(date) {
                     // Valid date - return it
                     return Some(date);
                 } else {
@@ -604,10 +604,10 @@ fn run_modal_birth_date_dialog(
 /// Calculate days alive from birth date and update shared biorhythm data
 fn process_birth_date_result(
     biorhythm_data: &Rc<RefCell<Option<Biorhythm>>>,
-    birth_date: &NaiveDate,
+    birth_date: NaiveDate,
 ) {
     let today = Local::now().date_naive();
-    let days_alive = (today - *birth_date).num_days().try_into().unwrap();
+    let days_alive = (today - birth_date).num_days().try_into().unwrap();
     *biorhythm_data.borrow_mut() = Some(Biorhythm::new(days_alive));
 }
 
@@ -622,7 +622,7 @@ fn handle_command_event(
         CM_BIORHYTHM => {
             // Show the birth date dialog and process the result if user confirmed
             if let Some(new_birth_date) = run_modal_birth_date_dialog(app, birth_date.as_ref()) {
-                process_birth_date_result(biorhythm_data, &new_birth_date);
+                process_birth_date_result(biorhythm_data, new_birth_date);
                 *birth_date = Some(new_birth_date);
             }
             true
@@ -762,7 +762,7 @@ fn add_chart(app: &mut Application, biorhythm_data: &Rc<RefCell<Option<Biorhythm
     let chart_height = window_height - 2;
     let chart = BiorhythmChart::new(
         Rect::new(1, 1, chart_width, chart_height),
-        Rc::clone(&biorhythm_data),
+        Rc::clone(biorhythm_data),
     );
     main_dialog.add(chart);
     app.desktop.add(main_dialog);
@@ -785,7 +785,7 @@ fn main() -> turbo_vision::core::error::Result<()> {
     };
 
     // Process the birth date and update birth_state
-    process_birth_date_result(&biorhythm_data, &birth_date);
+    process_birth_date_result(&biorhythm_data, birth_date);
     let current_birth_date = Some(birth_date);
 
     add_chart(&mut app, &biorhythm_data);

@@ -2,7 +2,7 @@
 
 //! Help Index - searchable index of help topics
 //!
-//! Matches Borland: THelpIndex
+//! Matches Borland: `THelpIndex`
 //!
 //! Provides a searchable list of all help topics with filtering capability.
 
@@ -25,11 +25,14 @@ use std::rc::Rc;
 const CMD_TOPIC_SELECTED: u16 = 1002;
 
 /// Help Index - searchable topic list
-/// Matches Borland: THelpIndex
+/// Matches Borland: `THelpIndex`
 pub struct HelpIndex {
     dialog: Dialog,
     _help_file: Rc<RefCell<HelpFile>>,
-    #[allow(dead_code)]
+    #[allow(
+        dead_code,
+        reason = "kept as the unfiltered topic list for future search support"
+    )]
     all_topics: Vec<(String, String)>, // (id, title)
     filtered_topics: Vec<(String, String)>,
     _search_input_id: ViewId,
@@ -136,7 +139,7 @@ impl HelpIndex {
     }
 
     /// Filter topics based on search text
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "search filtering is not wired to the input yet")]
     fn filter_topics(&mut self, search_text: &str) {
         if search_text.is_empty() {
             self.filtered_topics = self.all_topics.clone();
@@ -160,13 +163,8 @@ impl HelpIndex {
     pub fn execute(&mut self, app: &mut crate::app::Application) -> Option<String> {
         let result = self.dialog.execute(app);
 
-        if result == CM_OK && !self.filtered_topics.is_empty() {
-            // Get selected index from listbox (simplified - would need actual listbox access)
-            // For now, return the first topic
-            Some(self.filtered_topics[0].0.clone())
-        } else {
-            None
-        }
+        (result == CM_OK && !self.filtered_topics.is_empty())
+            .then(|| self.filtered_topics[0].0.clone())
     }
 
     /// Get the selected topic ID

@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! EditWindow view - window container for editor with title bar showing filename.
+//! `EditWindow` view - window container for editor with title bar showing filename.
 // EditWindow - Window wrapper for EditorWindow
 //
 // Matches Borland: TEditWindow (teditor.h)
@@ -21,18 +21,27 @@ use crate::terminal::Terminal;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// EditWindow - Window containing an EditorWindow
+/// `EditWindow` - Window containing an `EditorWindow`
 ///
-/// Matches Borland: TEditWindow (parent-child hierarchy)
-/// The EditorWindow is inserted as a child of the Window, matching Borland's structure.
+/// Matches Borland: `TEditWindow` (parent-child hierarchy)
+/// The `EditorWindow` is inserted as a child of the Window, matching Borland's structure.
 pub struct EditWindow {
     window: Window,
     editor: Rc<RefCell<EditorWindow>>, // Shared reference for API access
-    #[allow(dead_code)] // Used for initialization, stored for lifetime management
+    #[allow(
+        dead_code,
+        reason = "Used for initialization, stored for lifetime management"
+    )]
     h_scrollbar: Rc<RefCell<ScrollBar>>,
-    #[allow(dead_code)] // Used for initialization, stored for lifetime management
+    #[allow(
+        dead_code,
+        reason = "Used for initialization, stored for lifetime management"
+    )]
     v_scrollbar: Rc<RefCell<ScrollBar>>,
-    #[allow(dead_code)] // Used for initialization, stored for lifetime management
+    #[allow(
+        dead_code,
+        reason = "Used for initialization, stored for lifetime management"
+    )]
     indicator: Rc<RefCell<Indicator>>,
     // Indices in window.frame_children for direct updates
     h_scrollbar_idx: usize,
@@ -43,7 +52,7 @@ pub struct EditWindow {
 impl EditWindow {
     /// Create a new edit window
     ///
-    /// Matches Borland: TEditWindow constructor creates TWindow and inserts scrollbars+editor as children
+    /// Matches Borland: `TEditWindow` constructor creates `TWindow` and inserts scrollbars+editor as children
     pub fn new(bounds: Rect, title: &str) -> Self {
         let mut window = Window::new(bounds, title);
 
@@ -125,7 +134,10 @@ impl EditWindow {
 
     /// Get the editor's filename
     pub fn get_filename(&self) -> Option<String> {
-        self.editor.borrow().get_filename().map(|s| s.to_string())
+        self.editor
+            .borrow()
+            .get_filename()
+            .map(std::string::ToString::to_string)
     }
 
     /// Check if editor is modified
@@ -157,7 +169,7 @@ impl EditWindow {
     }
 
     /// Synchronize frame children (scrollbars, indicator) positions with window bounds
-    /// Called from draw() to ensure positions are always correct, preventing visual lag during resize
+    /// Called from `draw()` to ensure positions are always correct, preventing visual lag during resize
     /// IMPORTANT: Always update positions regardless of size to prevent elements "staying behind"
     fn sync_frame_children_positions(&mut self) {
         // Frame children are window-relative

@@ -11,7 +11,7 @@ fn main() -> turbo_vision::core::error::Result<()> {
     // Add status line
     let (w, h) = app.terminal.size();
     let status_line = StatusLine::new(
-        Rect::new(0, h as i16 - 1, w as i16, h as i16),
+        Rect::new(0, h - 1, w, h),
         vec![
             StatusItemBuilder::new()
                 .text("~Alt-X~ Exit")

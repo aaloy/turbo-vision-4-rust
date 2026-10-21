@@ -6,7 +6,7 @@
 //!
 //! ## Architecture
 //!
-//! - **CommandSet**: Bitfield storing enabled/disabled state for up to 65,536 commands
+//! - **`CommandSet`**: Bitfield storing enabled/disabled state for up to 65,536 commands
 //! - **Global State**: Stored in Application, accessible via View trait methods
 //! - **Automatic Updates**: Buttons auto-enable/disable when command set changes
 //! - **Broadcast Pattern**: cmCommandSetChanged notifies all views of changes
@@ -21,7 +21,7 @@ use crate::core::command::CommandId;
 use std::cell::RefCell;
 
 /// Maximum number of commands supported (65,536)
-/// Matches Borland: MAX_COMMANDS = 32 * 2048
+/// Matches Borland: `MAX_COMMANDS` = 32 * 2048
 pub const MAX_COMMANDS: usize = 32 * 2048;
 
 // Global command set - matches Borland's TView::curCommandSet (tview.cc:67)
@@ -65,17 +65,17 @@ pub const MAX_COMMANDS: usize = 32 * 2048;
 // ```
 thread_local! {
     static GLOBAL_COMMAND_SET: RefCell<CommandSet> = RefCell::new(CommandSet::with_all_enabled());
-    static COMMAND_SET_CHANGED: RefCell<bool> = RefCell::new(false);
+    static COMMAND_SET_CHANGED: RefCell<bool> = const { RefCell::new(false) };
 }
 
 /// Check if a command is currently enabled (global query)
-/// Matches Borland: TView::commandEnabled(ushort command) (tview.cc:142-147)
+/// Matches Borland: `TView::commandEnabled(ushort` command) (tview.cc:142-147)
 pub fn command_enabled(command: CommandId) -> bool {
     GLOBAL_COMMAND_SET.with(|cs| cs.borrow().has(command))
 }
 
 /// Enable a command in the global command set
-/// Matches Borland: TView::enableCommand(ushort command) (tview.cc:384-389)
+/// Matches Borland: `TView::enableCommand(ushort` command) (tview.cc:384-389)
 pub fn enable_command(command: CommandId) {
     GLOBAL_COMMAND_SET.with(|cs| {
         let mut set = cs.borrow_mut();
@@ -87,7 +87,7 @@ pub fn enable_command(command: CommandId) {
 }
 
 /// Disable a command in the global command set
-/// Matches Borland: TView::disableCommand(ushort command) (tview.cc:161-166)
+/// Matches Borland: `TView::disableCommand(ushort` command) (tview.cc:161-166)
 pub fn disable_command(command: CommandId) {
     GLOBAL_COMMAND_SET.with(|cs| {
         let mut set = cs.borrow_mut();
@@ -99,13 +99,13 @@ pub fn disable_command(command: CommandId) {
 }
 
 /// A copy of the global command set, to put back later with
-/// [`set_commands`]. Matches Borland: TView::getCommands.
+/// [`set_commands`]. Matches Borland: `TView::getCommands`.
 pub fn get_commands() -> CommandSet {
     GLOBAL_COMMAND_SET.with(|cs| cs.borrow().clone())
 }
 
 /// Replace the global command set, flagging a change if it differs.
-/// Matches Borland: TView::setCommands.
+/// Matches Borland: `TView::setCommands`.
 pub fn set_commands(commands: CommandSet) {
     GLOBAL_COMMAND_SET.with(|cs| {
         let mut set = cs.borrow_mut();
@@ -117,19 +117,19 @@ pub fn set_commands(commands: CommandSet) {
 }
 
 /// Check if command set has changed (needs broadcast)
-/// Matches Borland: TView::commandSetChanged (tview.cc:51)
+/// Matches Borland: `TView::commandSetChanged` (tview.cc:51)
 pub fn command_set_changed() -> bool {
     COMMAND_SET_CHANGED.with(|changed| *changed.borrow())
 }
 
 /// Clear the command set changed flag
-/// Called after broadcasting CM_COMMAND_SET_CHANGED
+/// Called after broadcasting `CM_COMMAND_SET_CHANGED`
 pub fn clear_command_set_changed() {
     COMMAND_SET_CHANGED.with(|changed| *changed.borrow_mut() = false);
 }
 
 /// Initialize the global command set with specific disabled commands
-/// Matches Borland: initCommands() (tview.cc:58-68)
+/// Matches Borland: `initCommands()` (tview.cc:58-68)
 pub fn init_command_set() {
     use crate::core::command::{CM_CLOSE, CM_NEXT, CM_PREV, CM_RESIZE, CM_ZOOM};
 
@@ -150,7 +150,7 @@ const COMMANDS_COUNT: usize = MAX_COMMANDS / 32;
 
 /// Command set bitfield for tracking enabled/disabled commands
 ///
-/// Matches Borland's TCommandSet (cmdset.h:14-84)
+/// Matches Borland's `TCommandSet` (cmdset.h:14-84)
 /// Uses a bitfield array where each command ID is a bit position
 #[derive(Clone, PartialEq)]
 pub struct CommandSet {
@@ -162,7 +162,7 @@ pub struct CommandSet {
 impl CommandSet {
     /// Create a new command set with all commands disabled
     ///
-    /// Matches Borland: TCommandSet::TCommandSet() (tcommand.cc:41-48)
+    /// Matches Borland: `TCommandSet::TCommandSet()` (tcommand.cc:41-48)
     pub fn new() -> Self {
         Self {
             cmds: Box::new([0; COMMANDS_COUNT]),
@@ -171,7 +171,7 @@ impl CommandSet {
 
     /// Create a command set with all commands enabled
     ///
-    /// Matches Borland: TCommandSet::enableAllCommands() (tcommand.cc:132-137)
+    /// Matches Borland: `TCommandSet::enableAllCommands()` (tcommand.cc:132-137)
     pub fn with_all_enabled() -> Self {
         Self {
             cmds: Box::new([0xFFFFFFFF; COMMANDS_COUNT]),
@@ -180,7 +180,7 @@ impl CommandSet {
 
     /// Check if a command is enabled
     ///
-    /// Matches Borland: TCommandSet::has(int cmd) (tcommand.cc:108-112)
+    /// Matches Borland: `TCommandSet::has(int` cmd) (tcommand.cc:108-112)
     pub fn has(&self, command: CommandId) -> bool {
         let cmd = command as usize;
         if cmd >= MAX_COMMANDS {
@@ -194,7 +194,7 @@ impl CommandSet {
 
     /// Enable a single command
     ///
-    /// Matches Borland: TCommandSet::enableCmd(int cmd) (tcommand.cc:139-145)
+    /// Matches Borland: `TCommandSet::enableCmd(int` cmd) (tcommand.cc:139-145)
     pub fn enable_command(&mut self, command: CommandId) {
         let cmd = command as usize;
         if cmd >= MAX_COMMANDS {
@@ -207,7 +207,7 @@ impl CommandSet {
 
     /// Disable a single command
     ///
-    /// Matches Borland: TCommandSet::disableCmd(int cmd) (tcommand.cc:180-186)
+    /// Matches Borland: `TCommandSet::disableCmd(int` cmd) (tcommand.cc:180-186)
     pub fn disable_command(&mut self, command: CommandId) {
         let cmd = command as usize;
         if cmd >= MAX_COMMANDS {
@@ -220,7 +220,7 @@ impl CommandSet {
 
     /// Enable a range of commands (inclusive)
     ///
-    /// Matches Borland: TCommandSet::enableCmd(int cmdStart, int cmdEnd) (tcommand.cc:147-179)
+    /// Matches Borland: `TCommandSet::enableCmd(int` cmdStart, int cmdEnd) (tcommand.cc:147-179)
     pub fn enable_range(&mut self, cmd_start: CommandId, cmd_end: CommandId) {
         let start = cmd_start as usize;
         let end = cmd_end as usize;
@@ -261,7 +261,7 @@ impl CommandSet {
 
     /// Disable a range of commands (inclusive)
     ///
-    /// Matches Borland: TCommandSet::disableCmd(int cmdStart, int cmdEnd) (tcommand.cc:188-220)
+    /// Matches Borland: `TCommandSet::disableCmd(int` cmdStart, int cmdEnd) (tcommand.cc:188-220)
     pub fn disable_range(&mut self, cmd_start: CommandId, cmd_end: CommandId) {
         let start = cmd_start as usize;
         let end = cmd_end as usize;
@@ -302,7 +302,7 @@ impl CommandSet {
 
     /// Enable all commands in another command set
     ///
-    /// Matches Borland: TCommandSet::enableCmd(const TCommandSet&) (tcommand.cc:222-228)
+    /// Matches Borland: `TCommandSet::enableCmd(const` `TCommandSet`&) (tcommand.cc:222-228)
     pub fn enable_set(&mut self, other: &CommandSet) {
         for i in 0..COMMANDS_COUNT {
             self.cmds[i] |= other.cmds[i];
@@ -311,7 +311,7 @@ impl CommandSet {
 
     /// Disable all commands in another command set
     ///
-    /// Matches Borland: TCommandSet::disableCmd(const TCommandSet&) (tcommand.cc:230-236)
+    /// Matches Borland: `TCommandSet::disableCmd(const` `TCommandSet`&) (tcommand.cc:230-236)
     pub fn disable_set(&mut self, other: &CommandSet) {
         for i in 0..COMMANDS_COUNT {
             self.cmds[i] &= !other.cmds[i];
@@ -320,21 +320,21 @@ impl CommandSet {
 
     /// Enable all commands
     ///
-    /// Matches Borland: TCommandSet::enableAllCommands() (tcommand.cc:132-137)
+    /// Matches Borland: `TCommandSet::enableAllCommands()` (tcommand.cc:132-137)
     pub fn enable_all(&mut self) {
         self.cmds.fill(0xFFFFFFFF);
     }
 
     /// Check if command set is empty (all commands disabled)
     ///
-    /// Matches Borland: TCommandSet::isEmpty() (tcommand.cc:114-125)
+    /// Matches Borland: `TCommandSet::isEmpty()` (tcommand.cc:114-125)
     pub fn is_empty(&self) -> bool {
         self.cmds.iter().all(|&word| word == 0)
     }
 
     /// Perform bitwise AND with another command set
     ///
-    /// Matches Borland: TCommandSet::operator&=(const TCommandSet&) (tcommand.cc:259-268)
+    /// Matches Borland: `TCommandSet::operator&=(const` `TCommandSet`&) (tcommand.cc:259-268)
     pub fn intersect(&mut self, other: &CommandSet) {
         for i in 0..COMMANDS_COUNT {
             self.cmds[i] &= other.cmds[i];
@@ -343,7 +343,7 @@ impl CommandSet {
 
     /// Perform bitwise OR with another command set
     ///
-    /// Matches Borland: TCommandSet::operator|=(const TCommandSet&) (tcommand.cc:249-257)
+    /// Matches Borland: `TCommandSet::operator|=(const` `TCommandSet`&) (tcommand.cc:249-257)
     pub fn union(&mut self, other: &CommandSet) {
         for i in 0..COMMANDS_COUNT {
             self.cmds[i] |= other.cmds[i];

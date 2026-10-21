@@ -19,7 +19,7 @@ use turbo_vision::views::view::View;
 fn main() -> turbo_vision::core::error::Result<()> {
     let mut app = Application::new()?;
     let (w, h) = app.terminal.size();
-    let (w, h) = (w as i16, h as i16);
+    let (w, h) = (w, h);
     let current_dir = env::current_dir()?;
 
     // Split screen: DirListBox on left, FileList on right

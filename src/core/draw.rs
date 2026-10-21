@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! Drawing primitives - Cell and DrawBuffer types for efficient line-based rendering.
+//! Drawing primitives - Cell and `DrawBuffer` types for efficient line-based rendering.
 
 use super::palette::Attr;
 
@@ -85,7 +85,7 @@ impl DrawBuffer {
     }
 
     /// Change the attribute of a cell without changing its character
-    /// Matches Borland: TDrawBuffer::putAttribute (help.cc:109)
+    /// Matches Borland: `TDrawBuffer::putAttribute` (help.cc:109)
     pub fn put_attribute(&mut self, pos: usize, attr: Attr) {
         if pos < self.data.len() {
             self.data[pos].attr = attr;
@@ -103,7 +103,7 @@ impl DrawBuffer {
     }
 
     /// Write a string with shortcut highlighting
-    /// Format: "~X~" highlights X with shortcut_attr, rest uses normal_attr
+    /// Format: "~X~" highlights X with `shortcut_attr`, rest uses `normal_attr`
     /// Example: "~F~ile" displays "File" with "F" highlighted
     pub fn move_str_with_shortcut(
         &mut self,
@@ -144,7 +144,7 @@ impl DrawBuffer {
 
             if ch == '~' {
                 // Read characters until closing ~ and render with shortcut color
-                while let Some(shortcut_ch) = chars.next() {
+                for shortcut_ch in chars.by_ref() {
                     if shortcut_ch == '~' {
                         break; // Found closing tilde
                     }
@@ -153,7 +153,6 @@ impl DrawBuffer {
             } else if ch.is_control() {
                 // Skip control characters (e.g. \x03 centering directive)
                 // These are directives, not renderable glyphs
-                continue;
             } else {
                 put_wide(&mut self.data, &mut pos, ch, normal_attr);
             }

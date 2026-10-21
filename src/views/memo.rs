@@ -111,7 +111,7 @@ impl Memo {
 
     /// Set the text content
     pub fn set_text(&mut self, text: &str) {
-        self.lines = text.lines().map(|s| s.to_string()).collect();
+        self.lines = text.lines().map(std::string::ToString::to_string).collect();
         if self.lines.is_empty() {
             self.lines.push(String::new());
         }
@@ -166,20 +166,20 @@ impl Memo {
 
         if let Some(ref mut h_bar) = self.h_scrollbar {
             h_bar.set_params(
-                self.delta.x as i32,
+                i32::from(self.delta.x),
                 0,
-                max_x.saturating_sub(content_area.width()) as i32,
-                content_area.width() as i32,
+                i32::from(max_x.saturating_sub(content_area.width())),
+                i32::from(content_area.width()),
                 1,
             );
         }
 
         if let Some(ref mut v_bar) = self.v_scrollbar {
             v_bar.set_params(
-                self.delta.y as i32,
+                i32::from(self.delta.y),
                 0,
-                max_y.saturating_sub(content_area.height()) as i32,
-                content_area.height() as i32,
+                i32::from(max_y.saturating_sub(content_area.height())),
+                i32::from(content_area.height()),
                 1,
             );
         }
@@ -234,8 +234,7 @@ impl Memo {
         let line = &self.lines[line_idx];
         line.char_indices()
             .nth(char_pos)
-            .map(|(idx, _)| idx)
-            .unwrap_or(line.len())
+            .map_or(line.len(), |(idx, _)| idx)
     }
 
     /// Insert a character at cursor position
@@ -434,7 +433,7 @@ impl Memo {
     pub fn select_all(&mut self) {
         self.selection_start = Some(Point::zero());
         self.cursor = Point::new(
-            self.lines.last().map(|l| l.chars().count()).unwrap_or(0) as i16,
+            self.lines.last().map_or(0, |l| l.chars().count()) as i16,
             (self.lines.len() - 1) as i16,
         );
         self.ensure_cursor_visible();
@@ -561,14 +560,14 @@ impl View for Memo {
         let bounds = self.extent();
 
         // Update scrollbar positions
-        if self.v_scrollbar.is_some() {
+        if let Some(v_scrollbar) = self.v_scrollbar.as_mut() {
             let v_bounds = Rect::new(bounds.b.x - 1, bounds.a.y, bounds.b.x, bounds.b.y - 1);
-            self.v_scrollbar.as_mut().unwrap().set_bounds(v_bounds);
+            v_scrollbar.set_bounds(v_bounds);
         }
 
-        if self.h_scrollbar.is_some() {
+        if let Some(h_scrollbar) = self.h_scrollbar.as_mut() {
             let h_bounds = Rect::new(bounds.a.x, bounds.b.y - 1, bounds.b.x - 1, bounds.b.y);
-            self.h_scrollbar.as_mut().unwrap().set_bounds(h_bounds);
+            h_scrollbar.set_bounds(h_bounds);
         }
 
         self.update_scrollbars();
@@ -640,8 +639,8 @@ impl View for Memo {
 
                 let cursor_attr = cursor_color;
                 terminal.write_cell(
-                    cursor_screen_x as i16,
-                    cursor_screen_y as i16,
+                    cursor_screen_x,
+                    cursor_screen_y,
                     crate::core::draw::Cell::new(ch, cursor_attr),
                 );
             }
@@ -817,11 +816,11 @@ impl View for Memo {
     fn update_cursor(&self, terminal: &mut Terminal) {
         if self.is_focused() {
             // Calculate cursor position on screen
-            let cursor_x = (self.cursor.x - self.delta.x) as i16;
-            let cursor_y = (self.cursor.y - self.delta.y) as i16;
+            let cursor_x = self.cursor.x - self.delta.x;
+            let cursor_y = self.cursor.y - self.delta.y;
 
             // Show cursor at the position
-            let _ = terminal.show_cursor(cursor_x as i16, cursor_y as i16);
+            let _ = terminal.show_cursor(cursor_x, cursor_y);
         }
     }
 
@@ -836,6 +835,76 @@ impl View for Memo {
 
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
+    }
+}
+
+/// Builder for creating memos with a fluent API.
+pub struct MemoBuilder {
+    bounds: Option<Rect>,
+    with_scrollbars: bool,
+    max_length: Option<usize>,
+    read_only: bool,
+    tab_size: usize,
+}
+
+impl MemoBuilder {
+    pub fn new() -> Self {
+        Self {
+            bounds: None,
+            with_scrollbars: false,
+            max_length: None,
+            read_only: false,
+            tab_size: 4,
+        }
+    }
+
+    #[must_use]
+    pub fn bounds(mut self, bounds: Rect) -> Self {
+        self.bounds = Some(bounds);
+        self
+    }
+
+    #[must_use]
+    pub fn with_scrollbars(mut self, with_scrollbars: bool) -> Self {
+        self.with_scrollbars = with_scrollbars;
+        self
+    }
+
+    #[must_use]
+    pub fn max_length(mut self, max_length: usize) -> Self {
+        self.max_length = Some(max_length);
+        self
+    }
+
+    #[must_use]
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.read_only = read_only;
+        self
+    }
+
+    #[must_use]
+    pub fn tab_size(mut self, tab_size: usize) -> Self {
+        self.tab_size = tab_size;
+        self
+    }
+
+    pub fn build(self) -> Memo {
+        let bounds = self.bounds.expect("Memo bounds must be set");
+        let mut memo = Memo::new(bounds).with_scrollbars(self.with_scrollbars);
+        memo.set_max_length(self.max_length);
+        memo.set_read_only(self.read_only);
+        memo.set_tab_size(self.tab_size);
+        memo
+    }
+
+    pub fn build_boxed(self) -> Box<Memo> {
+        Box::new(self.build())
+    }
+}
+
+impl Default for MemoBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1017,75 +1086,5 @@ mod tests {
             9,
             "measured in characters, not bytes"
         );
-    }
-}
-
-/// Builder for creating memos with a fluent API.
-pub struct MemoBuilder {
-    bounds: Option<Rect>,
-    with_scrollbars: bool,
-    max_length: Option<usize>,
-    read_only: bool,
-    tab_size: usize,
-}
-
-impl MemoBuilder {
-    pub fn new() -> Self {
-        Self {
-            bounds: None,
-            with_scrollbars: false,
-            max_length: None,
-            read_only: false,
-            tab_size: 4,
-        }
-    }
-
-    #[must_use]
-    pub fn bounds(mut self, bounds: Rect) -> Self {
-        self.bounds = Some(bounds);
-        self
-    }
-
-    #[must_use]
-    pub fn with_scrollbars(mut self, with_scrollbars: bool) -> Self {
-        self.with_scrollbars = with_scrollbars;
-        self
-    }
-
-    #[must_use]
-    pub fn max_length(mut self, max_length: usize) -> Self {
-        self.max_length = Some(max_length);
-        self
-    }
-
-    #[must_use]
-    pub fn read_only(mut self, read_only: bool) -> Self {
-        self.read_only = read_only;
-        self
-    }
-
-    #[must_use]
-    pub fn tab_size(mut self, tab_size: usize) -> Self {
-        self.tab_size = tab_size;
-        self
-    }
-
-    pub fn build(self) -> Memo {
-        let bounds = self.bounds.expect("Memo bounds must be set");
-        let mut memo = Memo::new(bounds).with_scrollbars(self.with_scrollbars);
-        memo.set_max_length(self.max_length);
-        memo.set_read_only(self.read_only);
-        memo.set_tab_size(self.tab_size);
-        memo
-    }
-
-    pub fn build_boxed(self) -> Box<Memo> {
-        Box::new(self.build())
-    }
-}
-
-impl Default for MemoBuilder {
-    fn default() -> Self {
-        Self::new()
     }
 }

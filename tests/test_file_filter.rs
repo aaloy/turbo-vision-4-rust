@@ -11,7 +11,7 @@ fn matches_wildcard(wildcard: &str, name: &str) -> bool {
 
     // Simple wildcard matching (*.ext)
     if let Some(ext) = wildcard.strip_prefix("*.") {
-        name.ends_with(&format!(".{}", ext))
+        name.ends_with(&format!(".{ext}"))
     } else {
         name.contains(wildcard)
     }
@@ -22,7 +22,7 @@ fn main() {
     let wildcard = "*.rs";
 
     println!("Reading directory: {}", current_path.display());
-    println!("Wildcard: {}", wildcard);
+    println!("Wildcard: {wildcard}");
     println!();
 
     if let Ok(entries) = fs::read_dir(&current_path) {
@@ -34,11 +34,11 @@ fn main() {
                 let name = entry.file_name().to_string_lossy().to_string();
 
                 if metadata.is_dir() {
-                    dirs.push(format!("[{}]", name));
-                    println!("DIR: {}", name);
+                    dirs.push(format!("[{name}]"));
+                    println!("DIR: {name}");
                 } else {
                     let matches = matches_wildcard(wildcard, &name);
-                    println!("FILE: {} - matches: {}", name, matches);
+                    println!("FILE: {name} - matches: {matches}");
                     if matches {
                         regular_files.push(name);
                     }
@@ -47,8 +47,8 @@ fn main() {
         }
 
         println!("\n=== Final lists ===");
-        println!("Directories: {:?}", dirs);
-        println!("Files: {:?}", regular_files);
+        println!("Directories: {dirs:?}");
+        println!("Files: {regular_files:?}");
 
         // Sort and combine
         dirs.sort();
@@ -58,7 +58,7 @@ fn main() {
 
         println!("\n=== Combined list ===");
         for file in &all_files {
-            println!("  {}", file);
+            println!("  {file}");
         }
     }
 }

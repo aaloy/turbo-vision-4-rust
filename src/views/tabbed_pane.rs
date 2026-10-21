@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! TabbedPane view - a strip of tabs over a stack of pages.
+//! `TabbedPane` view - a strip of tabs over a stack of pages.
 //!
 //! Not part of the Borland Turbo Vision widget set. Each page is a [`Group`],
 //! so a page holds ordinary controls and runs its own focus traversal; the pane

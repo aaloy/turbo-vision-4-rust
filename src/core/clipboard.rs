@@ -115,8 +115,7 @@ pub fn has_clipboard_content() -> bool {
     // Fall back to in-memory clipboard
     CLIPBOARD
         .lock()
-        .map(|clipboard| !clipboard.is_empty())
-        .unwrap_or(false)
+        .is_ok_and(|clipboard| !clipboard.is_empty())
 }
 
 /// Clear the clipboard (both in-memory and OS)

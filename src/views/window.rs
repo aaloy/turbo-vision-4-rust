@@ -25,7 +25,7 @@ pub struct Window {
     resize_start_size: Option<Point>,
     /// Minimum window size (matches Borland's minWinSize)
     min_size: Point,
-    /// Window number for Alt+1..9 selection (Borland: TWindow::number;
+    /// Window number for Alt+1..9 selection (Borland: `TWindow::number`;
     /// None = wnNoNumber)
     number: Option<u8>,
     /// Saved bounds while keyboard move/resize mode is active (Borland:
@@ -34,9 +34,9 @@ pub struct Window {
     /// Saved bounds for zoom/restore (matches Borland's zoomRect)
     zoom_rect: Rect,
     /// Previous bounds (for calculating union rect for redrawing)
-    /// Matches Borland: TView::locate() calculates union of old and new bounds
+    /// Matches Borland: `TView::locate()` calculates union of old and new bounds
     prev_bounds: Option<Rect>,
-    /// Palette type (Dialog vs EditorWindow window)
+    /// Palette type (Dialog vs `EditorWindow` window)
     palette_type: WindowPaletteType,
     /// Custom palette override — applied to both Window and Frame.
     custom_palette: Option<Vec<u8>>,
@@ -72,9 +72,9 @@ impl Window {
         &mut self.core
     }
 
-    /// Create a new TWindow with blue palette (default Borland TWindow behavior)
-    /// Matches Borland: TWindow constructor sets palette(wpBlueWindow)
-    /// For TDialog (gray palette), use new_for_dialog() instead
+    /// Create a new `TWindow` with blue palette (default Borland `TWindow` behavior)
+    /// Matches Borland: `TWindow` constructor sets palette(wpBlueWindow)
+    /// For `TDialog` (gray palette), use `new_for_dialog()` instead
     pub fn new(bounds: Rect, title: &str) -> Self {
         Self::new_with_palette(
             bounds,
@@ -85,8 +85,8 @@ impl Window {
         )
     }
 
-    /// Create a window for TDialog with gray palette
-    /// Matches Borland: TDialog overrides TWindow palette to use cpGrayDialog
+    /// Create a window for `TDialog` with gray palette
+    /// Matches Borland: `TDialog` overrides `TWindow` palette to use cpGrayDialog
     ///
     /// The palette a `Dialog` draws with is chosen by `Dialog::get_palette`,
     /// which `window_draw` reaches through late binding; the
@@ -102,8 +102,8 @@ impl Window {
         )
     }
 
-    /// Create a window for THelpWindow with cyan palette
-    /// Matches Borland: THelpWindow uses cyan help window palette (cHelpWindow)
+    /// Create a window for `THelpWindow` with cyan palette
+    /// Matches Borland: `THelpWindow` uses cyan help window palette (cHelpWindow)
     pub fn new_for_help(bounds: Rect, title: &str) -> Self {
         Self::new_with_palette(
             bounds,
@@ -143,7 +143,7 @@ impl Window {
         // Don't use background - the Frame fills the interior space (matching Borland)
         let interior = Group::new(interior_bounds);
 
-        let window = Self {
+        Self {
             core: ViewCore {
                 bounds,
                 state: State::SHADOW, // Windows have shadows by default
@@ -183,9 +183,7 @@ impl Window {
             custom_palette: None,
             explicit_drag_limits: None,
             auto_close: true,
-        };
-
-        window
+        }
     }
 
     /// Set a custom palette override for this window.
@@ -198,7 +196,7 @@ impl Window {
 
     /// Add a child positioned relative to the window frame (not interior)
     /// Used for scrollbars and other frame-edge elements
-    /// Matches Borland: TWindow is a TGroup, all children use window-relative coords
+    /// Matches Borland: `TWindow` is a `TGroup`, all children use window-relative coords
     pub fn add_frame_child(&mut self, view: Box<dyn View>) -> usize {
         // Bounds are window-relative and stay so; the palette chain is set up
         // during draw.
@@ -229,8 +227,8 @@ impl Window {
     }
 
     /// Set the window title
-    /// Matches Borland: TWindow allows title mutation via setTitle()
-    /// The frame will be redrawn on the next draw() call
+    /// Matches Borland: `TWindow` allows title mutation via `setTitle()`
+    /// The frame will be redrawn on the next `draw()` call
     pub fn set_title(&mut self, title: &str) {
         self.frame.set_title(title);
     }
@@ -239,7 +237,7 @@ impl Window {
     /// window: `CM_NEXT`, `CM_PREV`, `CM_RESIZE` (every window can be moved)
     /// and `CM_CLOSE` always, `CM_ZOOM` when the window can zoom.
     ///
-    /// Matches Borland: TWindow::setState(sfSelected) ->
+    /// Matches Borland: `TWindow::setState(sfSelected)` ->
     /// enableCommands(windowCommands), with the set built from the window's
     /// flags. Called when the window gains selection; see
     /// [`disable_window_commands`](Self::disable_window_commands).
@@ -257,7 +255,7 @@ impl Window {
     }
 
     /// Disable the window commands, as a window does when it loses
-    /// selection (Borland: TWindow::setState -> disableCommands).
+    /// selection (Borland: `TWindow::setState` -> disableCommands).
     pub fn disable_window_commands() {
         use crate::core::command::{CM_NEXT, CM_PREV, CM_RESIZE, CM_ZOOM};
         for cmd in [CM_NEXT, CM_PREV, CM_RESIZE, CM_CLOSE, CM_ZOOM] {
@@ -308,7 +306,7 @@ impl Window {
     }
 
     /// Get size limits for this window
-    /// Matches Borland: TWindow::sizeLimits(TPoint &min, TPoint &max)
+    /// Matches Borland: `TWindow::sizeLimits(TPoint` &min, `TPoint` &max)
     /// Returns (min, max) where max is typically the desktop size
     pub fn size_limits(&self) -> (Point, Point) {
         // Max size would typically be the desktop/owner size
@@ -318,7 +316,7 @@ impl Window {
     }
 
     /// Get drag limits from parent bounds or explicit limits
-    /// Matches Borland: TFrame::dragWindow() gets limits = owner->owner->getExtent()
+    /// Matches Borland: `TFrame::dragWindow()` gets limits = `owner->owner->getExtent()`
     /// Returns parent bounds if set, otherwise unrestricted
     fn get_drag_limits(&self) -> Rect {
         if let Some(limits) = self.explicit_drag_limits {
@@ -337,7 +335,7 @@ impl Window {
 
     /// Constrain window bounds to drag limits
     /// Ensures window is positioned within parent bounds (including shadow)
-    /// Matches Borland: TView position is constrained during locate()
+    /// Matches Borland: `TView` position is constrained during `locate()`
     pub fn constrain_to_limits(&mut self) {
         let limits = self.get_drag_limits();
         let width = self.core.bounds.width();
@@ -418,7 +416,7 @@ impl Window {
     }
 
     /// Get the union rect of current and previous bounds (for redrawing)
-    /// Matches Borland: TView::locate() calculates union rect
+    /// Matches Borland: `TView::locate()` calculates union rect
     /// Returns None if window hasn't moved yet
     pub fn get_redraw_union(&self) -> Option<Rect> {
         self.prev_bounds.map(|prev| {
@@ -441,9 +439,9 @@ impl Window {
     }
 
     /// End the modal event loop
-    /// Delegates to the interior Group's end_modal() method
+    /// Delegates to the interior Group's `end_modal()` method
     /// Set the window number shown in the frame and used by Alt+1..9
-    /// selection (Borland: TWindow::number).
+    /// selection (Borland: `TWindow::number`).
     pub fn set_number(&mut self, number: u8) {
         self.number = Some(number);
         self.frame.set_number(Some(number));
@@ -814,7 +812,7 @@ pub trait WindowLike: GroupLike {
     }
 
     /// Zoom (maximize) or restore window
-    /// Matches Borland: TWindow::zoom() toggles between current size and maximum size
+    /// Matches Borland: `TWindow::zoom()` toggles between current size and maximum size
     /// In Borland, this is called by owner in response to cmZoom command
     fn window_zoom(&mut self, max_bounds: Rect) {
         let (_min, _max_size) = self.window_mut().size_limits();
@@ -844,7 +842,7 @@ pub trait WindowLike: GroupLike {
     }
 
     /// Validate window before closing with given command
-    /// Matches Borland: TWindow inherits TGroup::valid() which validates all children
+    /// Matches Borland: `TWindow` inherits `TGroup::valid()` which validates all children
     /// Delegates to interior group to validate all children
     fn window_valid(&mut self, command: crate::core::command::CommandId) -> bool {
         self.window_mut().interior.valid(command)
@@ -1115,7 +1113,7 @@ pub struct WindowBuilder {
 }
 
 impl WindowBuilder {
-    /// Creates a new WindowBuilder with default values.
+    /// Creates a new `WindowBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -1143,7 +1141,7 @@ impl WindowBuilder {
 
     /// Sets whether the window is resizable (default: true).
     /// Resizable windows show single-line bottom corners and a resize handle.
-    /// Non-resizable windows show double-line bottom corners (like TDialog).
+    /// Non-resizable windows show double-line bottom corners (like `TDialog`).
     #[must_use]
     pub fn resizable(mut self, resizable: bool) -> Self {
         self.resizable = resizable;

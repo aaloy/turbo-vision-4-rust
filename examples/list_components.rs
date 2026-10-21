@@ -157,57 +157,54 @@ fn main() -> turbo_vision::core::error::Result<()> {
             }
 
             // Handle commands
-            match event.what {
-                EventType::Command => {
-                    match event.command {
-                        CM_QUIT => app.running = false,
-                        CM_NEW => {
-                            // Show message (in real app would open new file)
-                            app.terminal.draw_view(&mut app.desktop);
-                            show_message(&mut app, "New file created", 20, 10);
-                        }
-                        CM_OPEN => {
-                            show_message(&mut app, "Open file dialog", 20, 10);
-                        }
-                        CM_SAVE => {
-                            show_message(&mut app, "Save file", 20, 10);
-                        }
-                        CMD_SHOW_MENU => {
-                            // Demonstrate MenuBox popup
-                            let popup_menu = MenuBuilder::new()
-                                .item("~N~ew Window", CM_NEW)
-                                .item("~C~lose Window", 102)
-                                .separator()
-                                .item("~R~efresh", 103)
-                                .build();
-
-                            let mut menubox = MenuBox::new(Point::new(35, 8), popup_menu);
-                            let selected_cmd = menubox.execute(&mut app.terminal);
-
-                            // Redraw after popup closes
-                            app.terminal.draw_view(&mut app.desktop);
-                            app.terminal.draw_view(&mut listbox);
-
-                            if selected_cmd != 0 {
-                                let msg = match selected_cmd {
-                                    CM_NEW => "New Window selected",
-                                    //102 => "Close Window selected",
-                                    103 => "Refresh selected",
-                                    _ => "Unknown command",
-                                };
-                                show_message(&mut app, msg, 20, 10);
-                            }
-                        }
-                        CMD_LIST_SELECT => {
-                            if let Some(selected) = listbox.get_selected_item() {
-                                let msg = format!("Selected: {}", selected);
-                                show_message(&mut app, &msg, 20, 10);
-                            }
-                        }
-                        _ => {}
+            if event.what == EventType::Command {
+                match event.command {
+                    CM_QUIT => app.running = false,
+                    CM_NEW => {
+                        // Show message (in real app would open new file)
+                        app.terminal.draw_view(&mut app.desktop);
+                        show_message(&mut app, "New file created", 20, 10);
                     }
+                    CM_OPEN => {
+                        show_message(&mut app, "Open file dialog", 20, 10);
+                    }
+                    CM_SAVE => {
+                        show_message(&mut app, "Save file", 20, 10);
+                    }
+                    CMD_SHOW_MENU => {
+                        // Demonstrate MenuBox popup
+                        let popup_menu = MenuBuilder::new()
+                            .item("~N~ew Window", CM_NEW)
+                            .item("~C~lose Window", 102)
+                            .separator()
+                            .item("~R~efresh", 103)
+                            .build();
+
+                        let mut menubox = MenuBox::new(Point::new(35, 8), popup_menu);
+                        let selected_cmd = menubox.execute(&mut app.terminal);
+
+                        // Redraw after popup closes
+                        app.terminal.draw_view(&mut app.desktop);
+                        app.terminal.draw_view(&mut listbox);
+
+                        if selected_cmd != 0 {
+                            let msg = match selected_cmd {
+                                CM_NEW => "New Window selected",
+                                //102 => "Close Window selected",
+                                103 => "Refresh selected",
+                                _ => "Unknown command",
+                            };
+                            show_message(&mut app, msg, 20, 10);
+                        }
+                    }
+                    CMD_LIST_SELECT => {
+                        if let Some(selected) = listbox.get_selected_item() {
+                            let msg = format!("Selected: {selected}");
+                            show_message(&mut app, &msg, 20, 10);
+                        }
+                    }
+                    _ => {}
                 }
-                _ => {}
             }
         }
     }

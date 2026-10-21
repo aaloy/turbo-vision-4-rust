@@ -45,13 +45,13 @@ fn main() {
     for (i, item) in file_menu.items.iter().enumerate() {
         match item {
             MenuItem::Regular { text, command, .. } => {
-                println!("    [{}] {} -> Command {}", i, text, command);
+                println!("    [{i}] {text} -> Command {command}");
             }
             MenuItem::SubMenu { text, .. } => {
-                println!("    [{}] {} -> (submenu)", i, text);
+                println!("    [{i}] {text} -> (submenu)");
             }
             MenuItem::Separator => {
-                println!("    [{}] --------", i);
+                println!("    [{i}] --------");
             }
         }
     }
@@ -309,7 +309,7 @@ fn main() {
             MenuBuilder::new()
                 .item_key("~U~ndo", CM_UNDO, "Ctrl+Z")
                 .separator()
-                .add(
+                .push_item(
                     MenuItemBuilder::new()
                         .text("Cu~t~")
                         .command(CM_CUT)
@@ -317,7 +317,7 @@ fn main() {
                         .shortcut("Shift+Del")
                         .build(),
                 )
-                .add(
+                .push_item(
                     MenuItemBuilder::new()
                         .text("~C~opy")
                         .command(CM_COPY)
@@ -325,7 +325,7 @@ fn main() {
                         .shortcut("Ctrl+Ins")
                         .build(),
                 )
-                .add(
+                .push_item(
                     MenuItemBuilder::new()
                         .text("~P~aste")
                         .command(CM_PASTE)

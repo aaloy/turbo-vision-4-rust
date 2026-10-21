@@ -2,7 +2,7 @@
 
 //! Color Selector - interactive color picker control
 //!
-//! Matches Borland: TColorSelector
+//! Matches Borland: `TColorSelector`
 //!
 //! Provides an interactive grid of colors for selection.
 
@@ -21,10 +21,10 @@ use std::rc::Rc;
 const COLORS_PER_ROW: usize = 8;
 
 /// Color Selector - interactive color picker
-/// Matches Borland: TColorSelector
+/// Matches Borland: `TColorSelector`
 pub struct ColorSelector {
     core: ViewCore,
-    /// Currently selected color (0-15), shared so owners (e.g. ColorDialog)
+    /// Currently selected color (0-15), shared so owners (e.g. `ColorDialog`)
     /// can read the selection back after the selector is boxed into a group
     selected_color: Rc<RefCell<u8>>,
     /// Whether selecting foreground (true) or background (false)
@@ -62,24 +62,20 @@ impl ColorSelector {
     }
 
     /// Get position of color in grid
-    fn color_to_pos(&self, color: u8) -> (i16, i16) {
-        let row = (color / COLORS_PER_ROW as u8) as i16;
-        let col = (color % COLORS_PER_ROW as u8) as i16;
+    fn color_to_pos(color: u8) -> (i16, i16) {
+        let row = i16::from(color / COLORS_PER_ROW as u8);
+        let col = i16::from(color % COLORS_PER_ROW as u8);
         (col * 3, row) // 3 chars per color cell
     }
 
     /// Get color from position in grid
-    fn pos_to_color(&self, x: i16, y: i16) -> Option<u8> {
+    fn pos_to_color(x: i16, y: i16) -> Option<u8> {
         if x < 0 || y < 0 {
             return None;
         }
         let col = x / 3;
         let row = y;
-        if row < 2 && col < COLORS_PER_ROW as i16 {
-            Some((row * COLORS_PER_ROW as i16 + col) as u8)
-        } else {
-            None
-        }
+        (row < 2 && col < COLORS_PER_ROW as i16).then(|| (row * COLORS_PER_ROW as i16 + col) as u8)
     }
 }
 
@@ -138,7 +134,7 @@ impl View for ColorSelector {
     fn handle_event(&mut self, event: &mut Event) {
         match event.what {
             EventType::Keyboard => {
-                let (col, row) = self.color_to_pos(self.get_selected_color());
+                let (col, row) = Self::color_to_pos(self.get_selected_color());
                 let mut new_col = col;
                 let mut new_row = row;
 
@@ -155,22 +151,20 @@ impl View for ColorSelector {
                     _ => return,
                 }
 
-                if let Some(new_color) = self.pos_to_color(new_col, new_row) {
+                if let Some(new_color) = Self::pos_to_color(new_col, new_row) {
                     self.set_selected_color(new_color);
                     event.clear();
                 }
             }
-            EventType::MouseDown => {
-                if event.mouse.buttons & MB_LEFT_BUTTON != 0 {
-                    let mouse_pos = event.mouse.pos;
-                    if self.extent().contains(mouse_pos) {
-                        let rel_x = mouse_pos.x;
-                        let rel_y = mouse_pos.y;
+            EventType::MouseDown if event.mouse.buttons & MB_LEFT_BUTTON != 0 => {
+                let mouse_pos = event.mouse.pos;
+                if self.extent().contains(mouse_pos) {
+                    let rel_x = mouse_pos.x;
+                    let rel_y = mouse_pos.y;
 
-                        if let Some(color) = self.pos_to_color(rel_x, rel_y) {
-                            self.set_selected_color(color);
-                            event.clear();
-                        }
+                    if let Some(color) = Self::pos_to_color(rel_x, rel_y) {
+                        self.set_selected_color(color);
+                        event.clear();
                     }
                 }
             }

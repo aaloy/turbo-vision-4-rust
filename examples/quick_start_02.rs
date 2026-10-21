@@ -20,7 +20,7 @@ fn setup_status_line(app: &Application) -> StatusLine {
     let (w, h) = app.terminal.size();
 
     StatusLine::new(
-        Rect::new(0, h as i16 - 1, w as i16, h as i16),
+        Rect::new(0, h - 1, w, h),
         vec![
             StatusItemBuilder::new()
                 .text("~Alt-X~ Exit")

@@ -35,8 +35,8 @@ impl Label {
         }
     }
 
-    /// Set the linked control by its ViewId
-    /// Matches Borland: TLabel constructor takes TView* aLink parameter
+    /// Set the linked control by its `ViewId`
+    /// Matches Borland: `TLabel` constructor takes `TView`* aLink parameter
     /// When label is clicked, focus transfers to the linked control
     pub fn set_link(&mut self, view_id: ViewId) {
         self.link = Some(view_id);
@@ -65,7 +65,7 @@ impl Label {
 
     /// Extract the hotkey character from the label text
     /// Returns the uppercase character following the first '~', or None if no hotkey
-    /// Matches Borland: hotKey() function
+    /// Matches Borland: `hotKey()` function
     fn get_hotkey(&self) -> Option<char> {
         let mut chars = self.text.chars();
         while let Some(ch) = chars.next() {
@@ -129,8 +129,8 @@ impl View for Label {
         }
     }
 
-    /// Return the linked control ViewId for this label
-    /// Matches Borland: TLabel::link field
+    /// Return the linked control `ViewId` for this label
+    /// Matches Borland: `TLabel::link` field
     fn label_link(&self) -> Option<ViewId> {
         self.link
     }

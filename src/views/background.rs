@@ -11,7 +11,7 @@ use crate::core::state::Grow;
 use crate::terminal::Terminal;
 
 /// Background view - fills its bounds with a pattern character
-/// Matches Borland's TBackground (tbackgro.cc)
+/// Matches Borland's `TBackground` (tbackgro.cc)
 pub struct Background {
     core: ViewCore,
     pattern: char,

@@ -26,7 +26,7 @@
 //! |-----|--------|
 //! | Up, Down | Previous or next row |
 //! | Left, Right | Previous or next column |
-//! | PgUp, PgDn | Previous or next screenful of rows |
+//! | `PgUp`, `PgDn` | Previous or next screenful of rows |
 //! | Home, End | First or last row |
 //! | Ctrl+Left, Ctrl+Right | First or last column |
 //! | Enter | Emit the selection command |
@@ -1274,7 +1274,11 @@ mod tests {
         for y in 0..6 {
             assert_eq!(ch(&term, 10, y), SEPARATOR, "first gap, line {y}");
             assert_eq!(ch(&term, 17, y), SEPARATOR, "second gap, line {y}");
-            assert_ne!(ch(&term, 26, y), SEPARATOR, "after the last column, line {y}");
+            assert_ne!(
+                ch(&term, 26, y),
+                SEPARATOR,
+                "after the last column, line {y}"
+            );
         }
         // Text is untouched.
         assert_eq!(ch(&term, 0, 1), 'f');
@@ -1341,7 +1345,10 @@ mod tests {
         let calls = Rc::new(Counter::new(0));
         let mut t = Table::new(Rect::new(0, 0, 30, 6), 0);
         t.set_columns(vec![Column::new("N", 10), Column::right("N2", 12)]);
-        t.set_provider(Box::new(Squares { rows, calls: Rc::clone(&calls) }));
+        t.set_provider(Box::new(Squares {
+            rows,
+            calls: Rc::clone(&calls),
+        }));
         t.set_state(State::FOCUSED);
         (t, calls)
     }
@@ -1388,7 +1395,10 @@ mod tests {
     fn a_shorter_provider_clamps_the_focus() {
         let (mut t, _) = squares(100);
         t.set_selected_row(99);
-        t.set_provider(Box::new(Squares { rows: 3, calls: Rc::new(Counter::new(0)) }));
+        t.set_provider(Box::new(Squares {
+            rows: 3,
+            calls: Rc::new(Counter::new(0)),
+        }));
         assert_eq!(t.selected_row(), Some(2));
         // Drawing after the swap must not index past the new end.
         let term = draw(&mut t, 30, 6);

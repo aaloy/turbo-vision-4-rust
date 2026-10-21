@@ -113,7 +113,7 @@ impl Default for HistoryList {
 ///
 /// - **Global state**: Matches Borland TV's global history system
 /// - **Lazy initialization**: `OnceLock` ensures single initialization across threads
-/// - **Thread-safe**: `Mutex` protects the HashMap from concurrent access
+/// - **Thread-safe**: `Mutex` protects the `HashMap` from concurrent access
 /// - **Process-wide**: All application instances share the same history
 ///
 /// ## Thread Safety
@@ -171,7 +171,7 @@ impl HistoryManager {
         let mut manager = history_manager()
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        let list = manager.entry(history_id).or_insert_with(HistoryList::new);
+        let list = manager.entry(history_id).or_default();
         list.add(item);
     }
 
@@ -193,8 +193,7 @@ impl HistoryManager {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         manager
             .get(&history_id)
-            .map(|list| !list.is_empty())
-            .unwrap_or(false)
+            .is_some_and(|list| !list.is_empty())
     }
 
     /// Get the number of items in a history list
@@ -202,7 +201,7 @@ impl HistoryManager {
         let manager = history_manager()
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
-        manager.get(&history_id).map(|list| list.len()).unwrap_or(0)
+        manager.get(&history_id).map_or(0, HistoryList::len)
     }
 
     /// Clear a specific history list
@@ -240,7 +239,7 @@ impl HistoryManager {
     }
 }
 
-/// Serializes tests that touch the process-global HistoryManager.
+/// Serializes tests that touch the process-global `HistoryManager`.
 ///
 /// Tests in several modules call `clear_all()` and assert on global counts;
 /// without this lock they race under the parallel test runner.
@@ -302,7 +301,7 @@ mod tests {
     #[test]
     fn test_history_list_empty_string() {
         let mut list = HistoryList::new();
-        list.add("".to_string());
+        list.add(String::new());
         assert!(list.is_empty());
     }
 

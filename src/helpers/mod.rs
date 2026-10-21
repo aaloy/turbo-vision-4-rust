@@ -3,15 +3,19 @@
 //! Deprecated shims. The message-box helpers live in [`crate::views::msgbox`];
 //! this module re-exports them under their 2.x names for one release.
 
-#![allow(deprecated)]
+#![allow(
+    deprecated,
+    reason = "this module re-exports its own deprecated 2.x shims"
+)]
 
 use crate::app::Application;
 use crate::core::command::{CM_CANCEL, CM_OK, CommandId};
 use crate::core::geometry::Rect;
 
-/// The message-box module, moved to `views::msgbox`.
 pub mod msgbox {
     //! Deprecated: use [`crate::views::msgbox`].
+    //!
+    //! The message-box module, moved to `views::msgbox`.
     pub use super::{input_box, input_box_rect};
     pub use crate::views::msgbox::*;
 }

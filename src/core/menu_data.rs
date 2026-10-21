@@ -12,15 +12,15 @@ use crate::core::event::KeyCode;
 
 /// Menu item - can be a regular command, a submenu, or a separator
 ///
-/// Matches Borland: TMenuItem
+/// Matches Borland: `TMenuItem`
 ///
-/// In Borland, TMenuItem is a linked list node with a `next` pointer.
+/// In Borland, `TMenuItem` is a linked list node with a `next` pointer.
 /// In Rust, we use Vec for type safety, but provide builder methods
 /// that match Borland's ergonomics.
 #[derive(Clone, Debug)]
 pub enum MenuItem {
     /// Regular menu item that executes a command
-    /// Matches Borland: TMenuItem with command
+    /// Matches Borland: `TMenuItem` with command
     Regular {
         /// Display text (use ~x~ to mark accelerator key)
         text: String,
@@ -35,11 +35,11 @@ pub enum MenuItem {
         /// Optional shortcut text to display (e.g., "Ctrl+O", "F3")
         shortcut: Option<String>,
         /// Optional flag query: when set, the item is drawn with a check mark
-        /// while the function returns true (Borland: TMenuItem check marks)
+        /// while the function returns true (Borland: `TMenuItem` check marks)
         checked: Option<fn() -> bool>,
     },
     /// Submenu item that opens a nested menu
-    /// Matches Borland: TMenuItem with subMenu
+    /// Matches Borland: `TMenuItem` with subMenu
     SubMenu {
         /// Display text (use ~x~ to mark accelerator key)
         text: String,
@@ -51,7 +51,7 @@ pub enum MenuItem {
         menu: Menu,
     },
     /// Separator line
-    /// Matches Borland: TMenuItem with null name
+    /// Matches Borland: `TMenuItem` with null name
     Separator,
 }
 
@@ -183,9 +183,9 @@ impl MenuItem {
 
 /// Menu - a collection of menu items
 ///
-/// Matches Borland: TMenu
+/// Matches Borland: `TMenu`
 ///
-/// In Borland, TMenu has:
+/// In Borland, `TMenu` has:
 /// - `items`: pointer to first item in linked list
 /// - `deflt`: pointer to default item
 ///
@@ -231,14 +231,14 @@ impl Menu {
 
     /// Add an item to the menu
     ///
-    /// Matches Borland: appending to TMenuItem linked list
+    /// Matches Borland: appending to `TMenuItem` linked list
     pub fn add(&mut self, item: MenuItem) {
         self.items.push(item);
     }
 
     /// Find the command bound to a keyboard shortcut, searching submenus.
     ///
-    /// Matches Borland: TMenuView::findHotKey() — lets item shortcuts like F2
+    /// Matches Borland: `TMenuView::findHotKey()` — lets item shortcuts like F2
     /// work while the menu is closed.
     pub fn find_hotkey(&self, key_code: KeyCode) -> Option<CommandId> {
         if key_code == 0 {
@@ -372,7 +372,7 @@ impl MenuBuilder {
 
     /// Add an item built elsewhere, typically with [`MenuItemBuilder`].
     #[must_use]
-    pub fn add(mut self, item: MenuItem) -> Self {
+    pub fn push_item(mut self, item: MenuItem) -> Self {
         self.items.push(item);
         self
     }
@@ -404,7 +404,7 @@ impl Default for MenuBuilder {
 
 /// Builder for creating regular menu items with a fluent API.
 ///
-/// This builder focuses on the Regular variant of MenuItem where most
+/// This builder focuses on the Regular variant of `MenuItem` where most
 /// configuration options exist (enabled state, shortcut display).
 ///
 /// # Examples
@@ -448,7 +448,7 @@ pub struct MenuItemBuilder {
 }
 
 impl MenuItemBuilder {
-    /// Creates a new MenuItemBuilder with default values.
+    /// Creates a new `MenuItemBuilder` with default values.
     pub fn new() -> Self {
         Self {
             text: None,
@@ -525,7 +525,7 @@ impl MenuItemBuilder {
         self
     }
 
-    /// Builds the MenuItem::Regular variant.
+    /// Builds the `MenuItem::Regular` variant.
     ///
     /// # Panics
     ///
@@ -553,8 +553,7 @@ impl MenuItemBuilder {
 /// Panics on a chord `parse_key_chord` does not understand.
 pub(crate) fn key_code_for_chord(chord: &str) -> KeyCode {
     crate::core::event::parse_key_chord(chord)
-        .map(|e| e.key_code)
-        .unwrap_or_else(|| panic!("unknown key chord {chord:?}"))
+        .map_or_else(|| panic!("unknown key chord {chord:?}"), |e| e.key_code)
 }
 
 impl Default for MenuItemBuilder {
@@ -579,14 +578,14 @@ mod tests {
     #[test]
     fn test_menu_builder() {
         let menu = MenuBuilder::new()
-            .add(
+            .push_item(
                 MenuItemBuilder::new()
                     .text("~O~pen")
                     .command(100)
                     .key_code(0x3D00)
                     .build(),
             )
-            .add(
+            .push_item(
                 MenuItemBuilder::new()
                     .text("~S~ave")
                     .command(101)
@@ -594,7 +593,7 @@ mod tests {
                     .build(),
             )
             .separator()
-            .add(
+            .push_item(
                 MenuItemBuilder::new()
                     .text("E~x~it")
                     .command(102)

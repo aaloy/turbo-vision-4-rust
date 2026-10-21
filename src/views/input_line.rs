@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! InputLine view - single-line text input with editing and history support.
+//! `InputLine` view - single-line text input with editing and history support.
 
 use super::validator::ValidatorRef;
 use super::view::{View, ViewCore, write_line_to_terminal};
@@ -64,15 +64,15 @@ impl InputLine {
         }
     }
 
-    /// Create an InputLine with a validator
-    /// Matches Borland's TInputLine with validator attachment pattern
+    /// Create an `InputLine` with a validator
+    /// Matches Borland's `TInputLine` with validator attachment pattern
     pub fn with_validator(bounds: Rect, max_length: usize, validator: ValidatorRef) -> Self {
         let mut input_line = Self::new(bounds, max_length);
         input_line.validator = Some(validator);
         input_line
     }
 
-    /// Set the validator for this InputLine
+    /// Set the validator for this `InputLine`
     pub fn set_validator(&mut self, validator: ValidatorRef) {
         self.validator = Some(validator);
     }
@@ -143,8 +143,8 @@ impl InputLine {
             return None;
         }
         let text = &self.text;
-        let start = byte_offset(&text, self.sel_start.min(self.sel_end));
-        let end = byte_offset(&text, self.sel_start.max(self.sel_end));
+        let start = byte_offset(text, self.sel_start.min(self.sel_end));
+        let end = byte_offset(text, self.sel_start.max(self.sel_end));
         Some(text[start..end].to_string())
     }
 
@@ -157,8 +157,8 @@ impl InputLine {
         let end = self.sel_start.max(self.sel_end);
 
         let text = &mut self.text;
-        let byte_start = byte_offset(&text, start);
-        let byte_end = byte_offset(&text, end);
+        let byte_start = byte_offset(text, start);
+        let byte_end = byte_offset(text, end);
         text.replace_range(byte_start..byte_end, "");
 
         self.cursor_pos = start;
@@ -166,7 +166,7 @@ impl InputLine {
         self.sel_end = 0;
     }
 
-    /// Ensure cursor is visible by adjusting first_pos
+    /// Ensure cursor is visible by adjusting `first_pos`
     fn make_cursor_visible(&mut self) {
         let width = self.core.bounds.width_clamped() as usize;
 
@@ -216,7 +216,7 @@ impl View for InputLine {
 
         // Get text and calculate visible portion (all positions in characters)
         let text = &self.text;
-        let text_len = char_len(&text);
+        let text_len = char_len(text);
 
         // Calculate visible range
         let visible_start = self.first_pos;
@@ -224,8 +224,8 @@ impl View for InputLine {
 
         // Draw text
         if visible_start < text_len {
-            let byte_start = byte_offset(&text, visible_start);
-            let byte_end = byte_offset(&text, visible_end);
+            let byte_start = byte_offset(text, visible_start);
+            let byte_end = byte_offset(text, visible_end);
             let visible_text = &text[byte_start..byte_end];
 
             // If there's a selection, draw it with selection color
@@ -298,9 +298,9 @@ impl View for InputLine {
                     } else if self.cursor_pos > 0 {
                         {
                             let text = &mut self.text;
-                            let at = byte_offset(&text, self.cursor_pos - 1);
-                            text.remove(at);
-                        }
+                            let at = byte_offset(text, self.cursor_pos - 1);
+                            text.remove(at)
+                        };
                         self.cursor_pos -= 1;
                         self.make_cursor_visible();
                         event.clear();
@@ -313,7 +313,7 @@ impl View for InputLine {
                         event.clear();
                     } else if self.cursor_pos < char_len(&self.text) {
                         let text = &mut self.text;
-                        let at = byte_offset(&text, self.cursor_pos);
+                        let at = byte_offset(text, self.cursor_pos);
                         text.remove(at);
                         event.clear();
                     }
@@ -423,14 +423,14 @@ impl View for InputLine {
                         // counting characters so multibyte input can't split)
                         {
                             let text = &mut self.text;
-                            let remaining_space = self.max_length.saturating_sub(char_len(&text));
+                            let remaining_space = self.max_length.saturating_sub(char_len(text));
                             let cut = byte_offset(&clipboard_text, remaining_space);
                             let insert_text = &clipboard_text[..cut];
 
-                            let at = byte_offset(&text, self.cursor_pos);
+                            let at = byte_offset(text, self.cursor_pos);
                             text.insert_str(at, insert_text);
                             self.cursor_pos += char_len(insert_text);
-                        }
+                        };
                         self.make_cursor_visible();
                     }
                     event.clear();
@@ -465,12 +465,12 @@ impl View for InputLine {
                             // replaces the character under the cursor)
                             {
                                 let text = &mut self.text;
-                                let at = byte_offset(&text, self.cursor_pos);
-                                if !self.insert_mode && self.cursor_pos < char_len(&text) {
+                                let at = byte_offset(text, self.cursor_pos);
+                                if !self.insert_mode && self.cursor_pos < char_len(text) {
                                     text.remove(at);
                                 }
                                 text.insert(at, ch);
-                            }
+                            };
                             self.cursor_pos += 1;
 
                             // Let the validator auto-fill/transform the text.
@@ -509,7 +509,7 @@ impl View for InputLine {
     }
 
     /// Select all text when the field gains focus (Borland:
-    /// TInputLine::setState(sfSelected) selects the content so typing
+    /// `TInputLine::setState(sfSelected)` selects the content so typing
     /// replaces it); losing focus collapses the selection.
     fn set_focus(&mut self, focused: bool) {
         let was_focused = self.is_focused();
@@ -522,7 +522,7 @@ impl View for InputLine {
         }
     }
 
-    /// Validate on modal close (Borland: TInputLine::valid via checkValid).
+    /// Validate on modal close (Borland: `TInputLine::valid` via checkValid).
     ///
     /// Cancel always passes; any other end state consults the attached
     /// validator, letting a failing validator veto the dialog close.
@@ -540,7 +540,7 @@ impl View for InputLine {
     fn update_cursor(&self, terminal: &mut Terminal) {
         if self.is_focused() {
             // Calculate cursor position on screen
-            let cursor_x = 0 as usize + (self.cursor_pos - self.first_pos);
+            let cursor_x = self.cursor_pos - self.first_pos;
             let cursor_y = 0;
 
             // Show cursor at the position
@@ -601,7 +601,7 @@ pub struct InputLineBuilder {
 }
 
 impl InputLineBuilder {
-    /// Creates a new InputLineBuilder with default values.
+    /// Creates a new `InputLineBuilder` with default values.
     pub fn new() -> Self {
         Self {
             bounds: None,
@@ -639,7 +639,7 @@ impl InputLineBuilder {
         self
     }
 
-    /// Builds the InputLine.
+    /// Builds the `InputLine`.
     ///
     /// # Panics
     ///
@@ -655,7 +655,7 @@ impl InputLineBuilder {
         input_line
     }
 
-    /// Builds the InputLine as a Box.
+    /// Builds the `InputLine` as a Box.
     pub fn build_boxed(self) -> Box<InputLine> {
         Box::new(self.build())
     }

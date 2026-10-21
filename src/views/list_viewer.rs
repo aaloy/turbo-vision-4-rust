@@ -1,6 +1,6 @@
 // (C) 2025 - Enzo Lombardi
 
-//! ListViewer - base trait and state for scrollable list view implementations.
+//! `ListViewer` - base trait and state for scrollable list view implementations.
 // List Viewer - Base trait and state for scrollable list views
 //
 // Matches Borland: TListViewer (lstviewr.h, tlistvie.cc)
@@ -26,30 +26,30 @@ use crate::core::event::{
 
 /// State management for list viewer components
 ///
-/// Matches Borland: TListViewer fields
+/// Matches Borland: `TListViewer` fields
 ///
 /// This struct holds the common state for all list-based views.
-/// Components embed this and expose it via the ListViewer trait.
+/// Components embed this and expose it via the `ListViewer` trait.
 #[derive(Clone, Debug)]
 pub struct ListViewerState {
     /// First visible item (top of viewport)
-    /// Matches Borland: TListViewer::topItem
+    /// Matches Borland: `TListViewer::topItem`
     pub top_item: usize,
 
     /// Currently focused item (receives keyboard input)
-    /// Matches Borland: TListViewer::focused
+    /// Matches Borland: `TListViewer::focused`
     pub focused: Option<usize>,
 
     /// Total number of items in the list
-    /// Matches Borland: TListViewer::range
+    /// Matches Borland: `TListViewer::range`
     pub range: usize,
 
     /// Number of columns for multi-column lists
-    /// Matches Borland: TListViewer::numCols
+    /// Matches Borland: `TListViewer::numCols`
     pub num_cols: u16,
 
     /// Whether space bar selects items
-    /// Matches Borland: TListViewer::handleSpace
+    /// Matches Borland: `TListViewer::handleSpace`
     pub handle_space: bool,
 }
 
@@ -69,7 +69,7 @@ impl ListViewerState {
     pub fn with_range(range: usize) -> Self {
         Self {
             top_item: 0,
-            focused: if range > 0 { Some(0) } else { None },
+            focused: (range > 0).then_some(0),
             range,
             num_cols: 1,
             handle_space: true,
@@ -78,14 +78,14 @@ impl ListViewerState {
 
     /// Set the total number of items
     ///
-    /// Matches Borland: TListViewer::setRange()
+    /// Matches Borland: `TListViewer::setRange()`
     pub fn set_range(&mut self, range: usize) {
         self.range = range;
 
         // Adjust focused item if out of range
         if let Some(focused) = self.focused {
             if focused >= range {
-                self.focused = if range > 0 { Some(range - 1) } else { None };
+                self.focused = (range > 0).then(|| range - 1);
             }
         } else if range > 0 {
             self.focused = Some(0);
@@ -99,7 +99,7 @@ impl ListViewerState {
 
     /// Focus a specific item
     ///
-    /// Matches Borland: TListViewer::focusItem()
+    /// Matches Borland: `TListViewer::focusItem()`
     pub fn focus_item(&mut self, item: usize, visible_rows: usize) {
         if item >= self.range {
             return;
@@ -119,7 +119,7 @@ impl ListViewerState {
 
     /// Focus item and center it in viewport
     ///
-    /// Matches Borland: TListViewer::focusItemCentered()
+    /// Matches Borland: `TListViewer::focusItemCentered()`
     pub fn focus_item_centered(&mut self, item: usize, visible_rows: usize) {
         if item >= self.range {
             return;
@@ -137,11 +137,7 @@ impl ListViewerState {
             }
 
             // Don't scroll past end
-            let max_top = if self.range > visible_rows {
-                self.range - visible_rows
-            } else {
-                0
-            };
+            let max_top = self.range.saturating_sub(visible_rows);
             if self.top_item > max_top {
                 self.top_item = max_top;
             }
@@ -213,10 +209,10 @@ impl Default for ListViewerState {
 
 /// Trait for list viewer components
 ///
-/// Matches Borland: TListViewer virtual methods
+/// Matches Borland: `TListViewer` virtual methods
 ///
 /// This trait provides the common interface for all list-based views.
-/// Components implement this trait and embed ListViewerState for shared logic.
+/// Components implement this trait and embed `ListViewerState` for shared logic.
 pub trait ListViewer: View {
     /// Get the list viewer state (read-only)
     fn list_state(&self) -> &ListViewerState;
@@ -226,13 +222,13 @@ pub trait ListViewer: View {
 
     /// Get text for a specific item
     ///
-    /// Matches Borland: TListViewer::getText()
+    /// Matches Borland: `TListViewer::getText()`
     /// This is abstract in Borland - subclasses must implement
     fn get_text(&self, item: usize, max_len: usize) -> String;
 
     /// Check if an item is selected
     ///
-    /// Matches Borland: TListViewer::isSelected()
+    /// Matches Borland: `TListViewer::isSelected()`
     /// Default: focused item is selected
     fn is_selected(&self, item: usize) -> bool {
         Some(item) == self.list_state().focused
@@ -240,7 +236,7 @@ pub trait ListViewer: View {
 
     /// Select an item (for multi-select lists)
     ///
-    /// Matches Borland: TListViewer::selectItem()
+    /// Matches Borland: `TListViewer::selectItem()`
     /// Default: just focuses the item
     fn select_item(&mut self, item: usize) {
         let visible_rows = self.visible_rows();
@@ -284,7 +280,7 @@ pub trait ListViewer: View {
 
     /// Handle standard list navigation events
     ///
-    /// Matches Borland: TListViewer::handleEvent() navigation logic
+    /// Matches Borland: `TListViewer::handleEvent()` navigation logic
     /// Returns true if event was handled
     fn handle_list_event(&mut self, event: &mut Event) -> bool {
         let visible_rows = self.visible_rows();
