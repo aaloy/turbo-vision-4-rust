@@ -229,12 +229,13 @@ impl ClusterGroup {
             .position(|i| i.enabled && i.hotkey == Some(letter))
     }
 
-    /// Item under a screen point, if the point is on one.
+    /// Item under a point in the cluster's own space (where mouse events
+    /// arrive), if the point is on one.
     fn item_at(&self, pos: Point) -> Option<usize> {
-        if !self.core.bounds.contains(pos) {
+        if !self.extent().contains(pos) {
             return None;
         }
-        let row = (pos.y - self.core.bounds.a.y) as usize;
+        let row = usize::try_from(pos.y).ok()?;
         (row < self.items.len()).then_some(row)
     }
 
@@ -297,12 +298,8 @@ impl ClusterGroup {
                 }
             }
 
-            write_line_to_terminal(
-                terminal,
-                self.core.bounds.a.x,
-                self.core.bounds.a.y + row as i16,
-                &buf,
-            );
+            // Views draw in their own space; the owner places them.
+            write_line_to_terminal(terminal, 0, row as i16, &buf);
         }
     }
 
@@ -730,6 +727,35 @@ mod tests {
         c.handle_event(&mut click(1));
         assert_eq!(c.value(), 0b010);
         assert_eq!(c.focused_item(), 1, "the click also moved the focus");
+    }
+
+    #[test]
+    fn a_cluster_away_from_the_origin_draws_at_its_own_corner() {
+        let mut c = CheckBoxes::new(Rect::new(5, 3, 25, 6), labels());
+        c.set_checked(1, true);
+        let mut t = crate::test_util::test_terminal(40, 12);
+        c.draw(&mut t);
+        let row = |y: i16| -> String { (0..8).map(|x| t.read_cell(x, y).unwrap().ch).collect() };
+        assert_eq!(
+            row(0),
+            "[ ] Bold",
+            "the first item on the cluster's first row"
+        );
+        assert_eq!(&row(1)[..3], "[X]");
+        assert_ne!(
+            t.read_cell(5, 3).unwrap().ch,
+            '[',
+            "not again at its position"
+        );
+    }
+
+    #[test]
+    fn a_click_in_a_cluster_away_from_the_origin_picks_the_row_clicked() {
+        let mut c = CheckBoxes::new(Rect::new(5, 3, 25, 6), labels());
+        c.set_state(State::FOCUSED);
+        // Mouse positions arrive in the cluster's own space.
+        c.handle_event(&mut click(2));
+        assert_eq!(c.value(), 0b100);
     }
 
     #[test]

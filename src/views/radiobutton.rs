@@ -263,6 +263,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_label_follows_the_marker_whether_selected_or_not() {
+        let row = |radio: &mut RadioButton| {
+            let mut t = crate::test_util::test_terminal(20, 1);
+            radio.draw(&mut t);
+            (0..12)
+                .map(|x| t.read_cell(x, 0).map_or('?', |c| c.ch))
+                .collect::<String>()
+        };
+        let mut radio = RadioButton::new(Rect::new(0, 0, 12, 1), "Mono", 1);
+        assert_eq!(row(&mut radio), "( ) Mono    ");
+        radio.select();
+        assert_eq!(row(&mut radio), "(•) Mono    ");
+    }
+
+    #[test]
     fn test_radiobutton_creation() {
         let radio = RadioButton::new(Rect::new(0, 0, 20, 1), "Option 1", 1);
         assert!(!radio.is_selected());

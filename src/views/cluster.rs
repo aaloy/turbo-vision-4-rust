@@ -216,7 +216,8 @@ pub trait Cluster: View {
 
         // Draw label with hotkey support
         let label = self.get_label();
-        buffer.move_str_with_shortcut(marker.len(), label, color, hotkey_color);
+        // Columns, not bytes: the radio marker's bullet is three bytes long.
+        buffer.move_str_with_shortcut(marker.chars().count(), label, color, hotkey_color);
 
         write_line_to_terminal(terminal, 0, 0, &buffer);
     }

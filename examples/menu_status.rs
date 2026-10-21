@@ -25,7 +25,7 @@ use turbo_vision::views::static_text::StaticTextBuilder;
 use turbo_vision::views::status_line::StatusLine;
 
 // Custom command IDs for this example
-const CMD_ABOUT: u16 = 100;
+const CMD_ABOUT: u16 = turbo_vision::core::command::CM_USER + 30;
 const CMD_CUT: u16 = 200;
 const CMD_COPY: u16 = 201;
 const CMD_PASTE: u16 = 202;

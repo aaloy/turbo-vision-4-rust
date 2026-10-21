@@ -24,6 +24,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   focusable rows and work with a `RowProvider`. Example: `table_frozen`.
 
 ### Fixed
+- A read-only `EditorWindow` lets Tab move the focus to the next control.
+  It used to take the key and type nothing, so the focus could not leave
+  it by keyboard.
+- An `EditorWindow` in a dialog draws in editor colours. Its palette,
+  `CP_EDITOR`, points at a window's text and syntax entries, which in a
+  dialog are the controls' colours: a comment came out white on green. In a
+  dialog it now resolves through `CP_EDITOR_IN_DIALOG`, to entries 33-45
+  added at the end of the dialog palettes, and gets the colours it has in a
+  gray (or blue) window.
+- A selected `RadioButton` drew its label two columns to the right: the
+  label was placed after the marker's length in bytes, and the `•` in
+  `(•)` is three bytes long.
+- The top row is blanked when there is no menu bar, and the bottom row when
+  there is no status line. A menu bar taken away at run time
+  (`app.menu_bar = None`) stayed on the screen, since no view draws there.
+- `TextViewer` takes the focus, so Tab reaches it among a dialog's controls
+  and its arrow and page keys scroll it there (Borland: `TScroller` is
+  `ofSelectable`). Before, only the mouse could scroll it.
+- `ColorDialog`: the OK and Cancel buttons sit one column in from the frame;
+  Cancel's shadow used to touch it.
+- `CheckBoxes` and `RadioButtons` placed away from their owner's corner drew
+  at twice their offset and took clicks on the wrong row: they still drew at
+  their own position, from before owner-relative coordinates.
+- Examples number their own commands from `CM_USER`. Several used 100-103,
+  inside the crate's reserved range (`sorted_listbox` and `ui_features`
+  overlapped the file dialog's `CM_FILE_FOCUSED` and
+  `CM_FILE_DOUBLE_CLICKED`), and the showcase calculator's commands
+  overlapped the showcase menu's.
+- `showcase` and `sorted_listbox` examples: mouse clicks missed their
+  views. Their hand-written event routing handed the menu bar, status line,
+  desktop and list box screen coordinates, while views take events in their
+  own space since the owner-relative coordinates change; every click in a
+  desktop window landed a row low, so calculator buttons did nothing and
+  windows could not be dragged, and the status line's Exit never saw its
+  click. They now route through `views::view::dispatch_to_child`.
 - `FileDialog`: after entering a folder (or `..`, or a `dir/*.ext` filter)
   the Open/Save button and Enter no longer closed the dialog, so a file
   outside the starting folder could not be opened, nor a save location

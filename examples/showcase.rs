@@ -24,7 +24,7 @@ use turbo_vision::terminal::Terminal;
 use turbo_vision::views::GroupLike;
 use turbo_vision::views::ViewCore;
 use turbo_vision::views::shared::Shared;
-use turbo_vision::views::view::write_line_to_terminal;
+use turbo_vision::views::view::{dispatch_to_child, write_line_to_terminal};
 use turbo_vision::views::{
     View,
     button::ButtonBuilder,
@@ -52,107 +52,107 @@ const CM_PAUSE_CRAB: u16 = 208;
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_BUTTON: u16 = 200;
+const CM_CALC_BUTTON: u16 = 300;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_CLEAR: u16 = 200;
+const CM_CALC_CLEAR: u16 = 300;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_DELETE: u16 = 201;
+const CM_CALC_DELETE: u16 = 301;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_PERCENT: u16 = 202;
+const CM_CALC_PERCENT: u16 = 302;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_PLUSMIN: u16 = 203;
+const CM_CALC_PLUSMIN: u16 = 303;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_7: u16 = 204;
+const CM_CALC_7: u16 = 304;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_8: u16 = 205;
+const CM_CALC_8: u16 = 305;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_9: u16 = 206;
+const CM_CALC_9: u16 = 306;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_DIV: u16 = 207;
+const CM_CALC_DIV: u16 = 307;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_4: u16 = 208;
+const CM_CALC_4: u16 = 308;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_5: u16 = 209;
+const CM_CALC_5: u16 = 309;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_6: u16 = 210;
+const CM_CALC_6: u16 = 310;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_MUL: u16 = 211;
+const CM_CALC_MUL: u16 = 311;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_1: u16 = 212;
+const CM_CALC_1: u16 = 312;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_2: u16 = 213;
+const CM_CALC_2: u16 = 313;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_3: u16 = 214;
+const CM_CALC_3: u16 = 314;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_MINUS: u16 = 215;
+const CM_CALC_MINUS: u16 = 315;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_0: u16 = 216;
+const CM_CALC_0: u16 = 316;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_DECIMAL: u16 = 217;
+const CM_CALC_DECIMAL: u16 = 317;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_EQUAL: u16 = 218;
+const CM_CALC_EQUAL: u16 = 318;
 #[allow(
     dead_code,
     reason = "command ids mirror the full calculator key set; unused ones kept for completeness"
 )]
-const CM_CALC_PLUS: u16 = 219;
+const CM_CALC_PLUS: u16 = 319;
 
 // ClockView - displays live time on menu bar
 struct ClockView {
@@ -1643,14 +1643,20 @@ fn init_application()
     Ok((app, clock, crab_widget))
 }
 
-/// Handle event routing through menu bar, status line, and desktop
+/// Handle event routing through menu bar, status line, and desktop.
+///
+/// Each view gets the event in its own coordinate space (through
+/// `dispatch_to_child`), as `Application::handle_event` does: the desktop
+/// starts below the menu bar and the status line sits on the last row, so
+/// handing them screen coordinates puts every click one row (or the whole
+/// screen) off.
 fn handle_event_routing(app: &mut Application, event: &mut Event) {
     // Convert global keyboard shortcuts to commands
     handle_global_shortcuts(event);
 
     // Menu bar handles events first
     if let Some(ref mut menu_bar) = app.menu_bar {
-        menu_bar.handle_event(event);
+        dispatch_to_child(menu_bar, event);
 
         // Check for cascading submenu
         if event.what == EventType::Keyboard || event.what == EventType::MouseUp {
@@ -1664,11 +1670,11 @@ fn handle_event_routing(app: &mut Application, event: &mut Event) {
 
     // Status line handles events
     if let Some(ref mut status_line) = app.status_line {
-        status_line.handle_event(event);
+        dispatch_to_child(status_line, event);
     }
 
     // Desktop handles events
-    app.desktop.handle_event(event);
+    dispatch_to_child(&mut app.desktop, event);
 }
 
 /// Handle command events
