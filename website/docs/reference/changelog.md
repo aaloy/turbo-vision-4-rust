@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `Label::set_error` draws a label in red (`is_error` reads it back);
+  `InputLine::is_valid` checks the validator without its message box, and
+  `InputLine::set_max_length` changes the limit; `Group::focused_view_id`
+  names the focused child. Small hooks for code that lays out and validates
+  a dialog's fields, such as the `Form` of the `tv-extensions` crate.
 - `Dialog::prepare_modal` is public. Call it before running
   `Application::execute_modal` on a dialog yourself, for work on every turn
   of the loop such as refreshing a preview: it does what `Dialog::execute`

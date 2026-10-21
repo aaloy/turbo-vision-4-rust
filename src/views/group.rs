@@ -144,6 +144,11 @@ impl Group {
         }
     }
 
+    /// The `ViewId` of the focused child, if any.
+    pub fn focused_view_id(&self) -> Option<ViewId> {
+        self.view_ids.get(self.focused).copied()
+    }
+
     /// Focus a child view by its `ViewId`
     /// Returns true if the view was found and focused, false otherwise
     pub fn focus_by_view_id(&mut self, view_id: ViewId) -> bool {
@@ -1818,5 +1823,20 @@ mod tests {
         assert!(group.child_by_id(id2).is_some());
         assert!(group.child_by_id(id3).is_some());
         assert!(group.child_by_id(new_id).is_some());
+    }
+
+    #[test]
+    fn focused_view_id_names_the_focused_child() {
+        use crate::views::input_line::InputLine;
+        let mut group = Group::new(Rect::new(0, 0, 20, 5));
+        assert_eq!(group.focused_view_id(), None, "an empty group has none");
+        group.add(InputLine::new(Rect::new(0, 0, 10, 1), 5));
+        group.add(InputLine::new(Rect::new(0, 2, 10, 3), 5));
+        let first = group.focused_view_id();
+        assert!(first.is_some());
+        let second = group.view_ids[1];
+        assert!(group.focus_by_view_id(second));
+        assert_eq!(group.focused_view_id(), Some(second));
+        assert_ne!(group.focused_view_id(), first);
     }
 }
