@@ -115,6 +115,7 @@ Generated: 2025-11-06
 - KB_HOME, KB_END, KB_PGUP, KB_PGDN, KB_INS, KB_DEL
 - KB_ALT_X, KB_ALT_F, KB_ALT_H, KB_ALT_O, KB_ALT_A, KB_ALT_F3
 - KB_ESC_F, KB_ESC_H, KB_ESC_X, KB_ESC_A, KB_ESC_O, KB_ESC_E, KB_ESC_S, KB_ESC_V, KB_ESC_ESC
+- KB_TEXT - Key code of a typed character past U+00FF; the character is in `Event::ch`
 
 #### EventType Enum
 **Variants:** Nothing, Keyboard, MouseDown, MouseUp, MouseMove, MouseAuto, MouseWheelUp, MouseWheelDown, Command, Broadcast
@@ -139,10 +140,13 @@ Generated: 2025-11-06
 - `pub key_modifiers: KeyModifiers` - Key modifiers
 - `pub mouse: MouseEvent` - Mouse data
 - `pub command: CommandId` - Command ID
+- `pub ch: Option<char>` - Character a keyboard event types, as the terminal reported it (`None` for keys that type nothing)
 
 **Public Methods:**
 - `nothing() -> Self` - Create nothing event
 - `keyboard(key_code: KeyCode) -> Self` - Create keyboard event
+- `text(ch: char) -> Self` - Create a key that types `ch`, with the key code a terminal gives it
+- `typed_char(&self) -> Option<char>` - The character this event types into a text field: any character one cell wide (read this rather than `key_code` for text)
 - `command(cmd: CommandId) -> Self` - Create command event
 - `broadcast(cmd: CommandId) -> Self` - Create broadcast event
 - `mouse(event_type: EventType, pos: Point, buttons: u8, double_click: bool) -> Self` - Create mouse event

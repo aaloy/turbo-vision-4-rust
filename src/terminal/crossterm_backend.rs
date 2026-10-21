@@ -248,13 +248,9 @@ impl Backend for CrosstermBackend {
                         return Ok(None);
                     }
 
-                    // Create event preserving modifiers from original crossterm event
-                    Ok(Some(Event {
-                        what: EventType::Keyboard,
-                        key_code,
-                        key_modifiers: key.modifiers,
-                        ..Event::nothing()
-                    }))
+                    // Create event preserving modifiers from original crossterm
+                    // event, and the character it types
+                    Ok(Some(Event::from_key(key, key_code)))
                 }
                 CTEvent::Mouse(mouse) => Ok(self.convert_mouse_event(mouse)),
                 CTEvent::Resize(_, _) => {
