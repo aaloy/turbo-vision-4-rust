@@ -3,6 +3,7 @@
 /cache
 Cargo.lock
 CLAUDE.md
+.claude/*
 
 # Screenshots and temporary files
 *.png
