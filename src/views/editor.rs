@@ -2006,8 +2006,11 @@ impl View for EditorWindow {
                     event.clear();
                 }
                 // A read-only editor types nothing, so it leaves Tab to
-                // its owner, which moves the focus to the next control.
-                KB_TAB if !self.read_only => {
+                // its owner, which moves the focus to the next control. Its
+                // own arm, or the catch-all below would take 0x0F09 for a
+                // printable character.
+                KB_TAB if self.read_only => {}
+                KB_TAB => {
                     self.insert_tab();
                     event.clear();
                 }
@@ -2751,18 +2754,6 @@ mod tests {
     }
 
     #[test]
-    fn characters_past_latin1_are_typed_not_taken_for_keys() {
-        use crate::core::event::Event;
-        let mut editor = EditorWindow::new(Rect::new(0, 0, 40, 10));
-        editor.set_focus(true);
-        for ch in "ěł€".chars() {
-            let mut e = Event::text(ch);
-            editor.handle_event(&mut e);
-        }
-        assert_eq!(editor.get_text(), "ěł€");
-    }
-
-    #[test]
     fn a_read_only_editor_leaves_tab_to_its_owner() {
         let mut editor = EditorWindow::new(Rect::new(0, 0, 40, 5));
         editor.set_text("text");
@@ -2778,5 +2769,17 @@ mod tests {
         editor.handle_event(&mut ev);
         assert_eq!(ev.what, EventType::Keyboard, "Tab goes on to the owner");
         assert_eq!(editor.get_text(), "    text");
+    }
+
+    #[test]
+    fn characters_past_latin1_are_typed_not_taken_for_keys() {
+        use crate::core::event::Event;
+        let mut editor = EditorWindow::new(Rect::new(0, 0, 40, 10));
+        editor.set_focus(true);
+        for ch in "ěł€".chars() {
+            let mut e = Event::text(ch);
+            editor.handle_event(&mut e);
+        }
+        assert_eq!(editor.get_text(), "ěł€");
     }
 }

@@ -907,7 +907,7 @@ mod tests {
         // Borland's 32 entries must not collide with the syntax-color region
         // (64-96); the editor entries after them point into it on purpose.
         for &idx in &CP_BLUE_DIALOG[..32] {
-            assert!(idx < 64 || idx > 96);
+            assert!(!(64..=96).contains(&idx));
         }
     }
 
@@ -923,6 +923,16 @@ mod tests {
         for (i, &idx) in CP_BLUE_DIALOG[..32].iter().enumerate() {
             assert_eq!(app(idx), borland[i], "blue dialog entry {}", i + 1);
         }
+    }
+
+    #[test]
+    fn embedded_cluster_uses_the_label_entries() {
+        // Every slot must resolve to the same dialog entry a Label uses, so
+        // the background is the dialog's.
+        assert_eq!(CP_CLUSTER_EMBEDDED[0], CP_LABEL[0]); // normal
+        assert_eq!(CP_CLUSTER_EMBEDDED[1], CP_LABEL[1]); // focused = selected label
+        assert_eq!(CP_CLUSTER_EMBEDDED[2], CP_LABEL[2]); // shortcut
+        assert_eq!(CP_CLUSTER_EMBEDDED[4], CP_LABEL[4]); // disabled
     }
 
     #[test]

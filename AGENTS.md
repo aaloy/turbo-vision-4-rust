@@ -335,8 +335,7 @@ fn ask(app: &mut Application) {
 ### A dialog of fields, values read back
 
 Place the controls inside the frame, keep the handles, and read the values
-after `execute`. (For labelled fields with no coordinates, and for editing a
-struct with validation, use `Form` from the companion crate `tv-extensions`.)
+after `execute`.
 
 ```rust,no_run
 use turbo_vision::app::Application;
@@ -611,8 +610,7 @@ fn enter_presses_ok() {
 4. **A button's plain letter is typed into a focused input line.** Alt+letter
    always reaches the button.
 5. **A dialog's children are relative to the area inside the frame.** Link each
-   `Label` to its field so its Alt+letter focuses it, or use `Form` from
-   `tv-extensions`, which sizes and centres the dialog and links the labels.
+   `Label` to its field so its Alt+letter focuses it.
 6. **Reach children with handles.** `add_typed` returns a `Handle<T>`; keep it,
    then use `get` / `get_mut`. Do not keep a `ViewId` and downcast unless the
    type is unknown.
@@ -671,7 +669,6 @@ fn enter_presses_ok() {
 
 | Document | What it covers |
 |----------|----------------|
-| [`tv-extensions`](https://github.com/aovestdipaperino/tv-extensions) | The companion crate: `Form` (dialogs with no coordinates, record editors), `AutoComplete`, `DualList`, `ScrollPane`, popup menus, a CSV editor, a log window, graphics. |
 | [`docs/RUST-API-CATALOG.md`](docs/RUST-API-CATALOG.md) | Every public type and method, by module. |
 | [`docs/user-guide/`](docs/user-guide/) | The 18-chapter user guide (Borland's, ported): application, events, views, windows, dialogs, controls, validation, editors, help, palettes. |
 | [`docs/OWNER-COORDINATES.md`](docs/OWNER-COORDINATES.md) | How owner-relative coordinates work. |

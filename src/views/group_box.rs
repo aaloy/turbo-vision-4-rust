@@ -6,8 +6,7 @@
 //! edge, in the dialog's text colours. The controls it surrounds are not its
 //! children; they are siblings added after it, so they draw on top of it and
 //! keep their own focus order, and a dialog still finds them with
-//! [`GroupLike::get`](super::GroupLike::get). The `tv-extensions` crate's
-//! `Form::group` creates one around the rows that follow.
+//! [`GroupLike::get`](super::GroupLike::get).
 //!
 //! ```text
 //! ┌─ Address ─────────────────┐

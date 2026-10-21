@@ -903,4 +903,24 @@ mod tests {
         assert_eq!(dialog.end_state(), 0, "still open");
         assert_eq!(dialog.get(input).map(InputLine::text), Some("ěĜ"));
     }
+
+    #[test]
+    fn is_valid_checks_the_validator_without_a_message_box() {
+        use crate::views::validator::RangeValidator;
+        let mut input = make("5");
+        assert!(input.is_valid(), "no validator accepts anything");
+        input.set_validator(Rc::new(std::cell::RefCell::new(RangeValidator::new(1, 9))));
+        assert!(input.is_valid());
+        input.set_text("50");
+        assert!(!input.is_valid());
+    }
+
+    #[test]
+    fn set_max_length_cuts_longer_text_and_limits_typing() {
+        let mut input = make("abcdefgh");
+        input.set_max_length(3);
+        assert_eq!(input.text(), "abc");
+        input.set_max_length(5);
+        assert_eq!(input.text(), "abc", "raising the limit keeps the text");
+    }
 }

@@ -132,7 +132,7 @@ decision by adding a new entry that supersedes it; do not edit old ones.
 | Id | Question | Decide by |
 |----|----------|-----------|
 | O1 | Colour themes beyond the Borland palettes (`app.set_palette`): wanted? If so, the gallery should switch between them. | step 2 |
-| O2 | Form's spacing constants: `Form` moved to the `tv-extensions` crate, so this is decided there. | step 4 |
+| O2 | Make the layout spacing values public constants. | step 4 |
 | O3 | The sample application's domain: contacts and invoices, as proposed? | step 5 |
 | O4 | Run the page renderer in CI, or by hand with `website/sync_docs.py`? | step 2 |
 | O5 | A `Group` inside a dialog never takes the focus (`can_focus` is false), so its controls cannot be reached by keyboard; `TabbedPane` manages its pages itself. Make a group focusable when it holds focusable views (Borland nests groups freely)? It would also let the gallery go back to plain groups. | step 3 |

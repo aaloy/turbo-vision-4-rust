@@ -53,7 +53,7 @@ impl Label {
     }
 
     /// Mark the label as naming a field with an invalid value: it is drawn in
-    /// red until cleared. The record editors of `tv-extensions` set it while showing errors.
+    /// red until cleared.
     pub fn set_error(&mut self, error: bool) {
         self.error = error;
     }
@@ -201,5 +201,39 @@ impl LabelBuilder {
 impl Default for LabelBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::palette::TvColor;
+    use crate::terminal::Terminal;
+    use crate::test_util::test_terminal;
+
+    #[test]
+    fn an_error_label_is_drawn_in_red_and_a_clear_one_is_not() {
+        use crate::views::GroupLike;
+        use crate::views::dialog::Dialog;
+        let mut terminal = test_terminal(40, 10);
+        let mut dialog = Dialog::new(Rect::new(0, 0, 30, 6), "T");
+        let label = dialog.add_typed(Label::new(Rect::new(0, 0, 10, 1), "~N~ame"));
+        // The label's second letter, one row and column inside the frame.
+        let cell = |terminal: &Terminal| terminal.read_cell(2, 1).unwrap().attr;
+
+        terminal.draw_view(&mut dialog);
+        let normal = cell(&terminal);
+        assert_ne!(normal.fg, TvColor::Red, "a dialog's label is not red");
+
+        dialog.get_mut(label).unwrap().set_error(true);
+        assert!(dialog.get(label).unwrap().is_error());
+        terminal.draw_view(&mut dialog);
+        let red = cell(&terminal);
+        assert_eq!(red.fg, TvColor::Red);
+        assert_eq!(red.bg, normal.bg, "the background is kept");
+
+        dialog.get_mut(label).unwrap().set_error(false);
+        terminal.draw_view(&mut dialog);
+        assert_eq!(cell(&terminal), normal);
     }
 }

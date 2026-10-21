@@ -615,7 +615,7 @@ A titled single-line box drawn around related controls; it only draws (never foc
 ### Application Hooks (`src/app/application.rs`)
 - `AppHandler` trait: `pre_event(&mut self, app, event)`, `handle_command(&mut self, app, command, event) -> bool`, `idle(&mut self, app)`, `window_closed(&mut self, app, id)`; `Application::run_with(&mut handler)`; `run()` is `run_with(&mut ())`
 - `Application::execute_modal(&mut view: impl WindowLike, tick: FnMut(&mut Application, &mut V) -> ModalTick) -> CommandId` - The single modal loop; `ModalTick::Continue` / `ModalTick::End(CommandId)`
-- `Dialog::prepare_modal(&mut self, app: &mut Application)` - What `execute` does before its loop (modal state, drag limits, first child focused); call it before `Application::execute_modal` when running the loop yourself
+- `Dialog::prepare_modal(&mut self, app: &mut Application)` - What `execute` does before its loop (modal state, centring, drag limits, first child focused); call it before `Application::execute_modal` when running the loop yourself
 - `Application::add_overlay_widget(impl View)`, `Application::exec_view(impl View) -> CommandId`
 
 ---
@@ -738,6 +738,7 @@ Button view - clickable button with keyboard shortcuts and command dispatch.
 #### Label Struct
 **Public Methods:**
 - `new(bounds: Rect, text: &str) -> Self` - Create label
+- `set_error(&mut self, error: bool)` / `is_error(&self) -> bool` - Mark the label as naming an invalid field; it is drawn in red until cleared
 - Implements View trait
 
 ---
@@ -806,6 +807,7 @@ A titled single-line box drawn around related controls; it only draws (never foc
 - `with_background(bounds: Rect, background: Attr) -> Self` - Create with background
 - `add(&mut self, view: Box<dyn View>)` - Add child view
 - `set_initial_focus(&mut self)` - Set focus to first focusable child
+- `focused_view_id(&self) -> Option<ViewId>` - The `ViewId` of the focused child, if any
 - `clear_all_focus(&mut self)` - Clear focus from all children
 - `len(&self) -> usize` - Get child count
 - `is_empty(&self) -> bool` - Check if empty
@@ -984,6 +986,8 @@ sized columns; focus is a cell, not a row.
 #### InputLine Struct
 **Public Methods:**
 - `new(bounds: Rect, max_length: usize) -> Self` - Create input line
+- `is_valid(&self) -> bool` - Whether the text passes the validator, without the error message box `validate` shows
+- `set_max_length(&mut self, max_length: usize)` - Change the limit; longer text is cut
 - Input field with text editing capabilities
 - Implements View trait
 

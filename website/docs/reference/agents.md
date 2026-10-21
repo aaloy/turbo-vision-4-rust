@@ -11,8 +11,8 @@ current API.
   a terminal, with keyboard and mouse.
 - Read next: `cargo doc --open` (full API), [`examples/`](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples) (runnable programs).
 - Companion crate: [`tv-extensions`](https://github.com/aovestdipaperino/tv-extensions)
-  holds `Form` (dialogs laid out from labelled fields, and record editors),
-  `AutoComplete`, `DualList`, `ScrollPane`, popup menus and more.
+  holds further components, such as `AutoComplete`, `ScrollPane` and popup
+  menus.
 
 ## Contents
 
@@ -48,8 +48,8 @@ Dialog (modal, run on top with dialog.execute(&mut app))
 
 **Coordinates are relative to the owner.** A child's `Rect` is measured from
 its owner's top-left corner. For a window or dialog, that is the corner of the
-area *inside* the frame. Inside a dialog you place controls by hand; the
-`Form` of the companion crate `tv-extensions` lays them out for you.
+area *inside* the frame. Inside a dialog you place controls by hand, relative to the
+area inside the frame.
 
 **Commands connect everything.** A command is a `u16` (`CommandId`). Menu items,
 status line items and buttons send commands: OK sends `CM_OK`, Alt-X sends
@@ -221,8 +221,8 @@ for, how to create it, and how to use its value. Most views also have a
 | Component | Module | Use it for | Create / use |
 |-----------|--------|------------|--------------|
 | `Window` | `views::window` | A framed, movable window on the desktop. | `Window::new(rect, "Title")`, `window.add(view)` / `add_typed(view)` |
-| `Dialog` | `views::dialog` | A modal window of controls. | `Dialog::new(rect, "Title")`, `dialog.execute(&mut app)`; with no coordinates: `Form` in `tv-extensions` |
-| `GroupBox` | `views::group_box` | A titled box around related controls. | `GroupBox::new(rect, "Title")`; `tv-extensions`' `Form::group` makes one for you |
+| `Dialog` | `views::dialog` | A modal window of controls. | `Dialog::new(rect, "Title")`, `dialog.execute(&mut app)` |
+| `GroupBox` | `views::group_box` | A titled box around related controls. | `GroupBox::new(rect, "Title")` |
 | `Group` | `views::group` | A plain container (a tab page, a panel). | `Group::new(rect)`, `add(view)` |
 | `TabbedPane` | `views::tabbed_pane` | Tabs over pages. | `TabbedPane::new(rect)`, `add_page("~G~eneral", group)` |
 | `SplitPane`, `Orientation` | `views::split_pane` | Two panes with a draggable divider. | `SplitPane::new(rect, Orientation::Horizontal, position)` |
@@ -335,8 +335,7 @@ fn ask(app: &mut Application) {
 ### A dialog of fields, values read back
 
 Place the controls inside the frame, keep the handles, and read the values
-after `execute`. (For labelled fields with no coordinates, and for editing a
-struct with validation, use `Form` from the companion crate `tv-extensions`.)
+after `execute`.
 
 ```rust
 use turbo_vision::app::Application;
@@ -611,8 +610,7 @@ fn enter_presses_ok() {
 4. **A button's plain letter is typed into a focused input line.** Alt+letter
    always reaches the button.
 5. **A dialog's children are relative to the area inside the frame.** Link each
-   `Label` to its field so its Alt+letter focuses it, or use `Form` from
-   `tv-extensions`, which sizes and centres the dialog and links the labels.
+   `Label` to its field so its Alt+letter focuses it.
 6. **Reach children with handles.** `add_typed` returns a `Handle<T>`; keep it,
    then use `get` / `get_mut`. Do not keep a `ViewId` and downcast unless the
    type is unknown.
@@ -671,7 +669,6 @@ fn enter_presses_ok() {
 
 | Document | What it covers |
 |----------|----------------|
-| [`tv-extensions`](https://github.com/aovestdipaperino/tv-extensions) | The companion crate: `Form` (dialogs with no coordinates, record editors), `AutoComplete`, `DualList`, `ScrollPane`, popup menus, a CSV editor, a log window, graphics. |
 | [`docs/RUST-API-CATALOG.md`](api-catalog.md) | Every public type and method, by module. |
 | [`docs/user-guide/`](../guide/index.md) | The 18-chapter user guide (Borland's, ported): application, events, views, windows, dialogs, controls, validation, editors, help, palettes. |
 | [`docs/OWNER-COORDINATES.md`](owner-coordinates.md) | How owner-relative coordinates work. |

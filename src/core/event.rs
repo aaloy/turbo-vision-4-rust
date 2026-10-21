@@ -688,7 +688,7 @@ fn key_text(key: KeyEvent) -> Option<char> {
     (ctrl == alt && !c.is_control()).then_some(c)
 }
 
-/// Convert crossterm KeyEvent to our KeyCode
+/// Convert crossterm `KeyEvent` to our `KeyCode`
 fn crossterm_to_keycode(key: KeyEvent) -> KeyCode {
     match key.code {
         CKC::Char(c) => {

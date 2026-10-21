@@ -3,7 +3,7 @@ TURBO VISION RUST - QUICK CODE REFERENCE
 
 A cheat sheet. The full guide, with compiled examples, the component index and
 the rules to follow, is AGENTS.md at the repository root. Dialog layout and
-record editors: the companion crate tv-extensions (tv_extensions::forms).
+
 
 
 THE APPLICATION SHAPE
@@ -95,9 +95,6 @@ A DIALOG OF FIELDS (place the controls by hand)
     if dialog.execute(&mut app) == CM_OK {
         let text = dialog.get(text).map(|f| f.text().to_string());
     }
-
-Laying out fields without coordinates, and editing a struct with typed fields
-and validation, is tv_extensions::forms (the tv-extensions crate).
 
 
 WINDOWS ON THE DESKTOP

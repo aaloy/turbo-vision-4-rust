@@ -8,55 +8,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- `Dialog::prepare_modal` is public. Call it before running
-  `Application::execute_modal` on a dialog yourself, for work on every turn
-  of the loop such as refreshing a preview: it does what `Dialog::execute`
-  does first (modal state, so OK and Cancel end the loop; centred on the
-  desktop; drag limits; first child focused).
-- `cargo run --example gallery`: a component gallery. A list of components,
-  grouped by kind (controls, text entry, lists and tables, display,
-  containers, dialogs, menus and status) and by name within a group; for
-  the one under the focus, the live component, how it works with each
-  parameter explained (the table's `set_frozen_cols` and `set_frozen_rows`,
-  for one), buttons that open related components, and the code that built
-  it, which is the demo's own source file, in a box of its own. The list
-  is drawn in a dialog's list colours, black on cyan. 31 components:
-  button, input line, history, check boxes, radio buttons (as one cluster
-  and one per view), scroll bar, combo box, list box, tabbed pane, spinner, slider,
-  memo, static text and labels, group box, tooltip, sorted list box, table,
-  outline, text viewer, split pane, progress bar, message boxes,
-  window, editor, file dialogs, colour dialog, help, menu bar, pop-up menu,
-  status line. The code is coloured as Rust. It follows a terminal resize. Its tests run with
-  `cargo test`, and fail when a view module has neither a demo nor a
-  reason for having none.
-  The plan and decision log for the design system it starts:
-  `docs/DESIGN-SYSTEM-PLAN.md`.
+- A modal `Dialog` with `Options::CENTERED` (or `CENTER_X` / `CENTER_Y`) is
+  centred on the desktop when executed, as Borland centres a view with
+  `ofCentered` on insert; `Desktop::add` already did this.
+- `Label::set_error` draws a label in red (`is_error` reads it back);
+  `InputLine::is_valid` checks the validator without its message box, and
+  `InputLine::set_max_length` changes the limit; `Group::focused_view_id`
+  names the focused child. Small hooks for code that lays out and validates
+  a dialog's fields, such as the `Form` of the `tv-extensions` crate.
 - `AGENTS.md` (with `CLAUDE.md` pointing at it): the guide for people and AI
   assistants writing applications with the crate or working on it. The
   Turbo Vision way of working in one page, the idiomatic application
   skeleton (`run_with` and an `AppHandler`), an index of every component
   with how to create and use it, recipes, and rules and pitfalls. Its code
   blocks are compiled as doctests. Published on the site, which also gets an
-  `llms.txt`.
-  Rule 14 and the "Follow a terminal resize" recipe: the terminal can be
-  resized at any moment, so every view sized from it needs grow bits, and a
-  layout grow bits cannot express is rebuilt from `idle`.
-- `View::watches_pointer`: a view that only watches the pointer is shown
-  every mouse event over it, which then goes on to the view underneath.
-  `Tooltip` is one.
+  `llms.txt`. Rule 14 and the "Follow a terminal resize" recipe: the terminal
+  can be resized at any moment, so every view sized from it needs grow bits.
 - `tests/docs_index.rs` fails when a view module is missing from
   `AGENTS.md`'s component index, or a view or core module from
   `docs/RUST-API-CATALOG.md`.
-- `Label::set_error` draws a label in red; `InputLine::is_valid` checks the
-  validator without its message box, and `InputLine::set_max_length`;
-  `Group::focused_view_id`. These and the centring below were added for the
-  `Form` of the companion crate `tv-extensions`, where dialogs laid out from
-  labelled fields and record editors now live.
-- `GroupBox` (`views::group_box`), a titled single-line box drawn around
-  related controls. The `Form` of the companion crate `tv-extensions` uses it.
-- A modal `Dialog` with `Options::CENTERED` (or `CENTER_X` / `CENTER_Y`) is
-  centred on the desktop when executed, as Borland centres a view with
-  `ofCentered` on insert; `Desktop::add` already did this.
+- The crate docs' quick start uses `run_with` and an `AppHandler` instead of
+  a hand-written event loop.
+- `docs/RUST-API-CATALOG.md` is checked against the source: every public
+  module has a section.
+- `Dialog::prepare_modal` is public. Call it before running
+  `Application::execute_modal` on a dialog yourself, for work on every turn
+  of the loop such as refreshing a preview: it does what `Dialog::execute`
+  does first (modal state, so OK and Cancel end the loop; centred on the
+  desktop; drag limits; first child focused).
 - Buttons give press feedback, like Borland's `TButton::drawState`.
   Held down with the mouse, a button is drawn pushed in: the face moves one
   column right onto its shadow and the shadow disappears. It follows the
@@ -70,6 +49,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `core::timed_event`: `post_after` / `post_at` queue an event to arrive
   later; `Terminal::poll_event` delivers it once due, to the application's
   loops and hand-written ones alike, and waits no longer than the next one.
+- `GroupBox` (`views::group_box`), a titled single-line box drawn around
+  related controls. It only draws; the controls are its siblings, added
+  after it, so they keep the dialog's focus order.
+- `cargo run --example gallery`: a component gallery. A list of components,
+  grouped by kind (controls, text entry, lists and tables, display,
+  containers, dialogs, menus and status) and by name within a group; for
+  the one under the focus, the live component, how it works with each
+  parameter explained (the table's `set_frozen_cols` and `set_frozen_rows`,
+  for one), buttons that open related components, and the code that built
+  it, which is the demo's own source file, in a box of its own. F6 switches
+  to the component to try it. The list is drawn in a dialog's list colours,
+  black on cyan. 31 components: button, input line, history, check boxes,
+  radio buttons (as one cluster and one per view), scroll bar, combo box,
+  list box, tabbed pane, spinner, slider, memo, static text and labels,
+  group box, tooltip, sorted list box, table, outline, text viewer, split
+  pane, progress bar, message boxes, window, editor, file dialogs, colour
+  dialog, help, menu bar, pop-up menu, status line. The code is coloured as
+  Rust. It follows a terminal resize. Its tests run with `cargo test`, and
+  fail when a view module has neither a demo nor a reason for having none.
 - Frozen panes for `Table`, like a spreadsheet's.
   `Table::set_frozen_cols` / `TableBuilder::frozen_cols` keep the first
   columns at the left while the others scroll sideways, with a
@@ -89,19 +87,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   special keys.
 
 ### Changed
-- `docs/RUST-API-CATALOG.md` covers every module (21 were missing: the
-  combo box, spinner, tabbed and split panes, tooltip, progress bar, outline,
-  message boxes, the check and radio clusters, the colour and directory
-  dialogs, help index and contents, the editor traits, and core modules), and
-  no longer lists methods and fields that do not exist (`Button`'s public
-  fields, `Application::add_window` / `execute_window` / `quit`, and others).
-  `docs/quick-reference.txt` and the crate's quick start use the current
-  idioms; the quick reference had wrong command numbers.
-- Examples number their own commands from `CM_USER`. Several used 100-103,
-  inside the crate's reserved range (`sorted_listbox` and `ui_features`
-  overlapped the file dialog's `CM_FILE_FOCUSED` and
-  `CM_FILE_DOUBLE_CLICKED`), and the showcase calculator's commands
-  overlapped the showcase menu's.
 - A button pressed from the keyboard sends its command when its press
   animation ends, through `Terminal::poll_event`, instead of in place of the
   key event: the key now comes back consumed. Code that hands a button a key
@@ -123,12 +108,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dialog it now resolves through `CP_EDITOR_IN_DIALOG`, to entries 33-45
   added at the end of the dialog palettes, and gets the colours it has in a
   gray (or blue) window.
-- A `Tooltip` no longer takes the clicks of the controls it covers. Added
-  last, as it must be, it lay over them, so a click went to the tooltip and
-  the button under it never saw it.
-- A tooltip's hint appears when its delay is over. It was raised on an idle
-  tick, after which nothing is drawn, so it showed only once the pointer
-  moved again.
 - A selected `RadioButton` drew its label two columns to the right: the
   label was placed after the marker's length in bytes, and the `•` in
   `(•)` is three bytes long.
@@ -143,11 +122,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CheckBoxes` and `RadioButtons` placed away from their owner's corner drew
   at twice their offset and took clicks on the wrong row: they still drew at
   their own position, from before owner-relative coordinates.
-- A button answers Alt plus its `~` letter, as Borland's does, not only the
-  letter alone. In a dialog whose focus is in an input line the plain letter
-  is typed into the field, so Alt+O was the only way to press **~O~K** from
-  the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
-  `getAltCode`) gives the key code; `Label` uses it too.
+- Examples number their own commands from `CM_USER`. Several used 100-103,
+  inside the crate's reserved range (`sorted_listbox` and `ui_features`
+  overlapped the file dialog's `CM_FILE_FOCUSED` and
+  `CM_FILE_DOUBLE_CLICKED`), and the showcase calculator's commands
+  overlapped the showcase menu's.
 - `showcase` and `sorted_listbox` examples: mouse clicks missed their
   views. Their hand-written event routing handed the menu bar, status line,
   desktop and list box screen coordinates, while views take events in their
@@ -155,6 +134,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   desktop window landed a row low, so calculator buttons did nothing and
   windows could not be dragged, and the status line's Exit never saw its
   click. They now route through `views::view::dispatch_to_child`.
+- A button answers Alt plus its `~` letter, as Borland's does, not only the
+  letter alone. In a dialog whose focus is in an input line the plain letter
+  is typed into the field, so Alt+O was the only way to press **~O~K** from
+  the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
+  `getAltCode`) gives the key code; `Label` uses it too.
+- A `Tooltip` no longer takes the clicks of the controls it covers. Added
+  last, as it must be, it lay over them, so a click went to the tooltip and
+  the button under it never saw it.
+- A tooltip's hint appears when its delay is over. It was raised on an idle
+  tick, after which nothing is drawn, so it showed only once the pointer
+  moved again.
 - `FileDialog`: after entering a folder (or `..`, or a `dir/*.ext` filter)
   the Open/Save button and Enter no longer closed the dialog, so a file
   outside the starting folder could not be opened, nor a save location

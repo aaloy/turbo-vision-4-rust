@@ -194,7 +194,7 @@ impl Dialog {
     /// let result = dialog.execute(&mut app);  // Runs own event loop
     /// ```
     ///
-    /// **Pattern 2: Centralized (Borland-style, via Application::exec_view):**
+    /// **Pattern 2: Centralized (Borland-style, via `Application::exec_view)`:**
     /// ```ignore
     /// let mut dialog = Dialog::new_modal(bounds, "Title");
     /// dialog.add(Button::new(...));
@@ -202,7 +202,7 @@ impl Dialog {
     /// ```
     ///
     /// Both patterns work identically. Pattern 1 is simpler for standalone use.
-    /// Pattern 2 matches Borland's TProgram::execView() architecture.
+    /// Pattern 2 matches Borland's `TProgram::execView()` architecture.
     pub fn execute(&mut self, app: &mut crate::app::Application) -> CommandId {
         self.prepare_modal(app);
 
@@ -622,6 +622,26 @@ mod tests {
         let mut ev = Event::command(CM_OK);
         d.handle_event(&mut ev);
         assert_eq!(d.end_state(), CM_OK);
+    }
+
+    #[test]
+    fn prepare_modal_centres_along_the_axes_the_dialog_asks_for() {
+        let mut app =
+            crate::app::Application::with_terminal(crate::test_util::test_terminal(80, 25));
+        let desktop = app.desktop.get_bounds();
+        let mut at = |options: Options| {
+            let mut d = Dialog::new(Rect::new(1, 2, 31, 10), "t");
+            d.set_options(options);
+            d.prepare_modal(&mut app);
+            let b = d.bounds();
+            (b.a.x, b.a.y)
+        };
+        let centre_x = desktop.a.x + (desktop.width() - 30) / 2;
+        let centre_y = desktop.a.y + (desktop.height() - 8) / 2;
+        assert_eq!(at(Options::CENTERED), (centre_x, centre_y));
+        assert_eq!(at(Options::CENTER_X), (centre_x, 2), "only across");
+        assert_eq!(at(Options::CENTER_Y), (1, centre_y), "only down");
+        assert_eq!(at(Options::empty()), (1, 2), "left where it was");
     }
 
     #[test]
