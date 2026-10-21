@@ -174,10 +174,19 @@ pub const CP_GRAY_DIALOG: &[u8] = &[
     42, 43, 44, 45, 46, 47, 48, 49, 50, 51,  // 11-20: More mappings
     52, 53, 54, 55, 56, 57, 58, 59, 60, 61,  // 21-30
     62, 63,                                   // 31-32
+    29, 30,                                   // 33-34: editor text, selected
+    86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, // 35-45: editor syntax colours
 ];
 ```
 
 This palette provides the "gray dialog" theme where dialogs have gray backgrounds.
+
+Entries 33-45 are not Borland's. An `EditorWindow` in a window resolves
+through `CP_EDITOR`, whose indices 6, 7 and 9-19 are the window's text and
+syntax entries; in a dialog those indices are the controls' colours. So an
+editor whose nearest owner palette is long enough (a dialog's) resolves
+through `CP_EDITOR_IN_DIALOG` (33-45) instead, and gets the same colours an
+editor in a gray window gets. `CP_BLUE_DIALOG` carries the blue ones.
 
 ### View-Specific Palettes
 

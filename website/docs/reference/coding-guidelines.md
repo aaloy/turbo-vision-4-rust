@@ -75,7 +75,7 @@ For example, in your application crates you may just re-export and use eyre's co
 handle all third party library errors, in particular the ones following
 [M-ERRORS-CANONICAL-STRUCTS].
 
-```rust,ignore
+```rust
 use eyre::Result;
 
 fn start_application() -> Result<()> {
@@ -110,7 +110,7 @@ mimalloc = { version = "0.1" } # Or later version if available
 
 Then use it from your `main.rs`:
 
-```rust,ignore
+```rust
 use mimalloc::MiMalloc;
 
 #[global_allocator]
@@ -158,7 +158,7 @@ pub fn foo() {}
 
 In contrast to other languages, you should not create a table of parameters. Instead parameter use is explained in plain text. In other words, do not
 
-```rust,ignore
+```rust
 /// Copies a file.
 ///
 /// # Parameters
@@ -169,7 +169,7 @@ fn copy(src: File, dst: File) {}
 
 but instead:
 
-```rust,ignore
+```rust
 /// Copies a file from `src` to `dst`.
 fn copy(src: File, dst: File) {}
 ```
@@ -320,7 +320,7 @@ In practice, transferring any of the above between libraries leads to data loss,
 
 Take particular note that this may also apply to types and methods that are invisible at the FFI boundary:
 
-```rust,ignore
+```rust
 /// A method in DLL1 that wants to use a common service from DLL2
 #[ffi_function]
 fn use_common_service(common: &CommonService) {
@@ -1362,7 +1362,7 @@ pub fn increase_counter() -> usize {
 
 Now assume you have a crate `main`, calling two libraries `library_a` and `library_b`, each invoking that counter:
 
-```rust,ignore
+```rust
 // Increase global static counter 2 times
 library_a::count_up();
 library_a::count_up();
@@ -1375,7 +1375,7 @@ library_b::count_up();
 
 They eventually report their result:
 
-```rust,ignore
+```rust
 library_a::print_counter();
 library_b::print_counter();
 main::print_counter();
@@ -1535,13 +1535,13 @@ impl Library {
 Don't `pub use foo::*` from other modules, especially not from other crates. You might accidentally export more than you want,
 and globs are hard to review in PRs. Re-export items individually instead:
 
-```rust,ignore
+```rust
 pub use foo::{A, B, C};
 ```
 
 Glob exports are permissible for technical reasons, like doing platform specific re-exports from a set of HAL (hardware abstraction layer) modules:
 
-```rust,ignore
+```rust
 #[cfg(target_os = "windows")]
 mod windows { /* ... */ }
 
@@ -1629,7 +1629,7 @@ resolve. In fact, these might even be impossible to resolve once multiple crates
 
 If wrappers are needed internally, they should be hidden behind a clean API that uses simple types like `&T`, `&mut T`, or `T` directly. Compare:
 
-```rust,ignore
+```rust
 // Good: simple API
 pub fn process_data(data: &Data) -> State { ... }
 pub fn store_config(config: Config) -> Result<(), Error> { ... }
@@ -1659,7 +1659,7 @@ When asking for async dependencies, prefer concrete types over generics, and gen
 It is easy to accidentally deviate from this pattern when porting code from languages like C# that heavily rely on interfaces.
 Consider you are porting a service called `Database` from C# to Rust and, inspired by the original `IDatabase` interface, you naively translate it into:
 
-```rust,ignore
+```rust
 trait Database {
     async fn update_config(&self, file: PathBuf);
     async fn store_object(&self, id: Id, obj: Object);
@@ -1687,7 +1687,7 @@ trait is needed it should be made a subtrait, e.g., `trait DataAccess: StoreObje
 Code working with these traits should ideally accept them as generic type parameters as long as their use does not contribute to significant nesting
 (compare [M-ABSTRACTIONS-DONT-NEST]).
 
-```rust,ignore
+```rust
 // Good, generic does not have infectious impact, uses only most specific trait
 async fn read_database(x: impl LoadObject) { ... }
 
@@ -1722,7 +1722,7 @@ struct MyService {
 
 The generic wrapper can also be combined with the enum approach from [M-MOCKABLE-SYSCALLS]:
 
-```rust,ignore
+```rust
 enum DataAccess {
     MyDatabase(MyDatabase),
     Mock(mock::MockCtrl),
@@ -1770,7 +1770,7 @@ impl ConfigurationError {
 
 Where appropriate, error types should provide contextual error information, for example:
 
-```rust,ignore
+```rust
 # use std::backtrace::Backtrace;
 # #[derive(Debug)]
 # pub struct ConfigurationError {
@@ -1830,7 +1830,7 @@ your `Error::new()` flavors, or when implementing `From<UpstreamError> for Error
 
 Error structs must properly implement `Display` that renders as follows:
 
-```rust,ignore
+```rust
 impl Display for MyError {
     // Print a summary sentence what happened.
     // Print `self.backtrace`.
@@ -1843,7 +1843,7 @@ impl Display for MyError {
 
 Errors must also implement `std::error::Error`:
 
-```rust,ignore
+```rust
 impl std::error::Error for MyError { }
 ```
 
@@ -1923,7 +1923,7 @@ do not need to take ownership, or where object creation is relatively cheap.
 | `&Path`, `PathBuf` | `impl AsRef<Path>` |
 | `&[u8]`, `Vec<u8>` | `impl AsRef<[u8]>` |
 
-```rust,ignore
+```rust
 # use std::path::Path;
 // Definitely use `AsRef`, the function does not need ownership.
 fn print(x: impl AsRef<str>) {}
@@ -1941,7 +1941,7 @@ fn send_to_other_thread(x: impl AsRef<[u8]>) {}
 
 In contrast, **types** should generally not be infected by these bounds:
 
-```rust,ignore
+```rust
 // Generally not ok. There might be exceptions for performance
 // reasons, but those should not be user visible.
 struct User<T: AsRef<str>> {
@@ -1964,7 +1964,7 @@ struct User {
 Functions and types that only need to perform one-shot I/O during initialization should be written "[sans-io](https://www.firezone.dev/blog/sans-io)",
 and accept some `impl T`, where `T` is the appropriate I/O trait, effectively outsourcing I/O work to another type:
 
-```rust,ignore
+```rust
 // Bad, caller must provide a File to parse the given data. If this
 // data comes from the network, it'd have to be written to disk first.
 fn parse_data(file: File) {}
@@ -1997,7 +1997,7 @@ _Types_ that need to perform runtime-specific, continuous I/O should follow [M-R
 
 Functions that accept a range of numbers must use a `Range` type or trait over hand-rolled parameters:
 
-```rust,ignore
+```rust
 // Bad
 fn select_range(low: usize, high: usize) {}
 fn select_range(range: (usize, usize)) {}
@@ -2179,7 +2179,7 @@ Heavyweight _service_ types and 'thread singletons' should implement shared-owne
 
 Per thread, users should essentially be able to create a single resource handler instance, and have it reused by other handlers on the same thread:
 
-```rust,ignore
+```rust
 impl ThreadLocal for MyThreadState {
     fn init(...) -> Self {
 
@@ -2197,7 +2197,7 @@ impl ThreadLocal for MyThreadState {
 
 Services then simply clone their dependency and store a new _handle_, as if `ServiceCommon` were a shared-ownership smart pointer:
 
-```rust,ignore
+```rust
 impl ServiceA {
     pub fn new(common: &ServiceCommon) -> Self {
         // If we only need to access `common` from `new` we don't have
@@ -2244,7 +2244,7 @@ might cause confusing error messages.
 
 From the perspective of a user authoring `Foo`, where the other structs come from your crate:
 
-```rust,ignore
+```rust
 struct Foo {
     service: Service // Great
     service: Service<Backend> // Acceptable
