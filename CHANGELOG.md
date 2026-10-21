@@ -99,6 +99,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- `ComboBox` with no choice made: the first Down (or Up) picks the first
+  item. It stepped from item 0 to item 1, so the first item could not be
+  reached with the arrow keys.
 - A dialog that has run once waits for the user when it runs again. Its end
   state was never reset, so the second `execute` returned the first run's
   result at once, without showing the dialog; Borland's `TGroup::execute`
