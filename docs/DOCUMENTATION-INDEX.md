@@ -5,7 +5,7 @@ This directory contains comprehensive documentation analyzing the Rust implement
 ## Quick Navigation
 
 ### For Writing Code (people and AI assistants)
-Start with **[AGENTS.md](../AGENTS.md)** - the Turbo Vision way of working, the application skeleton, a component index, recipes and rules; then **[FORMS.md](FORMS.md)** for dialogs and record editors. Both have compiled examples.
+Start with **[AGENTS.md](../AGENTS.md)** - the Turbo Vision way of working, the application skeleton, a component index, recipes and rules; it has compiled examples. Dialogs laid out from labelled fields and record editors live in the companion crate [tv-extensions](https://github.com/aovestdipaperino/tv-extensions).
 
 ### For Quick Answers
 Start with **[quick-reference.txt](quick-reference.txt)** - contains code snippets and patterns for common tasks

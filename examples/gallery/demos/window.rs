@@ -15,7 +15,7 @@
 //! - `set_grow_mode(Grow::ALL)` on a view inside: it follows the window's
 //!   size.
 //!
-//! See also: Form, Editor, SplitPane
+//! See also: Editor, SplitPane
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

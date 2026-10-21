@@ -20,11 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parameter explained (the table's `set_frozen_cols` and `set_frozen_rows`,
   for one), buttons that open related components, and the code that built
   it, which is the demo's own source file, in a box of its own. The list
-  is drawn in a dialog's list colours, black on cyan. 32 components:
+  is drawn in a dialog's list colours, black on cyan. 31 components:
   button, input line, history, check boxes, radio buttons (as one cluster
   and one per view), scroll bar, combo box, list box, tabbed pane, spinner, slider,
   memo, static text and labels, group box, tooltip, sorted list box, table,
-  outline, text viewer, split pane, progress bar, form, message boxes,
+  outline, text viewer, split pane, progress bar, message boxes,
   window, editor, file dialogs, colour dialog, help, menu bar, pop-up menu,
   status line. The code is coloured as Rust. It follows a terminal resize. Its tests run with
   `cargo test`, and fail when a view module has neither a demo nor a
@@ -47,35 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `tests/docs_index.rs` fails when a view module is missing from
   `AGENTS.md`'s component index, or a view or core module from
   `docs/RUST-API-CATALOG.md`.
-- Record forms: `Form::<R>::for_record` binds fields to the members of a
-  struct of yours (a database row, say) through lenses, `|c| &mut c.name`.
-  `input` takes any `TextValue` member (text, numbers, `NaiveDate`,
-  `NaiveTime`, `Option` of them, or a type of your own), and `check`,
-  `memo`, `choice` (a drop-down list of values: enums, foreign keys) and
-  `bind` (any control) cover the rest. Fields take rules (`required`,
-  `validate`, custom messages); `validate_record` checks across fields.
-  `build_editor()` gives an `Editor` whose `edit` / `edit_with` fill the
-  dialog from a record and return the edited one once valid, saving it in
-  `edit_with`'s closure: its errors (a duplicate key) show like the others.
-  Invalid fields' labels turn red, an error line shows the message, and the
-  focus moves to the first invalid field. Members without a field are kept.
-  Example: `form_record`.
 - `Label::set_error` draws a label in red; `InputLine::is_valid` checks the
   validator without its message box, and `InputLine::set_max_length`;
-  `Group::focused_view_id`.
-- `Form` (`views::form`) builds a data-entry dialog from a list of labelled
-  fields, with no coordinates: labels in one column, fields in the next,
-  buttons along the bottom, the dialog sized to fit and centred. Views built
-  with `Rect::default()` stretch to their column; `form::size(w, h)` keeps a
-  size. `line()` puts several fields on one row; `group(title)` ...
-  `end_group()` draws a titled box around related rows, and groups nest.
-  Labels go on the left (`label_align` left or right) or above their fields
-  (`label_position`). `field`, `line().field`, `row` and the button methods
-  return typed handles to read the values back with `dialog.get(handle)`.
-  Guide: `docs/FORMS.md`; examples: `form_layout` (`-- --above` for labels
-  above) and `form_labels` (one form in each label style).
+  `Group::focused_view_id`. These and the centring below were added for the
+  `Form` of the companion crate `tv-extensions`, where dialogs laid out from
+  labelled fields and record editors now live.
 - `GroupBox` (`views::group_box`), a titled single-line box drawn around
-  related controls; `Form::group` uses it.
+  related controls. The `Form` of the companion crate `tv-extensions` uses it.
 - A modal `Dialog` with `Options::CENTERED` (or `CENTER_X` / `CENTER_Y`) is
   centred on the desktop when executed, as Borland centres a view with
   `ofCentered` on insert; `Desktop::add` already did this.

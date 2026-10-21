@@ -13,7 +13,7 @@
 //! - `CheckBox::new(bounds, label)`: a single box, one row;
 //!   `set_checked(on)`, `is_checked()` and `toggle()`.
 //!
-//! See also: RadioButtons, GroupBox, Form
+//! See also: RadioButtons, GroupBox
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

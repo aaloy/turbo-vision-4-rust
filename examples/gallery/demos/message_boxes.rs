@@ -11,7 +11,7 @@
 //! - `message_box(app, text, MsgBox::WARNING | MsgBox::YES_NO_CANCEL)`: any
 //!   mix of icon and buttons; `MsgBox::AUTO_DISMISS` closes it on its own.
 //!
-//! See also: Form, File dialogs, Button
+//! See also: File dialogs, Button
 
 use crate::panel::Panel;
 use turbo_vision::app::Application;

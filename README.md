@@ -89,7 +89,6 @@ The built-in file dialog with directory navigation, file list, and keyboard/mous
 - **Editor Selection**: Stream selection (Shift+arrows / drag) plus rectangular **block selection** with columnar copy/cut and single-step undo, switched with the global block-edit mode (`Application::set_block_edit_mode`, `CM_TOGGLE_BLOCK_MODE`) rather than a modifier key; `CM_SELECT_ALL` command and Ctrl+A select all content of the focused window
 - **Cross-Platform**: Built on crossterm for wide terminal compatibility
 - **Modal Dialogs**: Built-in support for modal dialog execution
-- **Form Layout**: `Form` builds a data-entry dialog from a list of labelled fields, with no coordinates; it sizes and centres the dialog (see [docs/FORMS.md](docs/FORMS.md))
 - **Focus Management**: Tab navigation and keyboard shortcuts
 - **Screen Capture**: F12 saves an ASCII (ANSI) dump of the whole screen; Ctrl+F12 saves a PNG screenshot. Programmatic dumps of screen/views/regions via `dump_screen`/`dump_region`/`dump_to_file`
 - **`screenshot` Feature** (on by default): the PNG capture and its embedded 8x16 font; build with `--no-default-features --features native` to leave it out (F12 dumps and the capture hook still work)
@@ -197,7 +196,7 @@ If you're new to Turbo Vision frameworks, follow this path:
 2. **[Examples Overview](examples/README.md)** - Browse 30+ working examples
    ```bash
    cargo run --example showcase    # Comprehensive feature showcase
-   cargo run --example form_record  # Record editor with validation
+   cargo run --example gallery     # Every component, live, with its code
    ```
 3. **[User Guide - Chapter 1](docs/user-guide/Chapter-01-Stepping-into-Turbo-Vision.md)** - Learn the basics
 4. **[User Guide - Chapter 2](docs/user-guide/Chapter-02-Responding-to-Commands.md)** - Handle events and commands
@@ -212,7 +211,7 @@ For practical application development:
 1. **[Custom Application Example](docs/CUSTOM-APPLICATION-RUST-EXAMPLE.md)** - Complete walkthrough
 2. **[Biorhythm Calculator Tutorial](docs/BIORHYTHM-CALCULATOR-TUTORIAL.md)** - Build a real app step-by-step
 3. **[examples/showcase.rs](examples/showcase.rs)** - Study the comprehensive demo
-4. **[Building Forms with `Form`](docs/FORMS.md)** - Dialogs with no coordinates, and record editors for database rows
+4. **[Forms in tv-extensions](https://github.com/aovestdipaperino/tv-extensions)** - Dialogs with no coordinates, and record editors for database rows
 
 ### 🔧 Coming from Borland/C++ Turbo Vision?
 
@@ -231,7 +230,7 @@ When you need specific functionality:
 
 - **Palette & Colors**: [Palette System](docs/PALETTE-SYSTEM.md), [Borland Palette Chart](docs/BORLAND-PALETTE-CHART.md), [Chapter 14](docs/user-guide/Chapter-14-Palettes-and-Color-Selection.md)
 - **Event Handling**: [Chapter 9 - Event-Driven Programming](docs/user-guide/Chapter-09-Event-Driven-Programming.md)
-- **Forms & Input**: [Building Forms with `Form`](docs/FORMS.md), [Chapter 5 - Data Entry Forms](docs/user-guide/Chapter-05-Creating-Data-Entry-Forms.md), [Chapter 13 - Validation](docs/user-guide/Chapter-13-Data-Validation.md)
+- **Forms & Input**: [Forms in tv-extensions](https://github.com/aovestdipaperino/tv-extensions), [Chapter 5 - Data Entry Forms](docs/user-guide/Chapter-05-Creating-Data-Entry-Forms.md), [Chapter 13 - Validation](docs/user-guide/Chapter-13-Data-Validation.md)
 - **Text Editing**: [Chapter 15 - Editor and Text Views](docs/user-guide/Chapter-15-Editor-and-Text-Views.md)
 - **Collections & Lists**: [Chapter 6 - Managing Data Collections](docs/user-guide/Chapter-06-Managing-Data-Collections.md)
 - **Persistence**: [Serialization Guide](docs/SERIALIZATION-PERSISTENCE.md), [Quick Reference](docs/SERIALIZATION-QUICK-REFERENCE.md)

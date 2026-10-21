@@ -34,7 +34,6 @@ COPIES: dict[str, str] = {
     "docs/SERIALIZATION-PERSISTENCE.md": "reference/serialization.md",
     "docs/SERIALIZATION-QUICK-REFERENCE.md": "reference/serialization-quick.md",
     "docs/MORE-CONTROLS.md": "reference/more-controls.md",
-    "docs/FORMS.md": "tutorials/forms.md",
     "AGENTS.md": "reference/agents.md",
     "docs/BIORHYTHM-CALCULATOR-TUTORIAL.md": "tutorials/biorhythm.md",
     "docs/CUSTOM-APPLICATION-RUST-EXAMPLE.md": "compare/custom-application-rust.md",
@@ -52,10 +51,7 @@ LINK_REWRITES = [
     (r"\]\(\.\./UPGRADING-TO-4\.0\.md", "](../reference/upgrading-4.0.md"),
     # Chapter 7 points at the class diagram, which lives under reference/ on the site.
     (r"\]\(\.\./CLASS-DIAGRAM\.md", "](../reference/class-diagram.md"),
-    # Chapter 5 points at the forms guide, which lives under tutorials/ on the site.
-    (r"\]\(\.\./FORMS\.md", "](../tutorials/forms.md"),
     # AGENTS.md (reference/agents.md on the site) points at repository paths.
-    (r"\]\(docs/FORMS\.md", "](../tutorials/forms.md"),
     (r"\]\(docs/user-guide/\)", "](../guide/index.md)"),
     (r"\]\(examples/\)", "](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples)"),
     (r"\]\(examples/gallery/\)", "](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples/gallery)"),
