@@ -116,6 +116,7 @@ Generated: 2025-11-06
 - KB_ALT_X, KB_ALT_F, KB_ALT_H, KB_ALT_O, KB_ALT_A, KB_ALT_F3
 - KB_ESC_F, KB_ESC_H, KB_ESC_X, KB_ESC_A, KB_ESC_O, KB_ESC_E, KB_ESC_S, KB_ESC_V, KB_ESC_ESC
 - KB_TEXT - Key code of a typed character past U+00FF; the character is in `Event::ch`
+- `alt_code(letter: char) -> Option<KeyCode>` - Alt plus an ASCII letter, either case (Borland `getAltCode`); `None` otherwise
 
 #### EventType Enum
 **Variants:** Nothing, Keyboard, MouseDown, MouseUp, MouseMove, MouseAuto, MouseWheelUp, MouseWheelDown, Command, Broadcast
@@ -209,6 +210,17 @@ Generated: 2025-11-06
 #### HistoryManager Struct
 **Static Methods:**
 - Manages global history lists by ID
+
+---
+
+### Timed Events (`src/core/timed_event.rs`)
+
+Per-thread queue of events delivered by `Terminal::poll_event` once due.
+- `post_after(event: Event, delay: Duration)` - Deliver `event` after `delay`
+- `post_at(event: Event, due: Instant)` - Deliver `event` once `due` has come
+- `take_due(now: Instant) -> Option<Event>` - Remove the earliest event due at `now`
+- `next_due() -> Option<Instant>` - When the earliest pending event is due
+- `clear()` - Drop every pending event
 
 ---
 
@@ -528,7 +540,13 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 - `new(bounds: Rect, title: &str, command: CommandId, is_default: bool) -> Self` - Create button
 - `set_disabled(&mut self, disabled: bool)` - Set disabled state
 - `is_disabled(&self) -> bool` - Check if disabled
+- `is_down(&self) -> bool` - Whether the button is drawn pushed in (held with the mouse, or during a key press's animation)
 - Implements View trait
+
+#### Press Animation
+- `DEFAULT_PRESS_ANIMATION: Duration` - 100 ms
+- `set_press_animation(duration: Duration)` - How long a key-pressed button shows pushed in before sending its command; `Duration::ZERO` sends it at once (per thread)
+- `press_animation() -> Duration` - Current setting
 
 #### ButtonBuilder Struct
 **Public Methods:**

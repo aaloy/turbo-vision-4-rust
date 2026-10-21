@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of the loop such as refreshing a preview: it does what `Dialog::execute`
   does first (modal state, so OK and Cancel end the loop; drag limits;
   first child focused).
+- Buttons give press feedback, like Borland's `TButton::drawState`.
+  Held down with the mouse, a button is drawn pushed in: the face moves one
+  column right onto its shadow and the shadow disappears. It follows the
+  pointer, popping out when dragged off and back in when it returns, and the
+  command still fires only on a release over it. Pressed with Enter, Space,
+  its hotkey or a dialog's Enter for the default button, it shows pushed in
+  for `button::press_animation()` (100 ms by default, magiblot's
+  `animationDurationMs`) and then sends its command.
+  `button::set_press_animation(Duration::ZERO)` turns the delay off.
+  `Button::is_down` tells whether a button is drawn pushed in.
+- `core::timed_event`: `post_after` / `post_at` queue an event to arrive
+  later; `Terminal::poll_event` delivers it once due, to the application's
+  loops and hand-written ones alike, and waits no longer than the next one.
 - Frozen panes for `Table`, like a spreadsheet's.
   `Table::set_frozen_cols` / `TableBuilder::frozen_cols` keep the first
   columns at the left while the others scroll sideways, with a
@@ -32,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   special keys.
 
 ### Changed
+- A button pressed from the keyboard sends its command when its press
+  animation ends, through `Terminal::poll_event`, instead of in place of the
+  key event: the key now comes back consumed. Code that hands a button a key
+  and expects the command in the same event should call
+  `button::set_press_animation(Duration::ZERO)`. A broadcast button's
+  broadcast, queued the same way, reaches the whole modal view or desktop.
 - `Event` has a new public field, `ch`. Code that builds an `Event` with a
   struct literal naming every field needs `ch: None` or
   `..Event::nothing()`; the constructors (`Event::keyboard` and the rest)
@@ -73,6 +92,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   desktop window landed a row low, so calculator buttons did nothing and
   windows could not be dragged, and the status line's Exit never saw its
   click. They now route through `views::view::dispatch_to_child`.
+- A button answers Alt plus its `~` letter, as Borland's does, not only the
+  letter alone. In a dialog whose focus is in an input line the plain letter
+  is typed into the field, so Alt+O was the only way to press **~O~K** from
+  the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
+  `getAltCode`) gives the key code; `Label` uses it too.
+- A `Tooltip` no longer takes the clicks of the controls it covers. Added
+  last, as it must be, it lay over them, so a click went to the tooltip and
+  the button under it never saw it.
+- A tooltip's hint appears when its delay is over. It was raised on an idle
+  tick, after which nothing is drawn, so it showed only once the pointer
+  moved again.
 - `FileDialog`: after entering a folder (or `..`, or a `dir/*.ext` filter)
   the Open/Save button and Enter no longer closed the dialog, so a file
   outside the starting folder could not be opened, nor a save location

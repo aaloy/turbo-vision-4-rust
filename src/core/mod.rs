@@ -13,6 +13,7 @@
 //! - **State management** ([`state`]): View state flags and constants
 //! - **Clipboard** ([`clipboard`]): Copy/paste support
 //! - **History** ([`history`]): Input history management
+//! - **Timed events** ([`timed_event`]): Events posted to arrive after a delay
 //!
 //! # Examples
 //!
@@ -62,3 +63,4 @@ pub mod palette_chain;
 pub mod screenshot;
 pub mod state;
 pub mod status_data;
+pub mod timed_event;
