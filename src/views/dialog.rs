@@ -11,7 +11,7 @@ use crate::app::ModalTick;
 use crate::core::command::{CM_CANCEL, CommandId};
 use crate::core::event::{Event, EventType, KB_ENTER, KB_ESC_ESC};
 use crate::core::geometry::Rect;
-use crate::core::state::State;
+use crate::core::state::{Options, State};
 use crate::terminal::Terminal;
 use std::time::{Duration, Instant};
 
@@ -116,8 +116,10 @@ impl Dialog {
 
     /// Put the dialog into its modal state, as [`execute`](Self::execute)
     /// does before entering its loop: `State::MODAL` (without it the dialog
-    /// ignores OK and Cancel), dragging limited to the desktop and its
-    /// position kept inside it, and the first focusable child focused.
+    /// ignores OK and Cancel), centred on the desktop along the axes its
+    /// `Options::CENTER_X` / `Options::CENTER_Y` flags ask for, dragging
+    /// limited to the desktop and its position kept inside it, and the first
+    /// focusable child focused.
     ///
     /// Call it yourself when you run [`Application::execute_modal`] on the
     /// dialog instead of calling `execute`, typically to do some work on
@@ -145,6 +147,7 @@ impl Dialog {
         // This allows modal dialogs to be constrained even though they're not added to desktop
         // Matches Borland: TView::dragView() uses owner's bounds as limits
         let desktop_bounds = app.desktop.get_bounds();
+        self.center_in(desktop_bounds);
         self.window.set_drag_limits(desktop_bounds);
 
         // Constrain dialog position to desktop bounds (including shadow)
@@ -154,6 +157,30 @@ impl Dialog {
         // Set initial focus to the first focusable child
         // Matches Borland: TView::setState(sfVisible) calls owner->resetCurrent()
         self.set_initial_focus();
+    }
+
+    /// Center the dialog in `area` along the axes its `Options::CENTER_X` /
+    /// `Options::CENTER_Y` flags ask for (`Options::CENTERED` is both).
+    /// Matches Borland: a view with ofCentered is centered in its owner when
+    /// inserted, which `execView` does for a modal dialog; `Desktop::add` does
+    /// the same for one added to the desktop.
+    fn center_in(&mut self, area: Rect) {
+        let options = self.options();
+        let current = self.bounds();
+        let (width, height) = (current.width(), current.height());
+        let left = if options.contains(Options::CENTER_X) {
+            area.a.x + (area.width() - width) / 2
+        } else {
+            current.a.x
+        };
+        let top = if options.contains(Options::CENTER_Y) {
+            area.a.y + (area.height() - height) / 2
+        } else {
+            current.a.y
+        };
+        if (left, top) != (current.a.x, current.a.y) {
+            self.set_bounds(Rect::new(left, top, left + width, top + height));
+        }
     }
 
     /// Execute the dialog with its own event loop (self-contained pattern)
@@ -595,6 +622,26 @@ mod tests {
         let mut ev = Event::command(CM_OK);
         d.handle_event(&mut ev);
         assert_eq!(d.end_state(), CM_OK);
+    }
+
+    #[test]
+    fn prepare_modal_centres_along_the_axes_the_dialog_asks_for() {
+        let mut app =
+            crate::app::Application::with_terminal(crate::test_util::test_terminal(80, 25));
+        let desktop = app.desktop.get_bounds();
+        let mut at = |options: Options| {
+            let mut d = Dialog::new(Rect::new(1, 2, 31, 10), "t");
+            d.set_options(options);
+            d.prepare_modal(&mut app);
+            let b = d.bounds();
+            (b.a.x, b.a.y)
+        };
+        let centre_x = desktop.a.x + (desktop.width() - 30) / 2;
+        let centre_y = desktop.a.y + (desktop.height() - 8) / 2;
+        assert_eq!(at(Options::CENTERED), (centre_x, centre_y));
+        assert_eq!(at(Options::CENTER_X), (centre_x, 2), "only across");
+        assert_eq!(at(Options::CENTER_Y), (1, centre_y), "only down");
+        assert_eq!(at(Options::empty()), (1, 2), "left where it was");
     }
 
     #[test]
