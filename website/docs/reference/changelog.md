@@ -99,6 +99,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- A dialog that has run once waits for the user when it runs again. Its end
+  state was never reset, so the second `execute` returned the first run's
+  result at once, without showing the dialog; Borland's `TGroup::execute`
+  starts from zero. `prepare_modal` resets it, so a reused `Dialog` (or an
+  `Editor` editing one record after another) works as documented.
 - A read-only `EditorWindow` lets Tab move the focus to the next control.
   It used to take the key and type nothing, so the focus could not leave
   it by keyboard.
