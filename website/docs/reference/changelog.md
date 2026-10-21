@@ -26,6 +26,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `core::timed_event`: `post_after` / `post_at` queue an event to arrive
   later; `Terminal::poll_event` delivers it once due, to the application's
   loops and hand-written ones alike, and waits no longer than the next one.
+- `GroupBox` (`views::group_box`), a titled single-line box drawn around
+  related controls. It only draws; the controls are its siblings, added
+  after it, so they keep the dialog's focus order.
+- `cargo run --example gallery`: a component gallery. A list of components,
+  grouped by kind (controls, text entry, lists and tables, display,
+  containers, dialogs, menus and status) and by name within a group; for
+  the one under the focus, the live component, how it works with each
+  parameter explained (the table's `set_frozen_cols` and `set_frozen_rows`,
+  for one), buttons that open related components, and the code that built
+  it, which is the demo's own source file, in a box of its own. F6 switches
+  to the component to try it. The list is drawn in a dialog's list colours,
+  black on cyan. 31 components: button, input line, history, check boxes,
+  radio buttons (as one cluster and one per view), scroll bar, combo box,
+  list box, tabbed pane, spinner, slider, memo, static text and labels,
+  group box, tooltip, sorted list box, table, outline, text viewer, split
+  pane, progress bar, message boxes, window, editor, file dialogs, colour
+  dialog, help, menu bar, pop-up menu, status line. The code is coloured as
+  Rust. It follows a terminal resize. Its tests run with `cargo test`, and
+  fail when a view module has neither a demo nor a reason for having none.
 - Frozen panes for `Table`, like a spreadsheet's.
   `Table::set_frozen_cols` / `TableBuilder::frozen_cols` keep the first
   columns at the left while the others scroll sideways, with a

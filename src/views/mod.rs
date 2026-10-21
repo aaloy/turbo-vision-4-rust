@@ -83,6 +83,7 @@ pub mod file_editor;
 pub mod file_list;
 pub mod frame;
 pub mod group;
+pub mod group_box;
 pub mod handle;
 pub mod help_context;
 pub mod help_file;
@@ -136,6 +137,8 @@ pub use combo_box::{ComboBox, ComboState};
 #[doc(inline)]
 pub use dialog::CloseOn;
 pub use group::GroupLike;
+#[doc(inline)]
+pub use group_box::GroupBox;
 pub use handle::Handle;
 pub use label::Label;
 #[doc(inline)]
