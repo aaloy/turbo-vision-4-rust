@@ -564,6 +564,7 @@ A `Box<T: View>` is itself a `View`, so `add(Box::new(v))` and `add(v)` are both
 #### Label Struct
 **Public Methods:**
 - `new(bounds: Rect, text: &str) -> Self` - Create label
+- `set_error(&mut self, error: bool)` / `is_error(&self) -> bool` - Mark the label as naming an invalid field; it is drawn in red until cleared
 - Implements View trait
 
 ---
@@ -632,6 +633,7 @@ A titled single-line box drawn around related controls; it only draws (never foc
 - `with_background(bounds: Rect, background: Attr) -> Self` - Create with background
 - `add(&mut self, view: Box<dyn View>)` - Add child view
 - `set_initial_focus(&mut self)` - Set focus to first focusable child
+- `focused_view_id(&self) -> Option<ViewId>` - The `ViewId` of the focused child, if any
 - `clear_all_focus(&mut self)` - Clear focus from all children
 - `len(&self) -> usize` - Get child count
 - `is_empty(&self) -> bool` - Check if empty
@@ -810,6 +812,8 @@ sized columns; focus is a cell, not a row.
 #### InputLine Struct
 **Public Methods:**
 - `new(bounds: Rect, max_length: usize) -> Self` - Create input line
+- `is_valid(&self) -> bool` - Whether the text passes the validator, without the error message box `validate` shows
+- `set_max_length(&mut self, max_length: usize)` - Change the limit; longer text is cut
 - Input field with text editing capabilities
 - Implements View trait
 
