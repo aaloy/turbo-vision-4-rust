@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `Dialog::prepare_modal` is public. Call it before running
+  `Application::execute_modal` on a dialog yourself, for work on every turn
+  of the loop such as refreshing a preview: it does what `Dialog::execute`
+  does first (modal state, so OK and Cancel end the loop; drag limits;
+  first child focused).
 - Frozen panes for `Table`, like a spreadsheet's.
   `Table::set_frozen_cols` / `TableBuilder::frozen_cols` keep the first
   columns at the left while the others scroll sideways, with a
