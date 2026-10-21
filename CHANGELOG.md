@@ -16,6 +16,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `InputLine::set_max_length` changes the limit; `Group::focused_view_id`
   names the focused child. Small hooks for code that lays out and validates
   a dialog's fields, such as the `Form` of the `tv-extensions` crate.
+- `AGENTS.md` (with `CLAUDE.md` pointing at it): the guide for people and AI
+  assistants writing applications with the crate or working on it. The
+  Turbo Vision way of working in one page, the idiomatic application
+  skeleton (`run_with` and an `AppHandler`), an index of every component
+  with how to create and use it, recipes, and rules and pitfalls. Its code
+  blocks are compiled as doctests. Published on the site, which also gets an
+  `llms.txt`. Rule 14 and the "Follow a terminal resize" recipe: the terminal
+  can be resized at any moment, so every view sized from it needs grow bits.
+- `tests/docs_index.rs` fails when a view module is missing from
+  `AGENTS.md`'s component index, or a view or core module from
+  `docs/RUST-API-CATALOG.md`.
+- The crate docs' quick start uses `run_with` and an `AppHandler` instead of
+  a hand-written event loop.
+- `docs/RUST-API-CATALOG.md` is checked against the source: every public
+  module has a section.
 - `Dialog::prepare_modal` is public. Call it before running
   `Application::execute_modal` on a dialog yourself, for work on every turn
   of the loop such as refreshing a preview: it does what `Dialog::execute`

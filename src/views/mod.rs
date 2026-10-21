@@ -43,6 +43,7 @@
 //! - [`StatusLine`](status_line::StatusLine) - Bottom status line with key hints
 //!
 //! ## Dialogs and Utilities
+//! - [`GroupBox`] - Titled frame drawn around related controls
 //! - [`FileDialog`](file_dialog::FileDialog) - File selection dialog
 //! - [`msgbox`] - Message boxes and confirmation dialogs
 //! - [`HelpWindow`](help_window::HelpWindow) - Context-sensitive help system
@@ -136,6 +137,7 @@ pub use cluster_group::{CheckBoxes, RadioButtons};
 pub use combo_box::{ComboBox, ComboState};
 #[doc(inline)]
 pub use dialog::CloseOn;
+#[doc(inline)]
 pub use group::GroupLike;
 #[doc(inline)]
 pub use group_box::GroupBox;

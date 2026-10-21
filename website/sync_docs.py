@@ -34,6 +34,7 @@ COPIES: dict[str, str] = {
     "docs/SERIALIZATION-PERSISTENCE.md": "reference/serialization.md",
     "docs/SERIALIZATION-QUICK-REFERENCE.md": "reference/serialization-quick.md",
     "docs/MORE-CONTROLS.md": "reference/more-controls.md",
+    "AGENTS.md": "reference/agents.md",
     "docs/BIORHYTHM-CALCULATOR-TUTORIAL.md": "tutorials/biorhythm.md",
     "docs/CUSTOM-APPLICATION-RUST-EXAMPLE.md": "compare/custom-application-rust.md",
     "docs/CUSTOM-PROGRAM-CPP-EXAMPLE.md": "compare/custom-program-cpp.md",
@@ -50,6 +51,15 @@ LINK_REWRITES = [
     (r"\]\(\.\./UPGRADING-TO-4\.0\.md", "](../reference/upgrading-4.0.md"),
     # Chapter 7 points at the class diagram, which lives under reference/ on the site.
     (r"\]\(\.\./CLASS-DIAGRAM\.md", "](../reference/class-diagram.md"),
+    # AGENTS.md (reference/agents.md on the site) points at repository paths.
+    (r"\]\(docs/user-guide/\)", "](../guide/index.md)"),
+    (r"\]\(examples/\)", "](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples)"),
+    (r"\]\(examples/gallery/\)", "](https://github.com/aovestdipaperino/turbo-vision-4-rust/tree/main/examples/gallery)"),
+    (r"\]\(docs/DESIGN-SYSTEM-PLAN\.md\)", "](https://github.com/aovestdipaperino/turbo-vision-4-rust/blob/main/docs/DESIGN-SYSTEM-PLAN.md)"),
+    # The API catalog points back at AGENTS.md, its neighbour under reference/.
+    (r"\]\(\.\./AGENTS\.md", "](agents.md"),
+    # Doctest fence attributes mean nothing to the site's highlighter.
+    (r"```rust,(?:no_run|ignore)", "```rust"),
     # The class diagram points back at chapter 7 from reference/.
     (r"\]\(user-guide/Chapter-(\d\d)[^)]*\.md\)", r"](../guide/chapter-\1.md)"),
     (r"\]\(docs/user-guide/Chapter-(\d\d)[^)]*\.md\)", r"](guide/chapter-\1.md)"),
