@@ -135,6 +135,9 @@ impl Dialog {
     /// [`Application::execute_modal`]: crate::app::Application::execute_modal
     pub fn prepare_modal(&mut self, app: &mut crate::app::Application) {
         self.result = CM_CANCEL;
+        // Borland: TGroup::execute starts with endState = 0. Without it a
+        // dialog that has run once returns its old result at once.
+        GroupLike::end_modal(self, 0);
 
         // Set modal flag - dialogs are modal by default
         // Matches Borland: TDialog in modal state (tdialog.cc)
@@ -595,6 +598,29 @@ mod tests {
         let mut ev = Event::command(CM_OK);
         d.handle_event(&mut ev);
         assert_eq!(d.end_state(), CM_OK);
+    }
+
+    #[test]
+    fn a_dialog_that_has_run_waits_for_the_user_when_it_runs_again() {
+        // execute must start from end_state 0, as Borland's TGroup::execute
+        // does: otherwise the second run returns the first run's result at
+        // once, without showing the dialog.
+        use crate::core::command::CM_OK;
+        use crate::core::event::{KB_ENTER, KB_ESC};
+        let mut app =
+            crate::app::Application::with_terminal(crate::test_util::test_terminal(80, 25));
+        let mut d = Dialog::new(Rect::new(0, 0, 30, 8), "t");
+        d.add(Button::new(Rect::new(1, 4, 11, 6), "OK", CM_OK, true));
+
+        let keys = app.terminal.event_injector();
+        keys.send(Event::keyboard(KB_ENTER)).unwrap();
+        assert_eq!(d.execute(&mut app), CM_OK);
+
+        // Nothing queued yet: the second run must wait for this Esc.
+        keys.send(Event::keyboard(KB_ESC)).unwrap();
+        assert_eq!(d.execute(&mut app), CM_CANCEL);
+        keys.send(Event::keyboard(KB_ENTER)).unwrap();
+        assert_eq!(d.execute(&mut app), CM_OK, "and a third time");
     }
 
     #[test]
