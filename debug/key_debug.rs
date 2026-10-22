@@ -9,13 +9,13 @@ fn main() -> Result<()> {
     let mut terminal = Terminal::init()?;
 
     println!("Key Debug Test - Press keys to see their codes");
-    println!("Expected F11: 0x{:04X}", KB_F11);
-    println!("Expected F12: 0x{:04X}", KB_F12);
+    println!("Expected F11: 0x{KB_F11:04X}");
+    println!("Expected F12: 0x{KB_F12:04X}");
     println!("Press Ctrl+C to exit\n");
 
     loop {
         if let Ok(Some(event)) = terminal.poll_event(Duration::from_millis(50)) {
-            println!("Event: {:?}", event);
+            println!("Event: {event:?}");
             println!("  what: {:?}", event.what);
             println!("  key_code: 0x{:04X}", event.key_code);
             println!();

@@ -15,6 +15,8 @@ pub struct Label {
     core: ViewCore,
     text: String,
     link: Option<ViewId>, // ID of linked control
+    /// Drawn in the error colour: its field holds an invalid value.
+    error: bool,
 }
 
 impl Label {
@@ -29,6 +31,7 @@ impl Label {
             },
             text: text.to_string(),
             link: None,
+            error: false,
         }
     }
 
@@ -47,6 +50,17 @@ impl Label {
     /// Replace the label text.
     pub fn set_text(&mut self, text: &str) {
         self.text = text.to_string();
+    }
+
+    /// Mark the label as naming a field with an invalid value: it is drawn in
+    /// red until cleared.
+    pub fn set_error(&mut self, error: bool) {
+        self.error = error;
+    }
+
+    /// Whether the label is marked as naming an invalid field.
+    pub fn is_error(&self) -> bool {
+        self.error
     }
 
     /// Extract the hotkey character from the label text
@@ -81,8 +95,13 @@ impl View for Label {
 
         // Label palette indices:
         // 1: Normal, 2: Selected, 3: Shortcut
-        let normal_attr = self.map_color(LABEL_NORMAL);
-        let shortcut_attr = self.map_color(LABEL_SHORTCUT);
+        let mut normal_attr = self.map_color(LABEL_NORMAL);
+        let mut shortcut_attr = self.map_color(LABEL_SHORTCUT);
+        if self.error {
+            // Keep the background, so the label still sits on its dialog.
+            normal_attr.fg = crate::core::palette::TvColor::Red;
+            shortcut_attr.fg = crate::core::palette::TvColor::Red;
+        }
 
         buf.move_char(0, ' ', normal_attr, width);
         buf.move_str_with_shortcut(0, &self.text, normal_attr, shortcut_attr);
@@ -182,5 +201,38 @@ impl LabelBuilder {
 impl Default for LabelBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::palette::TvColor;
+    use crate::test_util::test_terminal;
+
+    #[test]
+    fn an_error_label_is_drawn_in_red_and_a_clear_one_is_not() {
+        use crate::views::GroupLike;
+        use crate::views::dialog::Dialog;
+        let mut terminal = test_terminal(40, 10);
+        let mut dialog = Dialog::new(Rect::new(0, 0, 30, 6), "T");
+        let label = dialog.add_typed(Label::new(Rect::new(0, 0, 10, 1), "~N~ame"));
+        // The label's second letter, one row and column inside the frame.
+        let cell = |terminal: &Terminal| terminal.read_cell(2, 1).unwrap().attr;
+
+        terminal.draw_view(&mut dialog);
+        let normal = cell(&terminal);
+        assert_ne!(normal.fg, TvColor::Red, "a dialog's label is not red");
+
+        dialog.get_mut(label).unwrap().set_error(true);
+        assert!(dialog.get(label).unwrap().is_error());
+        terminal.draw_view(&mut dialog);
+        let red = cell(&terminal);
+        assert_eq!(red.fg, TvColor::Red);
+        assert_eq!(red.bg, normal.bg, "the background is kept");
+
+        dialog.get_mut(label).unwrap().set_error(false);
+        terminal.draw_view(&mut dialog);
+        assert_eq!(cell(&terminal), normal);
     }
 }

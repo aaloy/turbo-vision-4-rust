@@ -77,6 +77,23 @@ impl InputLine {
         self.validator = Some(validator);
     }
 
+    /// Whether the text passes the validator (true with none), without the
+    /// validator's error message box that [`validate`](Self::validate) shows.
+    pub fn is_valid(&self) -> bool {
+        self.validator
+            .as_ref()
+            .is_none_or(|v| v.borrow().is_valid(&self.text))
+    }
+
+    /// The most characters the line accepts. Text already longer is cut.
+    pub fn set_max_length(&mut self, max_length: usize) {
+        self.max_length = max_length;
+        if char_len(&self.text) > max_length {
+            let text: String = self.text.chars().take(max_length).collect();
+            self.set_text(text);
+        }
+    }
+
     /// Validate the current input
     /// Returns true if valid or no validator is set
     pub fn validate(&self) -> bool {
@@ -885,5 +902,25 @@ mod tests {
         }
         assert_eq!(dialog.end_state(), 0, "still open");
         assert_eq!(dialog.get(input).map(InputLine::text), Some("ěĜ"));
+    }
+
+    #[test]
+    fn is_valid_checks_the_validator_without_a_message_box() {
+        use crate::views::validator::RangeValidator;
+        let mut input = make("5");
+        assert!(input.is_valid(), "no validator accepts anything");
+        input.set_validator(Rc::new(std::cell::RefCell::new(RangeValidator::new(1, 9))));
+        assert!(input.is_valid());
+        input.set_text("50");
+        assert!(!input.is_valid());
+    }
+
+    #[test]
+    fn set_max_length_cuts_longer_text_and_limits_typing() {
+        let mut input = make("abcdefgh");
+        input.set_max_length(3);
+        assert_eq!(input.text(), "abc");
+        input.set_max_length(5);
+        assert_eq!(input.text(), "abc", "raising the limit keeps the text");
     }
 }
