@@ -222,7 +222,9 @@ impl ComboBox {
             return false;
         }
         let last = state.items.len() as i32 - 1;
-        let current = state.selected.map_or(0, |i| i as i32);
+        // With nothing chosen, Down picks the first item and Up the first too,
+        // instead of stepping from item 0 to item 1.
+        let current = state.selected.map_or(-1, |i| i as i32);
         let next = (current + delta).clamp(0, last);
         if Some(next as usize) == state.selected {
             return false;
@@ -780,6 +782,21 @@ mod tests {
         let mut e = key(KB_UP);
         c.handle_event(&mut e);
         assert_eq!(c.selected(), Some(1));
+    }
+
+    #[test]
+    fn down_from_no_choice_picks_the_first_item() {
+        let mut c = combo(910);
+        c.set_selected(None);
+        c.set_state(State::FOCUSED);
+        let mut e = key(KB_DOWN);
+        c.handle_event(&mut e);
+        assert_eq!(c.selected(), Some(0), "not the second item");
+
+        c.set_selected(None);
+        let mut e = key(KB_UP);
+        c.handle_event(&mut e);
+        assert_eq!(c.selected(), Some(0));
     }
 
     #[test]
