@@ -8,11 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- A modal `Dialog` with `Options::CENTERED` (or `CENTER_X` / `CENTER_Y`) is
+  centred on the desktop when executed, as Borland centres a view with
+  `ofCentered` on insert; `Desktop::add` already did this.
 - `Dialog::prepare_modal` is public. Call it before running
   `Application::execute_modal` on a dialog yourself, for work on every turn
   of the loop such as refreshing a preview: it does what `Dialog::execute`
-  does first (modal state, so OK and Cancel end the loop; drag limits;
-  first child focused).
+  does first (modal state, so OK and Cancel end the loop; centred on the
+  desktop; drag limits; first child focused).
 - Buttons give press feedback, like Borland's `TButton::drawState`.
   Held down with the mouse, a button is drawn pushed in: the face moves one
   column right onto its shadow and the shadow disappears. It follows the
