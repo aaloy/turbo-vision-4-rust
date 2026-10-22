@@ -84,6 +84,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- A dialog that has run once waits for the user when it runs again. Its end
+  state was never reset, so the second `execute` returned the first run's
+  result at once, without showing the dialog; Borland's `TGroup::execute`
+  starts from zero. `prepare_modal` resets it, so a reused `Dialog` (or an
+  `Editor` editing one record after another) works as documented.
 - A button answers Alt plus its `~` letter, as Borland's does, not only the
   letter alone. In a dialog whose focus is in an input line the plain letter
   is typed into the field, so Alt+O was the only way to press **~O~K** from
