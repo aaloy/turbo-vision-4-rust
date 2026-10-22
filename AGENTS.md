@@ -645,10 +645,11 @@ fn enter_presses_ok() {
 ## 6. Working on the crate itself
 
 - **Build and test:** `cargo build`, `cargo test` (unit, integration and
-  doctests, including this file), `cargo clippy --all-targets` (pedantic lints
-  are on; leave no new warnings).
-- **Format only the files you touch:** `rustfmt --edition 2024 <file>`. The
-  tree is not fully formatted, so `cargo fmt` would rewrite unrelated code.
+  doctests, including this file), and
+  `cargo clippy --workspace --all-targets -- -D warnings` (pedantic lints are
+  on; the tree is clean, so any warning fails).
+- **Format with `cargo fmt`:** the tree is fully formatted, and
+  `cargo fmt --check` must pass.
 - **Faithful to Borland:** behaviour follows Borland Turbo Vision (and
   magiblot's tvision where it improves on it). Comments cite the original
   (`Matches Borland: TButton::handleEvent`).
