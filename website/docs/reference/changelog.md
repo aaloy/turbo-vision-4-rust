@@ -16,6 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `InputLine::set_max_length` changes the limit; `Group::focused_view_id`
   names the focused child. Small hooks for code that lays out and validates
   a dialog's fields, such as the `Form` of the `tv-extensions` crate.
+- `AGENTS.md`: the guide for people and AI assistants writing applications with the crate or working on it. The
+  Turbo Vision way of working in one page, the idiomatic application
+  skeleton (`run_with` and an `AppHandler`), an index of every component
+  with how to create and use it, recipes, and rules and pitfalls. Its code
+  blocks are compiled as doctests. Published on the site, which also gets an
+  `llms.txt`. Rule 14 and the "Follow a terminal resize" recipe: the terminal
+  can be resized at any moment, so every view sized from it needs grow bits.
+- `tests/docs_index.rs` fails when a view module is missing from
+  `AGENTS.md`'s component index, or a view or core module from
+  `docs/RUST-API-CATALOG.md`.
+- The crate docs' quick start uses `run_with` and an `AppHandler` instead of
+  a hand-written event loop.
+- `docs/RUST-API-CATALOG.md` is checked against the source: every public
+  module has a section.
 - `Dialog::prepare_modal` is public. Call it before running
   `Application::execute_modal` on a dialog yourself, for work on every turn
   of the loop such as refreshing a preview: it does what `Dialog::execute`
@@ -92,31 +106,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ComboBox` with no choice made: the first Down (or Up) picks the first
   item. It stepped from item 0 to item 1, so the first item could not be
   reached with the arrow keys.
-- A button answers Alt plus its `~` letter, as Borland's does, not only the
-  letter alone. In a dialog whose focus is in an input line the plain letter
-  is typed into the field, so Alt+O was the only way to press **~O~K** from
-  the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
-  `getAltCode`) gives the key code; `Label` uses it too.
-- A `Tooltip` no longer takes the clicks of the controls it covers. Added
-  last, as it must be, it lay over them, so a click went to the tooltip and
-  the button under it never saw it.
-- A tooltip's hint appears when its delay is over. It was raised on an idle
-  tick, after which nothing is drawn, so it showed only once the pointer
-  moved again.
-- Non-ASCII text can be typed. `InputLine`, `Memo`, `SortedListBox`'s
-  type-ahead and menu letters accepted only ASCII 32–126 (the editor a
-  little more): `é`, `ñ`, `ç`, `€`, `ł`, Greek, Cyrillic and the rest now
-  type everywhere. Characters two cells wide (CJK, emoji) are not typed yet:
-  a screen cell holds one character, one column wide.
-- Typed characters no longer act as special keys. `ě` (U+011B) arrived as
-  `KB_ESC` and closed the dialog it was typed into; `Ĝ` was Esc-Esc and
-  `ⴀ` Alt+X. They now arrive as `KB_TEXT` with the character in `ch`.
-- A button's hotkey is the typed character, not the key code's low byte:
-  `ł` (U+0142) no longer presses a `~B~` button, and a `~Ñ~` hotkey works.
-  Menu letters match non-ASCII accelerators in either case.
-- `Memo` measures line width in characters, not bytes.
-
-### Fixed
 - A read-only `EditorWindow` lets Tab move the focus to the next control.
   It used to take the key and type nothing, so the focus could not leave
   it by keyboard.
@@ -152,6 +141,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   desktop window landed a row low, so calculator buttons did nothing and
   windows could not be dragged, and the status line's Exit never saw its
   click. They now route through `views::view::dispatch_to_child`.
+- A button answers Alt plus its `~` letter, as Borland's does, not only the
+  letter alone. In a dialog whose focus is in an input line the plain letter
+  is typed into the field, so Alt+O was the only way to press **~O~K** from
+  the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
+  `getAltCode`) gives the key code; `Label` uses it too.
+- A `Tooltip` no longer takes the clicks of the controls it covers. Added
+  last, as it must be, it lay over them, so a click went to the tooltip and
+  the button under it never saw it.
+- A tooltip's hint appears when its delay is over. It was raised on an idle
+  tick, after which nothing is drawn, so it showed only once the pointer
+  moved again.
+- `FileDialog`: after entering a folder (or `..`, or a `dir/*.ext` filter)
+  the Open/Save button and Enter no longer closed the dialog, so a file
+  outside the starting folder could not be opened, nor a save location
+  picked. Navigation rebuilt the dialog and lost its modal state; it now
+  refills the list and the directory label in place, like Borland's
+  `TFileList::readDirectory()`. The directory label no longer shows a
+  trailing `/`. `Label::text` / `Label::set_text` added.
+- Non-ASCII text can be typed. `InputLine`, `Memo`, `SortedListBox`'s
+  type-ahead and menu letters accepted only ASCII 32–126 (the editor a
+  little more): `é`, `ñ`, `ç`, `€`, `ł`, Greek, Cyrillic and the rest now
+  type everywhere. Characters two cells wide (CJK, emoji) are not typed yet:
+  a screen cell holds one character, one column wide.
+- Typed characters no longer act as special keys. `ě` (U+011B) arrived as
+  `KB_ESC` and closed the dialog it was typed into; `Ĝ` was Esc-Esc and
+  `ⴀ` Alt+X. They now arrive as `KB_TEXT` with the character in `ch`.
+- A button's hotkey is the typed character, not the key code's low byte:
+  `ł` (U+0142) no longer presses a `~B~` button, and a `~Ñ~` hotkey works.
+  Menu letters match non-ASCII accelerators in either case.
+- `Memo` measures line width in characters, not bytes.
+
+## [4.0.3] - 2026-10-07
+
+### Added
+- **`FileDialog` hides hidden entries and can toggle them.** Names starting
+  with `.` (the Unix hidden convention, files and folders alike) are no
+  longer listed by default; `..` still is, and a hidden name typed into the
+  input still opens or navigates. `FileDialogBuilder::show_hidden(true)`
+  lists them from the start, and `FileDialogBuilder::hidden_toggle(true)`
+  adds a "Show hidden" checkbox on the Files row that re-reads the folder
+  in place when flipped. Both settings survive directory navigation.
+- **Embedded checkboxes.** `CheckBox::set_embedded(true)` draws the box on
+  the owner's background with label colours (focus shown as light text)
+  instead of the classic cyan cluster box, via the new
+  `palettes::CP_CLUSTER_EMBEDDED`. The file dialog's "Show hidden"
+  checkbox uses it.
+
+### Changed
+- **`FileDialog` no longer lists dot-entries by default.** Callers that
+  relied on seeing them should pass `.show_hidden(true)`.
 
 ## [4.0.2] - 2026-10-02
 

@@ -191,10 +191,12 @@ This project includes extensive documentation for different audiences and use ca
 
 If you're new to Turbo Vision frameworks, follow this path:
 
+0. **[AGENTS.md](AGENTS.md)** - The Turbo Vision way in one page, the application skeleton, an index of every component, recipes and rules. Written for people and AI assistants alike; its examples are compiled as tests.
 1. **Quick Start** (above) - Get a minimal example running
 2. **[Examples Overview](examples/README.md)** - Browse 30+ working examples
    ```bash
    cargo run --example showcase    # Comprehensive feature showcase
+   cargo run --example gallery     # Every component, live, with its code
    cargo run --bin pascal_ide     # Full-featured text editor
    ```
 3. **[User Guide - Chapter 1](docs/user-guide/Chapter-01-Stepping-into-Turbo-Vision.md)** - Learn the basics
