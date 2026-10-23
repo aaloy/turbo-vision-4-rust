@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   count characters now.
 - A crate test draws, edits and scrolls every text-showing view with
   multi-byte text wider than the view, so a byte-offset cut cannot come back.
+- `AGENTS.md` and the gallery's Window and TextViewer demos said
+  `Grow::ALL` makes a view fill its window. It is Borland's `gfGrowAll`:
+  every edge follows the owner, so the view keeps its size and moves with
+  the bottom-right corner, taking its scroll bars with it. They now use
+  `Grow::HI_X | Grow::HI_Y`, which stretches, and `Grow::ALL`'s doc comment
+  says what it does.
 
 ## [4.1.0] - 2026-10-23
 

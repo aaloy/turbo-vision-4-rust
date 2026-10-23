@@ -398,7 +398,7 @@ fn open_log(app: &mut Application) -> LogWindow {
     let mut window = Window::new(Rect::new(2, 1, 62, 16), "Log");
     // Children are placed inside the frame: (0, 0) is the inner corner.
     let mut viewer = TextViewer::new(Rect::new(0, 0, 58, 13)).with_scrollbars(true);
-    viewer.set_grow_mode(Grow::ALL); // follow the window when it is resized
+    viewer.set_grow_mode(Grow::HI_X | Grow::HI_Y); // stretch with the window
     let viewer = window.add_typed(viewer);
     let window = app.desktop.add_typed(window);
     LogWindow { window, viewer }
@@ -628,7 +628,9 @@ fn enter_presses_ok() {
     redraws; change their state and let them draw. `app.needs_redraw()`
     forces a full redraw.
 13. **Grow modes decide resizing.** A child with no grow bits stays put when its
-    owner resizes. `Grow::ALL` fills, `Grow::HI_X` stretches to the right.
+    owner resizes. `Grow::HI_X | Grow::HI_Y` fills (it stretches with the owner),
+    `Grow::HI_X` stretches to the right. `Grow::ALL` moves every edge, so the
+    view keeps its size and travels with the bottom-right corner.
 14. **The terminal can be resized at any moment, and your layout must follow.**
     This is the rule most often forgotten. The application moves the menu bar,
     status line and desktop for you; every other view follows only through its
