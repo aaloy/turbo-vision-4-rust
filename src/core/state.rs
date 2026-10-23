@@ -157,7 +157,9 @@ flags! {
         const HI_X = 0x04;
         /// Bottom edge follows the parent's height change (Borland: gfGrowHiY)
         const HI_Y = 0x08;
-        /// All edges follow the parent's size change (Borland: gfGrowAll)
+        /// All edges follow the parent's size change, so the view keeps its size
+        /// and moves with the parent's bottom-right corner (Borland: gfGrowAll).
+        /// To stretch with the parent, use `HI_X | HI_Y`.
         const ALL = 0x0F;
     }
 }

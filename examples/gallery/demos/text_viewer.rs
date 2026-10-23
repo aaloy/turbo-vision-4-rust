@@ -6,7 +6,8 @@
 //!   inside those bounds; `.with_indicator(true)` a line:column row on top.
 //! - `set_text(text)`, `load_file(path)`: what it shows.
 //! - `set_show_line_numbers(true)`: numbers the lines.
-//! - `set_grow_mode(Grow::ALL)`: in a window, it follows the window's size.
+//! - `set_grow_mode(Grow::HI_X | Grow::HI_Y)`: in a window, it stretches with
+//!   the window.
 //!
 //! See also: Editor, Memo, StaticText
 
