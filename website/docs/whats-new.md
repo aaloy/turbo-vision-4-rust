@@ -5,9 +5,19 @@ in prose, newest first. If you are moving a project onto 4.0.0, work through
 [the 4.0 upgrade guide](reference/upgrading-4.0.md) instead: it is the same ground as an ordered
 checklist. Moving from 3.0.0 instead uses [the 3.0 upgrade guide](reference/upgrading.md).
 
-## Unreleased
+## 4.1.0 &mdash; October 2026
 
-Not in a release yet &mdash; coming in the next release. The crate on crates.io is still 4.0.2.
+Buttons give press feedback, as Borland's do. Held down with the mouse, a button is drawn pushed
+in and follows the pointer; pressed from the keyboard, it shows pushed in for 100 ms and then sends
+its command, queued through the new `core::timed_event` (`post_after`, `post_at`). A host-driven
+application turns the animation off, since its host steps it only when there is input.
+`button::set_press_animation(Duration::ZERO)` does the same anywhere.
+
+`GroupBox` draws a titled frame around related controls. A modal dialog asking for
+`Options::CENTERED` is centred when it runs, and `Dialog::prepare_modal` is public for code that
+runs its own modal loop. Small hooks for laying out and validating fields arrived too:
+`Label::set_error`, `InputLine::is_valid` and `set_max_length`, `Group::focused_view_id`.
+`cargo run --example gallery` shows every component live, beside the code that built it.
 
 `Table` can freeze panes, like a spreadsheet. `set_frozen_cols(n)` keeps the first `n` columns
 at the left edge while the others scroll sideways, with a `║` marking the edge in every line;
