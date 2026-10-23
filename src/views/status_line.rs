@@ -135,7 +135,7 @@ impl StatusLine {
 
         let mut x = 0; // Start at position 0 (Borland starts at i=0)
         for (idx, item) in self.items.iter().enumerate() {
-            if x + item.text.len() + 4 < width {
+            if x + item.text.chars().count() + 4 < width {
                 // Need space for: space + text + space + separator
                 // Hit area starts at the leading space (matches Borland tstatusl.cc:204)
                 let start_x = x as i16;
@@ -446,6 +446,25 @@ mod tests {
 
         assert_eq!(event.what, EventType::Command);
         assert_eq!(event.command, TEST_CMD);
+    }
+
+    /// Whether an item fits is measured in characters: "~F2~ Menú" fits a
+    /// 14-column line, but its 10 bytes made it look one column too wide.
+    #[test]
+    fn a_multibyte_item_that_fits_is_drawn() {
+        let mut terminal = crate::test_util::test_terminal(20, 2);
+        let mut status = StatusLine::new(
+            Rect::new(0, 0, 14, 1),
+            vec![
+                StatusItemBuilder::new()
+                    .text("~F2~ Menú")
+                    .key_code(TEST_KEY)
+                    .command(524)
+                    .build(),
+            ],
+        );
+        crate::views::view::draw_child(&mut terminal, &mut status);
+        assert_eq!(status.item_positions.len(), 1);
     }
 
     #[test]

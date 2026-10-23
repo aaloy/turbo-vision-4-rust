@@ -146,7 +146,7 @@ impl SyntaxHighlighter for PlainTextHighlighter {
         if line.is_empty() {
             vec![]
         } else {
-            vec![Token::new(0, line.len(), TokenType::Normal)]
+            vec![Token::new(0, line.chars().count(), TokenType::Normal)]
         }
     }
 }
@@ -256,12 +256,14 @@ impl SyntaxHighlighter for RustHighlighter {
         // Check for block comment continuation
         if self.in_block_comment {
             // Find end of block comment
-            if let Some(end_pos) = line.find("*/") {
+            if let Some(end_byte) = line.find("*/") {
+                // `find` gives a byte offset; tokens are in characters
+                let end_pos = line[..end_byte].chars().count();
                 tokens.push(Token::new(0, end_pos + 2, TokenType::Comment));
                 i = end_pos + 2;
             } else {
                 // Entire line is comment
-                tokens.push(Token::new(0, line.len(), TokenType::Comment));
+                tokens.push(Token::new(0, chars.len(), TokenType::Comment));
                 return tokens;
             }
         }
@@ -481,6 +483,20 @@ mod tests {
         // Find string token
         let string_token = tokens.iter().find(|t| t.token_type == TokenType::String);
         assert!(string_token.is_some(), "Should find string literal");
+    }
+
+    /// Token positions are characters, also after a multi-byte character.
+    #[test]
+    fn token_positions_are_characters() {
+        let tokens = PlainTextHighlighter.highlight_line("año", 0);
+        assert_eq!(tokens[0].end, 3);
+
+        let mut highlighter = RustHighlighter::new();
+        highlighter.in_block_comment = true;
+        let tokens = highlighter.highlight_line("ñ */ fn", 0);
+        assert_eq!(tokens[0].end, 4, "the comment ends after `*/`");
+        let keyword = tokens.iter().find(|t| t.token_type == TokenType::Keyword);
+        assert_eq!(keyword.map(|t| (t.start, t.end)), Some((5, 7)));
     }
 
     #[test]

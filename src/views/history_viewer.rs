@@ -117,7 +117,7 @@ impl View for HistoryViewer {
                 buf.move_str(0, text, color);
 
                 // Fill rest of line with spaces
-                let text_len = text.len();
+                let text_len = text.chars().count();
                 if text_len < width {
                     buf.move_char(text_len, ' ', color, width - text_len);
                 }
@@ -255,5 +255,22 @@ mod tests {
         let viewer = HistoryViewer::new(Rect::new(0, 0, 20, 10), 99);
         assert_eq!(viewer.item_count(), 0);
         assert_eq!(viewer.get_selected_item(), None);
+    }
+
+    /// The fill after an entry starts where its characters end: measured in
+    /// bytes, "café" left the cell after it unpainted.
+    #[test]
+    fn fills_the_row_after_a_multibyte_entry() {
+        let _guard = crate::core::history::test_lock();
+        HistoryManager::clear_all();
+        HistoryManager::add(3, "café".to_string());
+
+        let mut terminal = crate::test_util::test_terminal(20, 5);
+        let mut viewer = HistoryViewer::new(Rect::new(0, 0, 10, 2), 3);
+        crate::views::view::draw_child(&mut terminal, &mut viewer);
+        let after = terminal.read_cell(4, 0).unwrap();
+        let end = terminal.read_cell(9, 0).unwrap();
+        assert_eq!(after.ch, ' ');
+        assert_eq!(after.attr, end.attr, "the row is filled in one colour");
     }
 }
