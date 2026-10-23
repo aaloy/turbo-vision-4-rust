@@ -126,7 +126,7 @@ def main() -> None:
 
 
 def sync_extensions() -> None:
-    """Copy tv-extensions' docs/*.md to website/docs/extensions."""
+    """Copy tv-extensions' docs/*.md and docs/assets to website/docs/extensions."""
     src_dir = EXTENSIONS / "docs"
     if not src_dir.is_dir():
         print(f"no tv-extensions checkout at {EXTENSIONS}; kept the extensions pages as they are")
@@ -140,6 +140,9 @@ def sync_extensions() -> None:
         # Its pages link only to each other, so only the doctest fences change.
         text = re.sub(r"```rust,(?:no_run|ignore)", "```rust", src.read_text(encoding="utf-8"))
         (dst_dir / src.name).write_text(text, encoding="utf-8")
+    # The pages' pictures, at the same relative path.
+    if (src_dir / "assets").is_dir():
+        shutil.copytree(src_dir / "assets", dst_dir / "assets")
     print(f"synced {len(pages)} tv-extensions pages from {src_dir}")
 
 

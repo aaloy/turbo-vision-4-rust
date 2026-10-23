@@ -22,7 +22,7 @@ behind its own feature:
 
 ```toml
 turbo-vision = "4.1"
-tv-extensions = { version = "0.3", features = ["ssh"] }
+tv-extensions = { version = "0.4", features = ["ssh"] }
 ```
 
 ## The smallest application
