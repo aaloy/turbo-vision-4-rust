@@ -12,8 +12,8 @@
 //! - `set_min_size(Point::new(w, h))`: the smallest it may be resized to.
 //! - `set_number(n)`: the number in its frame; Alt and the number selects
 //!   it.
-//! - `set_grow_mode(Grow::ALL)` on a view inside: it follows the window's
-//!   size.
+//! - `set_grow_mode(Grow::HI_X | Grow::HI_Y)` on a view inside: it stretches
+//!   with the window.
 //!
 //! See also: Editor, SplitPane
 
@@ -46,7 +46,7 @@ pub fn handle(app: &mut Application, command: CommandId) -> bool {
     // (0, 0) is the corner inside the frame.
     let mut notes = TextViewer::new(Rect::new(0, 0, 38, 10)).with_scrollbars(true);
     notes.set_text("Drag me by the title.\nResize me from the corner.\nClose me with the box.");
-    notes.set_grow_mode(Grow::ALL); // follow the window when it is resized
+    notes.set_grow_mode(Grow::HI_X | Grow::HI_Y); // stretch with the window
     window.add(notes);
     app.desktop.add(window);
     true
