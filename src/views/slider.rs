@@ -345,11 +345,15 @@ mod tests {
             key(&mut s, KB_END);
             key(&mut s, KB_LEFT);
             click(&mut s, width - 1);
-            let mut term =
-                crate::test_util::test_terminal(u16::try_from(width).unwrap_or(0), 1);
+            let mut term = crate::test_util::test_terminal(u16::try_from(width).unwrap_or(0), 1);
             s.draw(&mut term);
-            let thumbs = (0..width).filter(|&x| term.read_cell(x, 0).unwrap().ch == THUMB).count();
-            assert_eq!(thumbs, 1, "one thumb inside the view for {min}..={max} in {width}");
+            let thumbs = (0..width)
+                .filter(|&x| term.read_cell(x, 0).unwrap().ch == THUMB)
+                .count();
+            assert_eq!(
+                thumbs, 1,
+                "one thumb inside the view for {min}..={max} in {width}"
+            );
         }
     }
 
@@ -382,7 +386,11 @@ mod tests {
 
         // A subsequent move at the same position without the button changes nothing.
         mouse_move(&mut s, 5, 0, 0);
-        assert_eq!(s.value(), 0, "after release, moves without button do nothing");
+        assert_eq!(
+            s.value(),
+            0,
+            "after release, moves without button do nothing"
+        );
         assert!(!s.state().contains(State::DRAGGING));
     }
 
@@ -528,6 +536,10 @@ mod tests {
             .as_any_mut()
             .downcast_mut::<Slider>()
             .expect("child should be a Slider");
-        assert_eq!(slider.value(), 10, "drag far right in group should clamp to max");
+        assert_eq!(
+            slider.value(),
+            10,
+            "drag far right in group should clamp to max"
+        );
     }
 }

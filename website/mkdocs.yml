@@ -129,6 +129,17 @@ nav:
   - Examples:
       - examples/index.md
       - examples/walkthroughs.md
+  - Extensions:
+      - extensions/index.md
+      - extensions/host.md
+      - extensions/scroll-pane.md
+      - extensions/autocomplete.md
+      - extensions/dual-list.md
+      - extensions/csv.md
+      - extensions/log.md
+      - extensions/graphics.md
+      - extensions/remote-input.md
+      - extensions/ssh.md
   - vs. C++:
       - compare/index.md
       - compare/app-model.md

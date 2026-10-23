@@ -208,7 +208,6 @@ impl Default for LabelBuilder {
 mod tests {
     use super::*;
     use crate::core::palette::TvColor;
-    use crate::terminal::Terminal;
     use crate::test_util::test_terminal;
 
     #[test]

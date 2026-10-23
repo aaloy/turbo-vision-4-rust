@@ -71,12 +71,12 @@ impl MenuBox {
         for item in &menu.items {
             let item_width = match item {
                 MenuItem::Regular { text, shortcut, .. } => {
-                    let text_len = text.replace('~', "").len();
-                    let shortcut_len = shortcut.as_ref().map_or(0, |s| s.len() + 2);
+                    let text_len = text.replace('~', "").chars().count();
+                    let shortcut_len = shortcut.as_ref().map_or(0, |s| s.chars().count() + 2);
                     text_len + shortcut_len + 6 // Padding
                 }
                 MenuItem::SubMenu { text, .. } => {
-                    let text_len = text.replace('~', "").len();
+                    let text_len = text.replace('~', "").chars().count();
                     text_len + 6 + 3 // Padding + submenu arrow
                 }
                 MenuItem::Separator => 4, // Just borders
@@ -259,7 +259,7 @@ impl View for MenuBox {
 
                     // Draw shortcut right-aligned
                     if let Some(shortcut_text) = shortcut {
-                        let shortcut_x = width - shortcut_text.len() - 2;
+                        let shortcut_x = width - shortcut_text.chars().count() - 2;
                         for (i, ch) in shortcut_text.chars().enumerate() {
                             buf.put_char(shortcut_x + i, ch, shortcut_attr);
                         }
@@ -483,6 +483,14 @@ mod tests {
         assert_eq!(menubox.bounds().a.y, 5);
         assert!(menubox.bounds().width() >= 10); // At least minimum width
         assert_eq!(menubox.bounds().height(), 4); // 2 items + 2 borders
+    }
+
+    /// The box is as wide as its text in characters, not bytes.
+    #[test]
+    fn test_menubox_width_counts_characters() {
+        let menu = MenuBuilder::new().item("~C~onfiguración", 100).build();
+        let menubox = MenuBox::new(Point::new(0, 0), menu);
+        assert_eq!(menubox.bounds().width(), 13 + 6);
     }
 
     #[test]

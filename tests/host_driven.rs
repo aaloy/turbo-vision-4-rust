@@ -179,6 +179,41 @@ fn a_refused_modal_leaves_the_desktop_child_count_unchanged() {
     assert_eq!(app.desktop.child_count(), before);
 }
 
+/// A host steps the application only when it has input, so a button pressed
+/// from the keyboard cannot wait for its press animation: its command comes
+/// out of the same step.
+#[test]
+fn a_stepped_enter_on_a_button_sends_its_command_in_that_step() {
+    use turbo_vision::core::command::CM_USER;
+    use turbo_vision::views::button::Button;
+
+    const CM_PRESSED: CommandId = CM_USER + 1;
+    struct Pressed(bool);
+    impl AppHandler for Pressed {
+        fn handle_command(&mut self, _: &mut Application, command: CommandId, _: &Event) -> bool {
+            self.0 |= command == CM_PRESSED;
+            self.0
+        }
+    }
+
+    let (mut app, _queue) = app(40, 10);
+    let mut window = WindowBuilder::new()
+        .bounds(Rect::new(0, 0, 40, 10))
+        .title("T")
+        .build();
+    window.add(Button::new(
+        Rect::new(1, 1, 11, 3),
+        "~P~ress",
+        CM_PRESSED,
+        false,
+    ));
+    app.desktop.add(window);
+    let mut pressed = Pressed(false);
+    let enter = Event::from_crossterm_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::empty()));
+    app.step(&mut pressed, Some(enter));
+    assert!(pressed.0, "the command arrived in the step that pressed it");
+}
+
 #[test]
 fn execute_modal_on_a_host_driven_app_returns_promptly() {
     use turbo_vision::app::ModalTick;

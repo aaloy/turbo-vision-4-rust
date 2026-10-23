@@ -220,13 +220,16 @@ pub fn message_box_rect(
 
     // Calculate button positions (one row higher)
     let button_y = bounds.height() - 4;
-    let total_width: usize = buttons.iter().map(|(label, _)| label.len() + 2).sum();
+    let total_width: usize = buttons
+        .iter()
+        .map(|(label, _)| label.chars().count() + 2)
+        .sum();
     let mut x = (bounds.width_clamped() as usize - total_width) / 2;
 
     // Add buttons
     let is_default = buttons.len() == 1 || options.contains(MsgBox::OK_BUTTON);
     for (i, (label, cmd)) in buttons.iter().enumerate() {
-        let button_width = label.len() as i16;
+        let button_width = label.chars().count() as i16;
         let button_bounds = Rect::new(x as i16, button_y, x as i16 + button_width, button_y + 2);
         let is_this_default = is_default && (i == 0 || *cmd == CM_OK);
         dialog.add(Button::new(button_bounds, label, *cmd, is_this_default));
@@ -339,7 +342,7 @@ pub fn input_box(
     max_length: usize,
 ) -> Option<String> {
     // Calculate dialog size
-    let label_len = label.len();
+    let label_len = label.chars().count();
     let width = (label_len + max_length + 12).clamp(30, 60);
     let height = 8;
 
@@ -366,7 +369,7 @@ pub fn input_box_rect(
 
     // Add label
     let label_x = 2;
-    let label_width = label.len() as i16;
+    let label_width = label.chars().count() as i16;
     let label_bounds = Rect::new(label_x, 2, label_x + label_width, 3);
     dialog.add(Label::new(label_bounds, label));
 

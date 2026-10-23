@@ -17,12 +17,12 @@ turbo-vision = "4.0"
 
 One optional feature lives in core: `test-util` exposes the mock terminal so your own tests can
 draw views and read cells back. SSH, remote input, Kitty/ANSI graphics and a log window live in
-the companion [tv-extensions](https://github.com/aovestdipaperino/tv-extensions) crate, each
+the companion [tv-extensions](extensions/index.md) crate, each
 behind its own feature:
 
 ```toml
-turbo-vision = "4.0"
-tv-extensions = { version = "0.2", features = ["ssh"] }
+turbo-vision = "4.1"
+tv-extensions = { version = "0.4", features = ["ssh"] }
 ```
 
 ## The smallest application

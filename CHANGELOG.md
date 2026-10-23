@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `TextViewer` no longer panics on a line wider than the viewer that holds
+  multi-byte characters (`é`, `ñ`, `−`, `€`): it cut each visible line by
+  byte offset, which could fall inside a character. Lines are now cut, and
+  their width for horizontal scrolling measured, in characters.
+- Text measured in bytes where columns were meant, which misplaced labels
+  with multi-byte characters: a click on the first column of the menu after
+  "~E~dición" opened "Edición" (`MenuBar` hit area), a `MenuBar` dropdown or
+  `MenuBox` was one column too wide per such character, `HistoryViewer` left
+  cells unpainted after an entry, `StatusLine` dropped an item that fitted,
+  the message box buttons and `input_box` label were sized wrong, and the
+  plain and Rust syntax highlighters placed tokens after such a character
+  (or after `*/` closing a block comment) in the wrong columns. All of them
+  count characters now.
+- A crate test draws, edits and scrolls every text-showing view with
+  multi-byte text wider than the view, so a byte-offset cut cannot come back.
+
+## [4.1.0] - 2026-10-23
+
 ### Added
 - A modal `Dialog` with `Options::CENTERED` (or `CENTER_X` / `CENTER_Y`) is
   centred on the desktop when executed, as Borland centres a view with
@@ -93,24 +112,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and expects the command in the same event should call
   `button::set_press_animation(Duration::ZERO)`. A broadcast button's
   broadcast, queued the same way, reaches the whole modal view or desktop.
+  A host-driven application (`Application::with_terminal` over a backend
+  whose `is_host_driven` is true) turns the animation off for its thread:
+  the host steps it only when it has input, so a queued command would wait
+  for the next key.
 - `Event` has a new public field, `ch`. Code that builds an `Event` with a
   struct literal naming every field needs `ch: None` or
   `..Event::nothing()`; the constructors (`Event::keyboard` and the rest)
   are unchanged.
 
 ### Fixed
-- `ComboBox` with no choice made: the first Down (or Up) picks the first
-  item. It stepped from item 0 to item 1, so the first item could not be
-  reached with the arrow keys.
 - A dialog that has run once waits for the user when it runs again. Its end
   state was never reset, so the second `execute` returned the first run's
   result at once, without showing the dialog; Borland's `TGroup::execute`
   starts from zero. `prepare_modal` resets it, so a reused `Dialog` (or an
   `Editor` editing one record after another) works as documented.
-- `TextViewer` no longer panics on a line wider than the viewer that holds
-  multi-byte characters (`é`, `ñ`, `−`, `€`): it cut each visible line by
-  byte offset, which could fall inside a character. Lines are now cut, and
-  their width for horizontal scrolling measured, in characters.
+- `ComboBox` with no choice made: the first Down (or Up) picks the first
+  item. It stepped from item 0 to item 1, so the first item could not be
+  reached with the arrow keys.
 - A read-only `EditorWindow` lets Tab move the focus to the next control.
   It used to take the key and type nothing, so the focus could not leave
   it by keyboard.
