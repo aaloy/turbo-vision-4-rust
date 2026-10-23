@@ -4,16 +4,22 @@
 Run from anywhere:  python3 website/sync_docs.py
 Hand-written pages (index, whats-new, comparison, examples, tutorials index)
 live in website/docs and are never touched by this script.
+
+The Extensions section is the companion tv-extensions crate's docs/ folder,
+copied from a checkout beside this one (or from $TV_EXTENSIONS_DIR). Without
+the checkout the pages already under website/docs/extensions are kept.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import shutil
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 SITE_DOCS = REPO / "website" / "docs"
+EXTENSIONS = Path(os.environ.get("TV_EXTENSIONS_DIR", REPO.parent / "tv-extensions"))
 
 # Repository file -> page under website/docs
 COPIES: dict[str, str] = {
@@ -116,6 +122,25 @@ def main() -> None:
         shutil.copytree(REPO / name, target)
 
     print(f"synced {len(pages)} pages and {len(IMAGES) + len(IMAGE_DIRS)} asset entries")
+    sync_extensions()
+
+
+def sync_extensions() -> None:
+    """Copy tv-extensions' docs/*.md to website/docs/extensions."""
+    src_dir = EXTENSIONS / "docs"
+    if not src_dir.is_dir():
+        print(f"no tv-extensions checkout at {EXTENSIONS}; kept the extensions pages as they are")
+        return
+    dst_dir = SITE_DOCS / "extensions"
+    if dst_dir.exists():
+        shutil.rmtree(dst_dir)
+    dst_dir.mkdir(parents=True)
+    pages = sorted(src_dir.glob("*.md"))
+    for src in pages:
+        # Its pages link only to each other, so only the doctest fences change.
+        text = re.sub(r"```rust,(?:no_run|ignore)", "```rust", src.read_text(encoding="utf-8"))
+        (dst_dir / src.name).write_text(text, encoding="utf-8")
+    print(f"synced {len(pages)} tv-extensions pages from {src_dir}")
 
 
 if __name__ == "__main__":

@@ -71,7 +71,7 @@ know most of this library.
 
     A `Backend` trait with a crossterm implementation and a mock terminal your tests can draw
     into and read cells back from. An SSH server, remote input over TCP, Kitty/ANSI graphics and
-    a log window live in the companion [tv-extensions](https://github.com/aovestdipaperino/tv-extensions)
+    a log window live in the companion [tv-extensions](extensions/index.md)
     crate.
 
 </div>
