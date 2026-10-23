@@ -11,7 +11,6 @@ use crate::core::event::{
 };
 use crate::core::geometry::{Point, Rect};
 use crate::terminal::Terminal;
-use std::cmp::min;
 
 /// `TextViewer` displays text content with scrolling support.
 /// Useful for viewing files, logs, or any multi-line text.
@@ -104,7 +103,7 @@ impl TextViewer {
     fn max_line_length(&self) -> i16 {
         self.lines
             .iter()
-            .map(|line| line.len() as i16)
+            .map(|line| line.chars().count() as i16)
             .max()
             .unwrap_or(0)
     }
@@ -255,13 +254,15 @@ impl View for TextViewer {
                     x_offset = line_num_width;
                 }
 
-                // Draw line content
+                // Draw line content. Columns are characters, not bytes:
+                // slicing the string by byte would panic inside a
+                // multi-byte character (`é`, `−`, `€`).
                 let start_col = self.delta.x as usize;
-                if start_col < line.len() {
-                    let visible_width = width - x_offset;
-                    let end_col = min(start_col + visible_width, line.len());
-                    let visible_text = &line[start_col..end_col];
-                    buf.move_str(x_offset, visible_text, color);
+                let visible_width = width - x_offset;
+                let visible_text: String =
+                    line.chars().skip(start_col).take(visible_width).collect();
+                if !visible_text.is_empty() {
+                    buf.move_str(x_offset, &visible_text, color);
                 }
             }
 
@@ -486,6 +487,29 @@ mod tests {
         let viewer = dialog.get(viewer).unwrap();
         assert!(viewer.is_focused());
         assert_eq!(viewer.delta.y, 1, "Down scrolled the focused viewer");
+    }
+
+    /// Lines wider than the viewer with multi-byte characters are cut at
+    /// character boundaries, scrolled or not (it used to panic slicing a
+    /// byte inside `−`).
+    #[test]
+    fn cuts_long_unicode_lines_by_character() {
+        use crate::views::view::draw_child;
+        let mut terminal = crate::test_util::test_terminal(40, 6);
+        let mut viewer = TextViewer::new(Rect::new(0, 0, 10, 3));
+        viewer.set_text("año − vacaciones − días\nñ");
+        assert_eq!(viewer.max_line_length(), 23);
+        draw_child(&mut terminal, &mut viewer);
+        let row: String = (0..10)
+            .filter_map(|x| terminal.read_cell(x, 0).map(|c| c.ch))
+            .collect();
+        assert_eq!(row, "año − vaca");
+        viewer.delta.x = 4;
+        draw_child(&mut terminal, &mut viewer);
+        let row: String = (0..10)
+            .filter_map(|x| terminal.read_cell(x, 0).map(|c| c.ch))
+            .collect();
+        assert_eq!(row, "− vacacion");
     }
 
     /// Regression for 3.0.1: the content area must be the viewer's own
