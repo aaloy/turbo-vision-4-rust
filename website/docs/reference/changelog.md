@@ -76,6 +76,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are unchanged.
 
 ### Fixed
+- `TextViewer` no longer panics on a line wider than the viewer that holds
+  multi-byte characters (`é`, `ñ`, `−`, `€`): it cut each visible line by
+  byte offset, which could fall inside a character. Lines are now cut, and
+  their width for horizontal scrolling measured, in characters.
 - A button answers Alt plus its `~` letter, as Borland's does, not only the
   letter alone. In a dialog whose focus is in an input line the plain letter
   is typed into the field, so Alt+O was the only way to press **~O~K** from
