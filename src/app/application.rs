@@ -155,8 +155,17 @@ impl Application {
     /// terminal. Whether the application is host-driven is read from the
     /// backend here, once, through
     /// [`Backend::is_host_driven`](crate::terminal::Backend::is_host_driven).
+    ///
+    /// A host-driven application also turns off the buttons' press
+    /// animation ([`set_press_animation`]): the host steps it only when it
+    /// has input, so a command queued to arrive after the animation would
+    /// wait for the next key. The setting is per thread, so it also applies
+    /// to an application that owns a terminal on the same thread.
+    ///
+    /// [`set_press_animation`]: crate::views::button::set_press_animation
     pub fn with_terminal(terminal: Terminal) -> Self {
         let driver = if terminal.backend_is_host_driven() {
+            crate::views::button::set_press_animation(std::time::Duration::ZERO);
             Driver::Host
         } else {
             Driver::Terminal

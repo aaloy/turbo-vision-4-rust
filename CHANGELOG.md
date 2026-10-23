@@ -92,6 +92,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and expects the command in the same event should call
   `button::set_press_animation(Duration::ZERO)`. A broadcast button's
   broadcast, queued the same way, reaches the whole modal view or desktop.
+  A host-driven application (`Application::with_terminal` over a backend
+  whose `is_host_driven` is true) turns the animation off for its thread:
+  the host steps it only when it has input, so a queued command would wait
+  for the next key.
 - `Event` has a new public field, `ch`. Code that builds an `Event` with a
   struct literal naming every field needs `ch: None` or
   `..Event::nothing()`; the constructors (`Event::keyboard` and the rest)
