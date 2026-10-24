@@ -255,14 +255,14 @@ impl MenuBar {
                 } => {
                     // Flag items reserve a column for the check mark
                     let mark = usize::from(checked.is_some());
-                    let text_len = text.replace('~', "").len() + mark;
+                    let text_len = text.replace('~', "").chars().count() + mark;
                     max_text_width = max_text_width.max(text_len);
                     if let Some(s) = shortcut {
-                        max_shortcut_width = max_shortcut_width.max(s.len());
+                        max_shortcut_width = max_shortcut_width.max(s.chars().count());
                     }
                 }
                 MenuItem::SubMenu { text, .. } => {
-                    let text_len = text.replace('~', "").len();
+                    let text_len = text.replace('~', "").chars().count();
                     max_text_width = max_text_width.max(text_len + 3); // +3 for arrow
                 }
                 MenuItem::Separator => {}
@@ -384,7 +384,8 @@ impl MenuBar {
 
                     // Draw shortcut right-aligned
                     if let Some(shortcut_text) = shortcut {
-                        let shortcut_x = dropdown_width.saturating_sub(shortcut_text.len() + 1);
+                        let shortcut_x =
+                            dropdown_width.saturating_sub(shortcut_text.chars().count() + 1);
                         for (i, ch) in shortcut_text.chars().enumerate() {
                             if shortcut_x + i < dropdown_width - 1 {
                                 item_buf.put_char(shortcut_x + i, ch, shortcut_attr);
@@ -536,7 +537,7 @@ impl View for MenuBar {
                     for (i, &menu_x) in self.menu_positions.iter().enumerate() {
                         if i < self.submenus.len() {
                             let menu_width =
-                                self.submenus[i].name.replace('~', "").len() as i16 + 2;
+                                self.submenus[i].name.replace('~', "").chars().count() as i16 + 2;
                             if mouse_pos.x >= menu_x && mouse_pos.x < menu_x + menu_width {
                                 if self.active_menu_idx == Some(i) {
                                     self.close_menu();
@@ -688,7 +689,8 @@ impl View for MenuBar {
                         for (i, &menu_x) in self.menu_positions.iter().enumerate() {
                             if i < self.submenus.len() && i != menu_idx {
                                 let menu_width =
-                                    self.submenus[i].name.replace('~', "").len() as i16 + 2;
+                                    self.submenus[i].name.replace('~', "").chars().count() as i16
+                                        + 2;
                                 if mouse_pos.x >= menu_x && mouse_pos.x < menu_x + menu_width {
                                     self.open_menu(i);
                                     break;
@@ -890,5 +892,42 @@ mod tests {
             rect.b.x - rect.a.x > 20,
             "this menu is wider than the old hardcoded width"
         );
+    }
+
+    /// Widths are counted in characters: "Configuración" is 13 characters
+    /// but 14 bytes, which made the dropdown one column too wide.
+    #[test]
+    fn dropdown_width_counts_characters_not_bytes() {
+        let menu = MenuBuilder::new().item("~C~onfiguración", 100).build();
+        assert_eq!(MenuBar::dropdown_width(&menu), 13 + 2);
+    }
+
+    /// A click on the first column of a menu opens that menu, not the one
+    /// before it: the hit area of "Edición" was measured in bytes and ran one
+    /// column into "Ver".
+    #[test]
+    fn click_after_a_multibyte_name_opens_the_next_menu() {
+        let mut terminal = crate::test_util::test_terminal(40, 10);
+        let mut bar = MenuBar::new(Rect::new(0, 0, 40, 1));
+        bar.add_submenu(SubMenu::new(
+            "~E~dición",
+            MenuBuilder::new().item("A", 100).build(),
+        ));
+        bar.add_submenu(SubMenu::new(
+            "~V~er",
+            MenuBuilder::new().item("B", 101).build(),
+        ));
+        crate::views::view::draw_child(&mut terminal, &mut bar);
+        let ver_x = bar.menu_positions[1];
+        assert_eq!(ver_x, 10, "' Edición ' spans columns 1 to 9");
+
+        let mut event = Event::mouse(
+            EventType::MouseDown,
+            Point::new(ver_x, 0),
+            MB_LEFT_BUTTON,
+            false,
+        );
+        bar.handle_event(&mut event);
+        assert_eq!(bar.active_menu_idx, Some(1));
     }
 }

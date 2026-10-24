@@ -218,6 +218,9 @@ pub mod views;
 #[cfg(any(test, feature = "test-util"))]
 pub mod test_util;
 
+#[cfg(test)]
+mod unicode_tests;
+
 // The guides' code blocks are compiled as doctests, so they cannot drift
 // from the API they describe.
 #[cfg(doctest)]

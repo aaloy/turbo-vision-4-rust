@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `TextViewer` no longer panics on a line wider than the viewer that holds
+  multi-byte characters (`é`, `ñ`, `−`, `€`): it cut each visible line by
+  byte offset, which could fall inside a character. Lines are now cut, and
+  their width for horizontal scrolling measured, in characters.
+- Text measured in bytes where columns were meant, which misplaced labels
+  with multi-byte characters: a click on the first column of the menu after
+  "~E~dición" opened "Edición" (`MenuBar` hit area), a `MenuBar` dropdown or
+  `MenuBox` was one column too wide per such character, `HistoryViewer` left
+  cells unpainted after an entry, `StatusLine` dropped an item that fitted,
+  the message box buttons and `input_box` label were sized wrong, and the
+  plain and Rust syntax highlighters placed tokens after such a character
+  (or after `*/` closing a block comment) in the wrong columns. All of them
+  count characters now.
+- A crate test draws, edits and scrolls every text-showing view with
+  multi-byte text wider than the view, so a byte-offset cut cannot come back.
+
 ## [4.1.0] - 2026-10-23
 
 ### Added
