@@ -73,6 +73,8 @@
 //! `examples/table_frozen.rs` shows it running, over thirty regions by twelve
 //! months.
 
+use std::collections::HashMap;
+
 use super::list_viewer::{ListViewer, ListViewerState};
 use super::view::{View, ViewCore, write_line_to_terminal};
 use crate::core::command::CommandId;
@@ -105,6 +107,77 @@ pub enum Align {
     Left,
     /// Against the right edge. Right for numbers.
     Right,
+}
+
+/// How a row, a column or a single cell of a [`Table`] is drawn: optional
+/// text and background colours and text style flags (bold, underline, ...).
+/// A field left unset keeps what the table would draw anyway, so the format
+/// follows the theme.
+///
+/// ```
+/// use turbo_vision::core::palette::{Style, TvColor};
+/// use turbo_vision::views::table::CellFormat;
+///
+/// let late = CellFormat::new().fg(TvColor::LightRed).style(Style::BOLD);
+/// assert_eq!(late.fg, Some(TvColor::LightRed));
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CellFormat {
+    /// Text colour, or `None` for the table's own.
+    pub fg: Option<TvColor>,
+    /// Background colour, or `None` for the table's own.
+    pub bg: Option<TvColor>,
+    /// Style flags added to the cell's own.
+    pub style: Style,
+}
+
+impl CellFormat {
+    /// A format that changes nothing.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the text colour.
+    #[must_use]
+    pub fn fg(mut self, fg: TvColor) -> Self {
+        self.fg = Some(fg);
+        self
+    }
+
+    /// Set the background colour.
+    #[must_use]
+    pub fn bg(mut self, bg: TvColor) -> Self {
+        self.bg = Some(bg);
+        self
+    }
+
+    /// Set the style flags, e.g. `Style::BOLD | Style::UNDERLINE`.
+    #[must_use]
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// `self` stacked on `below`: colours of `self` win where set, styles add up.
+    fn over(below: Self, this: Self) -> Self {
+        Self {
+            fg: this.fg.or(below.fg),
+            bg: this.bg.or(below.bg),
+            style: below.style | this.style,
+        }
+    }
+
+    /// Apply to a base attribute. With `keep_colors` (the selected row) only
+    /// the style is taken.
+    fn apply_to(self, base: Attr, keep_colors: bool) -> Attr {
+        let mut attr = if keep_colors {
+            base
+        } else {
+            Attr::new(self.fg.unwrap_or(base.fg), self.bg.unwrap_or(base.bg))
+        };
+        attr.style = base.style | self.style;
+        attr
+    }
 }
 
 /// One column of a [`Table`].
@@ -198,9 +271,12 @@ pub struct Table {
     separators: bool,
     /// Command emitted by Enter or a double-click.
     on_select: CommandId,
-    /// Text colour of single rows, by index; `None` draws the row as usual.
-    /// The selected row keeps the selection colour.
-    row_colors: Vec<Option<TvColor>>,
+    /// Formats of single rows, by row index.
+    row_formats: HashMap<usize, CellFormat>,
+    /// Formats of whole columns, by column index.
+    column_formats: HashMap<usize, CellFormat>,
+    /// Formats of single cells, by (row, column).
+    cell_formats: HashMap<(usize, usize), CellFormat>,
     view_state: StateFlags,
 }
 
@@ -223,7 +299,9 @@ impl Table {
             show_header: true,
             separators: false,
             on_select,
-            row_colors: Vec::new(),
+            row_formats: HashMap::new(),
+            column_formats: HashMap::new(),
+            cell_formats: HashMap::new(),
             view_state: State::empty(),
         }
     }
@@ -261,10 +339,58 @@ impl Table {
 
     /// Colour the text of single rows: `colors[i]` is the text colour of row
     /// `i` (on the table's usual background), `None` for the usual one. The
-    /// selected row keeps the selection colour. Replace the list whenever
-    /// the rows change.
+    /// selected row keeps the selection colour. Replaces the row formats set
+    /// so far; replace the list whenever the rows change.
     pub fn set_row_colors(&mut self, colors: Vec<Option<TvColor>>) {
-        self.row_colors = colors;
+        self.row_formats = colors
+            .into_iter()
+            .enumerate()
+            .filter_map(|(row, color)| color.map(|fg| (row, CellFormat::new().fg(fg))))
+            .collect();
+    }
+
+    /// Format a whole row: colours and text style. Formats stack in the
+    /// order column, row, cell: a later one overrides the colours of an
+    /// earlier one, and the styles add up. The selected row keeps the
+    /// selection colours but still takes the style (bold, underline, ...).
+    /// Formats are by index and survive `set_rows`; reset them with
+    /// [`clear_formats`](Self::clear_formats) when the rows change.
+    pub fn set_row_format(&mut self, row: usize, format: CellFormat) {
+        self.row_formats.insert(row, format);
+    }
+
+    /// Format a whole column, header excluded. See
+    /// [`set_row_format`](Self::set_row_format) for how formats combine.
+    pub fn set_column_format(&mut self, column: usize, format: CellFormat) {
+        self.column_formats.insert(column, format);
+    }
+
+    /// Format one cell. See [`set_row_format`](Self::set_row_format) for how
+    /// formats combine.
+    pub fn set_cell_format(&mut self, row: usize, column: usize, format: CellFormat) {
+        self.cell_formats.insert((row, column), format);
+    }
+
+    /// Remove every row, column and cell format.
+    pub fn clear_formats(&mut self) {
+        self.row_formats.clear();
+        self.column_formats.clear();
+        self.cell_formats.clear();
+    }
+
+    /// The format that applies to the cell, column, row and cell layers
+    /// stacked, or `None` when nothing is set.
+    fn format_for(&self, row: usize, column: usize) -> Option<CellFormat> {
+        let layers = [
+            self.column_formats.get(&column),
+            self.row_formats.get(&row),
+            self.cell_formats.get(&(row, column)),
+        ];
+        layers
+            .into_iter()
+            .flatten()
+            .copied()
+            .reduce(CellFormat::over)
     }
 
     /// Drop every row, keeping the columns.
@@ -757,12 +883,11 @@ impl View for Table {
         let line = |row_index: usize| {
             let mut buf = DrawBuffer::new(width);
             let row_selected = Some(row_index) == self.list_state.focused;
-            let own = self.row_colors.get(row_index).copied().flatten();
-            let row_attr = if row_selected {
-                selected
-            } else {
-                own.map_or(normal, |fg| Attr::new(fg, normal.bg))
-            };
+            let row_format = self.row_formats.get(&row_index);
+            let row_attr = row_format.map_or(if row_selected { selected } else { normal }, |f| {
+                f.apply_to(if row_selected { selected } else { normal }, row_selected)
+            });
+            let normal_or_selected = if row_selected { selected } else { normal };
             // Fill the whole line, gaps included, so the selected row reads
             // as one bar, as ListBox draws its selected item.
             buf.move_char(0, ' ', row_attr, width);
@@ -779,12 +904,16 @@ impl View for Table {
                     |i| {
                         // Within the selected row the focused cell is marked
                         // while the table has focus, so Left and Right show.
-                        if row_selected && focused && i == self.focused_col {
+                        let base = if row_selected && focused && i == self.focused_col {
                             cursor
                         } else if i < frozen && !row_selected {
                             header
                         } else {
-                            row_attr
+                            normal_or_selected
+                        };
+                        match self.format_for(row_index, i) {
+                            Some(f) => f.apply_to(base, row_selected),
+                            None => base,
                         }
                     },
                 );
@@ -1285,6 +1414,50 @@ mod tests {
         assert_eq!(attr(3).fg, TvColor::LightRed);
         assert_eq!(attr(3).bg, attr(2).bg, "same background as the other rows");
         assert_ne!(attr(2).fg, TvColor::LightRed);
+    }
+
+    #[test]
+    fn formats_stack_column_row_cell() {
+        let mut t = table(3);
+        t.set_column_format(1, CellFormat::new().fg(TvColor::LightMagenta));
+        t.set_row_format(2, CellFormat::new().bg(TvColor::Red).style(Style::BOLD));
+        t.set_cell_format(
+            2,
+            1,
+            CellFormat::new()
+                .fg(TvColor::Yellow)
+                .style(Style::UNDERLINE),
+        );
+        let term = draw(&mut t, 40, 6);
+        let x1 = t.column_offsets()[1].0 as i16;
+        let a = |x, y| term.read_cell(x, y).unwrap().attr;
+        // Column only (row 1, not selected).
+        assert_eq!(a(x1, 2).fg, TvColor::LightMagenta);
+        assert!(a(x1, 2).style.is_empty());
+        // Row 2, column 0: row colours and style only.
+        assert_eq!(a(0, 3).bg, TvColor::Red);
+        assert!(a(0, 3).style.contains(Style::BOLD));
+        // Row 2, column 1: cell wins on fg, row bg stays, styles add up.
+        assert_eq!(a(x1, 3).fg, TvColor::Yellow);
+        assert_eq!(a(x1, 3).bg, TvColor::Red);
+        assert!(a(x1, 3).style.contains(Style::BOLD | Style::UNDERLINE));
+        t.clear_formats();
+        let term = draw(&mut t, 40, 6);
+        assert_ne!(
+            term.read_cell(x1, 2).unwrap().attr.fg,
+            TvColor::LightMagenta
+        );
+    }
+
+    #[test]
+    fn the_selected_row_keeps_its_colours_but_takes_the_style() {
+        let mut t = table(3);
+        t.set_row_format(0, CellFormat::new().bg(TvColor::Red).style(Style::BOLD));
+        let term = draw(&mut t, 40, 6);
+        let plain = draw(&mut table(3), 40, 6);
+        let a = term.read_cell(20, 1).unwrap().attr;
+        assert_eq!(a.bg, plain.read_cell(20, 1).unwrap().attr.bg);
+        assert!(a.style.contains(Style::BOLD));
     }
 
     #[test]
