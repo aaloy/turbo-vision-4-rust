@@ -909,7 +909,17 @@ sized columns; focus is a cell, not a row.
 - `set_frozen_cols(&mut self, count: usize)` / `frozen_cols(&self) -> usize` - Keep the first `count` columns at the left while the rest scroll sideways, followed by `FROZEN_SEPARATOR` (none by default)
 - `set_frozen_rows(&mut self, count: usize)` / `frozen_rows(&self) -> usize` - Keep the first `count` rows under the header while the rest scroll, the last one underlined (none by default)
 - `set_on_select(&mut self, command: CommandId)` - Command emitted by Enter or a double-click
+- `set_row_format(&mut self, row: usize, format: CellFormat)` / `set_column_format(&mut self, column: usize, format: CellFormat)` / `set_cell_format(&mut self, row: usize, column: usize, format: CellFormat)` - Colour and style a row, a column (header excluded) or one cell. Formats stack column, row, cell; the selected row keeps its colours and takes only the style
+- `set_row_colors(&mut self, colors: Vec<Option<TvColor>>)` - Text colour of single rows, by index
+- `clear_formats(&mut self)` - Remove every row, column and cell format
 - Implements View trait
+
+#### CellFormat Struct (`src/views/table.rs`)
+Optional text colour, background colour and `Style` flags (bold, italic, underline, reverse, dim, strikethrough) for a row, column or cell. Unset fields keep the table's own colours, so a format follows the theme.
+
+**Public Methods:**
+- `new() -> Self` - A format that changes nothing
+- `fg(self, TvColor) -> Self`, `bg(self, TvColor) -> Self`, `style(self, Style) -> Self` - Fluent setters
 
 #### RowProvider Trait (`src/views/table.rs`)
 **Public Methods:**
