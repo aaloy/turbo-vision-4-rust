@@ -83,7 +83,7 @@ use crate::core::event::{
 };
 use crate::core::geometry::{Point, Rect};
 use crate::core::palette::{
-    LISTBOX_DIVIDER, LISTBOX_FOCUSED, LISTBOX_NORMAL, LISTBOX_SELECTED, Style,
+    Attr, LISTBOX_DIVIDER, LISTBOX_FOCUSED, LISTBOX_NORMAL, LISTBOX_SELECTED, Style,
 };
 use crate::core::state::{State, StateFlags};
 use crate::terminal::Terminal;
@@ -198,6 +198,9 @@ pub struct Table {
     separators: bool,
     /// Command emitted by Enter or a double-click.
     on_select: CommandId,
+    /// Colour of single rows, by index; `None` draws the row as usual. The
+    /// selected row keeps the selection colour.
+    row_attrs: Vec<Option<Attr>>,
     view_state: StateFlags,
 }
 
@@ -220,6 +223,7 @@ impl Table {
             show_header: true,
             separators: false,
             on_select,
+            row_attrs: Vec::new(),
             view_state: State::empty(),
         }
     }
@@ -253,6 +257,13 @@ impl Table {
             Rows::Provided(_) => self.rows = Rows::Owned(vec![row]),
         }
         self.list_state.set_range(self.rows.len());
+    }
+
+    /// Colour single rows: `attrs[i]` is the colour of row `i`, `None` for the
+    /// usual one. The selected row keeps the selection colour. Replace the
+    /// list whenever the rows change.
+    pub fn set_row_attrs(&mut self, attrs: Vec<Option<Attr>>) {
+        self.row_attrs = attrs;
     }
 
     /// Drop every row, keeping the columns.
@@ -745,7 +756,12 @@ impl View for Table {
         let line = |row_index: usize| {
             let mut buf = DrawBuffer::new(width);
             let row_selected = Some(row_index) == self.list_state.focused;
-            let row_attr = if row_selected { selected } else { normal };
+            let own = self.row_attrs.get(row_index).copied().flatten();
+            let row_attr = if row_selected {
+                selected
+            } else {
+                own.unwrap_or(normal)
+            };
             // Fill the whole line, gaps included, so the selected row reads
             // as one bar, as ListBox draws its selected item.
             buf.move_char(0, ' ', row_attr, width);
@@ -1255,6 +1271,20 @@ mod tests {
 
     fn ch(term: &crate::terminal::Terminal, x: i16, y: i16) -> char {
         term.read_cell(x, y).unwrap().ch
+    }
+
+    #[test]
+    fn a_row_can_have_its_own_colour_unless_selected() {
+        use crate::core::palette::TvColor;
+        let mut t = table(3);
+        let red = Attr::new(TvColor::LightRed, TvColor::Blue);
+        t.set_row_attrs(vec![Some(red), None, Some(red)]);
+        let term = draw(&mut t, 30, 6);
+        let attr = |y| term.read_cell(2, y).unwrap().attr;
+        // Row 0 is the selected one: it keeps the selection colour.
+        assert_ne!(attr(1), red);
+        assert_eq!(attr(3), red);
+        assert_ne!(attr(2), red);
     }
 
     #[test]
