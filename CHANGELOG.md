@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `Table` rows, columns and single cells can be formatted: `CellFormat`
+  (text colour, background colour, style flags such as bold or underline) with
+  `set_row_format`, `set_column_format`, `set_cell_format` and `clear_formats`.
+  Formats stack column, row, cell. The selected row keeps the selection
+  colours and takes only the style. `set_row_colors` colours the text of
+  single rows.
+
 ### Fixed
 - `TextViewer` no longer panics on a line wider than the viewer that holds
   multi-byte characters (`é`, `ñ`, `−`, `€`): it cut each visible line by
