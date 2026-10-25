@@ -83,7 +83,7 @@ use crate::core::event::{
 };
 use crate::core::geometry::{Point, Rect};
 use crate::core::palette::{
-    Attr, LISTBOX_DIVIDER, LISTBOX_FOCUSED, LISTBOX_NORMAL, LISTBOX_SELECTED, Style,
+    Attr, LISTBOX_DIVIDER, LISTBOX_FOCUSED, LISTBOX_NORMAL, LISTBOX_SELECTED, Style, TvColor,
 };
 use crate::core::state::{State, StateFlags};
 use crate::terminal::Terminal;
@@ -198,9 +198,9 @@ pub struct Table {
     separators: bool,
     /// Command emitted by Enter or a double-click.
     on_select: CommandId,
-    /// Colour of single rows, by index; `None` draws the row as usual. The
-    /// selected row keeps the selection colour.
-    row_attrs: Vec<Option<Attr>>,
+    /// Text colour of single rows, by index; `None` draws the row as usual.
+    /// The selected row keeps the selection colour.
+    row_colors: Vec<Option<TvColor>>,
     view_state: StateFlags,
 }
 
@@ -223,7 +223,7 @@ impl Table {
             show_header: true,
             separators: false,
             on_select,
-            row_attrs: Vec::new(),
+            row_colors: Vec::new(),
             view_state: State::empty(),
         }
     }
@@ -259,11 +259,12 @@ impl Table {
         self.list_state.set_range(self.rows.len());
     }
 
-    /// Colour single rows: `attrs[i]` is the colour of row `i`, `None` for the
-    /// usual one. The selected row keeps the selection colour. Replace the
-    /// list whenever the rows change.
-    pub fn set_row_attrs(&mut self, attrs: Vec<Option<Attr>>) {
-        self.row_attrs = attrs;
+    /// Colour the text of single rows: `colors[i]` is the text colour of row
+    /// `i` (on the table's usual background), `None` for the usual one. The
+    /// selected row keeps the selection colour. Replace the list whenever
+    /// the rows change.
+    pub fn set_row_colors(&mut self, colors: Vec<Option<TvColor>>) {
+        self.row_colors = colors;
     }
 
     /// Drop every row, keeping the columns.
@@ -756,11 +757,11 @@ impl View for Table {
         let line = |row_index: usize| {
             let mut buf = DrawBuffer::new(width);
             let row_selected = Some(row_index) == self.list_state.focused;
-            let own = self.row_attrs.get(row_index).copied().flatten();
+            let own = self.row_colors.get(row_index).copied().flatten();
             let row_attr = if row_selected {
                 selected
             } else {
-                own.unwrap_or(normal)
+                own.map_or(normal, |fg| Attr::new(fg, normal.bg))
             };
             // Fill the whole line, gaps included, so the selected row reads
             // as one bar, as ListBox draws its selected item.
@@ -1274,17 +1275,16 @@ mod tests {
     }
 
     #[test]
-    fn a_row_can_have_its_own_colour_unless_selected() {
-        use crate::core::palette::TvColor;
+    fn a_row_can_have_its_own_text_colour_unless_selected() {
         let mut t = table(3);
-        let red = Attr::new(TvColor::LightRed, TvColor::Blue);
-        t.set_row_attrs(vec![Some(red), None, Some(red)]);
+        t.set_row_colors(vec![Some(TvColor::LightRed), None, Some(TvColor::LightRed)]);
         let term = draw(&mut t, 30, 6);
         let attr = |y| term.read_cell(2, y).unwrap().attr;
         // Row 0 is the selected one: it keeps the selection colour.
-        assert_ne!(attr(1), red);
-        assert_eq!(attr(3), red);
-        assert_ne!(attr(2), red);
+        assert_ne!(attr(1).fg, TvColor::LightRed);
+        assert_eq!(attr(3).fg, TvColor::LightRed);
+        assert_eq!(attr(3).bg, attr(2).bg, "same background as the other rows");
+        assert_ne!(attr(2).fg, TvColor::LightRed);
     }
 
     #[test]
