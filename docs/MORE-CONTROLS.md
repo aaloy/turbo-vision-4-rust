@@ -125,6 +125,15 @@ Ordered by benefit-to-effort. Each one composes existing views wherever it can.
       the rest scroll, the last one underlined. Focusing a frozen cell
       scrolls nothing. `examples/table_frozen.rs` freezes a region column
       and a totals row.
+- [x] **Table cell formats** — done. `table::CellFormat` (text colour,
+      background colour, `Style` flags) given to `Table::set_row_format`,
+      `set_column_format` or `set_cell_format` colours and styles a row, a
+      column or one cell; `clear_formats` removes them all. Formats stack
+      column, row, cell, later ones winning on colours and styles adding up.
+      The selected row keeps the selection colours and takes only the style.
+      A terminal has no fonts, so "font" means bold, italic, underline,
+      reverse, dim and strikethrough. `examples/table_format.rs` and the
+      gallery's Table demo show it.
 - [x] **Lazy rows and items** — done. `table::RowProvider` (`rows()`,
       `cell(row, col)`) and `listbox::ListProvider` (`len()`, `item(index)`,
       a default `is_empty`) let a `Table` or `ListBox` read its content only

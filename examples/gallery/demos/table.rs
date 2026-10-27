@@ -23,6 +23,15 @@
 //! - `set_provider(provider)`: read the rows from a `RowProvider` as they
 //!   are drawn, from a database for instance; `refresh_rows()` after its
 //!   length changes.
+//! - `set_row_format(row, fmt)`, `set_column_format(col, fmt)`,
+//!   `set_cell_format(row, col, fmt)`: colour and style a row, a column or
+//!   one cell with a `CellFormat::new().fg(..).bg(..).style(..)`. Formats
+//!   stack column, row, cell; the selected row keeps the selection colours
+//!   and takes only the style. `style` takes `Style` flags (BOLD, ITALIC,
+//!   UNDERLINE, REVERSE, DIM, STRIKETHROUGH): a terminal's "fonts".
+//!   `clear_formats()` removes them; formats are by index, so reset them
+//!   when the rows change. Here the Units column is bold, low Stock is red,
+//!   the Monitor row is underlined and one price is highlighted.
 //! - `selected_row()`, `selected_col()`, `selected_cell()`: where the focus
 //!   is; `set_selected_row(i)` and `set_selected_col(i)` move it.
 //!
@@ -30,7 +39,8 @@
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;
-use turbo_vision::views::table::{Column, Table};
+use turbo_vision::core::palette::{Style, TvColor};
+use turbo_vision::views::table::{CellFormat, Column, Table};
 
 pub fn build(panel: &mut Panel) {
     let mut table = Table::new(Rect::new(0, 0, 46, 6), 0);
@@ -52,6 +62,19 @@ pub fn build(panel: &mut Panel) {
     // The columns are wider than the table: Right scrolls them sideways,
     // and Product, frozen, stays at the left edge.
     table.set_frozen_cols(1);
+    // A column, a row and a cell.
+    table.set_column_format(1, CellFormat::new().style(Style::BOLD));
+    table.set_row_format(1, CellFormat::new().style(Style::UNDERLINE));
+    table.set_cell_format(
+        2,
+        2,
+        CellFormat::new().fg(TvColor::Black).bg(TvColor::Yellow),
+    );
+    for (row, stock) in [40, 6, 85, 300, 11].into_iter().enumerate() {
+        if stock < 12 {
+            table.set_cell_format(row, 5, CellFormat::new().fg(TvColor::LightRed));
+        }
+    }
     panel.add(table);
 }
 
