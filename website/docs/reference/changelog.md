@@ -38,6 +38,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Grow::HI_X | Grow::HI_Y`, which stretches, and `Grow::ALL`'s doc comment
   says what it does.
 
+### Documentation
+- `docs/USER-GUIDE-WALKTHROUGH-TODO.md` records that most of the user guide's
+  walk-through (Chapters 1 to 6) no longer compiles: of its 81 code blocks, 11
+  compile and 41 use API that has changed, starting with Listing 1.1. It lists
+  the tasks to bring the chapters up to date, with the current replacement for
+  each, and to compile them as doctests so they cannot drift again.
+
 ## [4.1.0] - 2026-10-23
 
 ### Added
