@@ -144,6 +144,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ComboBox` with no choice made: the first Down (or Up) picks the first
   item. It stepped from item 0 to item 1, so the first item could not be
   reached with the arrow keys.
+- `TextViewer` no longer panics on a line wider than the viewer that holds
+  multi-byte characters (`é`, `ñ`, `−`, `€`): it cut each visible line by
+  byte offset, which could fall inside a character. Lines are now cut, and
+  their width for horizontal scrolling measured, in characters.
+- A button answers Alt plus its `~` letter, as Borland's does, not only the
+  letter alone. In a dialog whose focus is in an input line the plain letter
+  is typed into the field, so Alt+O was the only way to press **~O~K** from
+  the keyboard, and it did nothing. `event::alt_code(letter)` (Borland
+  `getAltCode`) gives the key code; `Label` uses it too.
+- A `Tooltip` no longer takes the clicks of the controls it covers. Added
+  last, as it must be, it lay over them, so a click went to the tooltip and
+  the button under it never saw it.
+- A tooltip's hint appears when its delay is over. It was raised on an idle
+  tick, after which nothing is drawn, so it showed only once the pointer
+  moved again.
+- Non-ASCII text can be typed. `InputLine`, `Memo`, `SortedListBox`'s
+  type-ahead and menu letters accepted only ASCII 32–126 (the editor a
+  little more): `é`, `ñ`, `ç`, `€`, `ł`, Greek, Cyrillic and the rest now
+  type everywhere. Characters two cells wide (CJK, emoji) are not typed yet:
+  a screen cell holds one character, one column wide.
+- Typed characters no longer act as special keys. `ě` (U+011B) arrived as
+  `KB_ESC` and closed the dialog it was typed into; `Ĝ` was Esc-Esc and
+  `ⴀ` Alt+X. They now arrive as `KB_TEXT` with the character in `ch`.
+- A button's hotkey is the typed character, not the key code's low byte:
+  `ł` (U+0142) no longer presses a `~B~` button, and a `~Ñ~` hotkey works.
+  Menu letters match non-ASCII accelerators in either case.
+- `Memo` measures line width in characters, not bytes.
+
+### Fixed
 - A read-only `EditorWindow` lets Tab move the focus to the next control.
   It used to take the key and type nothing, so the focus could not leave
   it by keyboard.
