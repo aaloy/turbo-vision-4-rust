@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Documentation
+- `docs/USER-GUIDE-WALKTHROUGH-TODO.md` records that most of the user guide's
+  walk-through (Chapters 1 to 6) no longer compiles: of its 81 code blocks, 11
+  compile and 41 use API that has changed, starting with Listing 1.1. It lists
+  the tasks to bring the chapters up to date, with the current replacement for
+  each, and to compile them as doctests so they cannot drift again.
+
 ## [4.2.0] - 2026-11-27
 
 ### Added
