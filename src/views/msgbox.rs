@@ -476,8 +476,9 @@ fn input_box_size(label: &str, max_length: usize) -> (i16, i16) {
 const SEARCH_BOX_SIZE: (i16, i16) = (50, 9);
 /// The size of [`search_replace_box`].
 const REPLACE_BOX_SIZE: (i16, i16) = (50, 13);
-/// The size of [`goto_line_box`].
-const GOTO_LINE_BOX_SIZE: (i16, i16) = (40, 8);
+/// The size of [`goto_line_box`]: nine rows, like the search box, so the
+/// buttons and their shadow sit above the bottom frame.
+const GOTO_LINE_BOX_SIZE: (i16, i16) = (40, 9);
 
 /// `width` by `height` bounds in the middle of the screen.
 fn centered(app: &Application, width: i16, height: i16) -> Rect {
@@ -666,6 +667,12 @@ pub(crate) fn built_replace_box() -> Dialog {
 }
 
 #[cfg(test)]
+pub(crate) fn built_goto_line_box() -> Dialog {
+    let (width, height) = GOTO_LINE_BOX_SIZE;
+    goto_line_dialog(Rect::new(0, 0, width, height), "Go to line").0
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::core::event::{Event, KB_ALT_Y, KB_ESC};
@@ -822,6 +829,34 @@ mod tests {
             "{buttons:?}"
         );
         assert!(!buttons.contains("OK"), "{buttons:?}");
+    }
+
+    #[test]
+    fn goto_line_buttons_sit_above_the_bottom_frame() {
+        use crate::core::event::{Event, KB_ESC};
+        let mut app = Application::with_terminal(crate::test_util::test_terminal(80, 25));
+        app.terminal
+            .event_injector()
+            .send(Event::keyboard(KB_ESC))
+            .unwrap();
+        assert_eq!(goto_line_box(&mut app, "Go to line"), None);
+        let row = |y| -> String {
+            (0..80)
+                .filter_map(|x| app.terminal.read_cell(x, y))
+                .map(|cell| cell.ch)
+                .collect()
+        };
+        let buttons = (0..25)
+            .find(|&y| row(y).contains("Cancel"))
+            .expect("a row of buttons");
+        let bottom = (0..25)
+            .find(|&y| row(y).contains(['╚', '└']))
+            .expect("the bottom frame");
+        // The button row, then its shadow, then the frame.
+        assert!(
+            bottom >= buttons + 2,
+            "buttons on row {buttons}, frame on {bottom}"
+        );
     }
 
     #[test]
