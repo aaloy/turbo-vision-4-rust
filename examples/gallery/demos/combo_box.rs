@@ -11,8 +11,6 @@
 //!   by index or as text; `None` is no choice.
 //! - `set_on_change(cmd)`: broadcast `cmd` whenever the choice changes; 0,
 //!   the default, sends none.
-//! - In a record form, `form.choice` maps the choices to values of any
-//!   type.
 //!
 //! See also: RadioButtons, ListBox, InputLine
 

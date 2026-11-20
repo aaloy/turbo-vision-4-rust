@@ -7,7 +7,7 @@
 //!   column of `bounds`, so the controls go one in from each edge; add it
 //!   before them, so they draw on top.
 //!
-//! See also: TabbedPane, CheckBoxes, Window
+//! See also: TabbedPane, CheckBoxes
 
 use crate::panel::Panel;
 use turbo_vision::core::geometry::Rect;

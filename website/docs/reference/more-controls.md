@@ -171,17 +171,16 @@ generated edit dialog, model menu) would need, so they come first.
 
 ### Forms and data
 
-- [ ] **Form layout helper** — every view is placed with an absolute `Rect`,
-      the main source of effort and of off-by-one bugs in hand-built dialogs.
-      A helper that stacks label/field rows in two columns (and pages long
-      forms with `TabbedPane`) would shrink dialogs to a list of fields and
-      let them follow a resize through the grow modes.
-- [ ] **Form data transfer** — Borland's `TView::getData` / `setData` /
-      `dataSize` filled a whole dialog from a record and read it back in one
-      call; the port has no equivalent, so every field is wired by hand
-      through its own `Rc<RefCell<…>>`. A per-control value trait, a dialog
-      that gathers them, and dirty tracking ("discard changes?") would
-      replace that wiring.
+- [x] **Form layout helper and form data transfer** — done as `Form` and
+      record forms, then moved out of this crate into the companion crate
+      [tv-extensions](https://github.com/aovestdipaperino/tv-extensions)
+      (`tv_extensions::forms`, guide `docs/forms.md` there, examples
+      `form_layout`, `form_labels`, `form_record`). They build on this
+      crate's `GroupBox`, `Options::CENTER_X` / `CENTER_Y`, the public
+      `Dialog::prepare_modal` and `Label::set_error`. Still open there:
+      paging long forms with `TabbedPane`, groups side by side, label
+      settings per group, dirty tracking ("discard changes?"), live checks
+      while typing.
 - [ ] **Date and time input** — a field with a drop-down calendar. A calendar
       exists only inside `examples/showcase.rs`; `chrono` is already a
       dependency, and the drop-down can reuse `ComboBox`'s two-step popup

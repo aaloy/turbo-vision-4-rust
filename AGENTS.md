@@ -11,8 +11,8 @@ current API.
   a terminal, with keyboard and mouse.
 - Read next: `cargo doc --open` (full API), [`examples/`](examples/) (runnable programs).
 - Companion crate: [`tv-extensions`](https://github.com/aovestdipaperino/tv-extensions)
-  holds further components, such as `AutoComplete`, `ScrollPane` and popup
-  menus.
+  holds `Form` (dialogs laid out from labelled fields, and record editors),
+  `AutoComplete`, `DualList`, `ScrollPane`, popup menus and more.
 
 ## Contents
 
@@ -48,8 +48,8 @@ Dialog (modal, run on top with dialog.execute(&mut app))
 
 **Coordinates are relative to the owner.** A child's `Rect` is measured from
 its owner's top-left corner. For a window or dialog, that is the corner of the
-area *inside* the frame. Inside a dialog you place controls by hand, relative to the
-area inside the frame.
+area *inside* the frame. Inside a dialog you place controls by hand; the
+`Form` of the companion crate `tv-extensions` lays them out for you.
 
 **Commands connect everything.** A command is a `u16` (`CommandId`). Menu items,
 status line items and buttons send commands: OK sends `CM_OK`, Alt-X sends
@@ -221,8 +221,8 @@ for, how to create it, and how to use its value. Most views also have a
 | Component | Module | Use it for | Create / use |
 |-----------|--------|------------|--------------|
 | `Window` | `views::window` | A framed, movable window on the desktop. | `Window::new(rect, "Title")`, `window.add(view)` / `add_typed(view)` |
-| `Dialog` | `views::dialog` | A modal window of controls. | `Dialog::new(rect, "Title")`, `dialog.execute(&mut app)` |
-| `GroupBox` | `views::group_box` | A titled box around related controls. | `GroupBox::new(rect, "Title")` |
+| `Dialog` | `views::dialog` | A modal window of controls. | `Dialog::new(rect, "Title")`, `dialog.execute(&mut app)`; with no coordinates: `Form` in `tv-extensions` |
+| `GroupBox` | `views::group_box` | A titled box around related controls. | `GroupBox::new(rect, "Title")`; `tv-extensions`' `Form::group` makes one for you |
 | `Group` | `views::group` | A plain container (a tab page, a panel). | `Group::new(rect)`, `add(view)` |
 | `TabbedPane` | `views::tabbed_pane` | Tabs over pages. | `TabbedPane::new(rect)`, `add_page("~G~eneral", group)` |
 | `SplitPane`, `Orientation` | `views::split_pane` | Two panes with a draggable divider. | `SplitPane::new(rect, Orientation::Horizontal, position)` |
