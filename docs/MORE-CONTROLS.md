@@ -223,6 +223,35 @@ generated edit dialog, model menu) would need, so they come first.
 - [ ] **Wide characters** — CJK and emoji cannot be typed or shown yet, since
       a screen cell holds one character, one column wide.
 
+### Localization tooling
+
+Once Fluent translations land (PR #133), two tools would make translating an
+application easier. Not started.
+
+- [ ] **Width limits in the `.ftl` file** — a comment above a message gives
+      the most columns its text may take where it is shown:
+
+      ```
+      # max-width: 12
+      button-save = ~S~ave
+      ```
+
+      `check_translation` warns when a translation is wider than that, and
+      more softly when one is much longer than the English (say half as long
+      again) and has no limit. The translator sees the limit next to the
+      English text. The crate's own table of fixed-width texts
+      (`FIXED_SLOTS` in the `i18n` tests) moves into these comments, so the
+      crate and applications use one mechanism.
+- [ ] **A `tv-i18n check` command** — `tv-i18n check en.ftl ca.ftl` runs
+      `check_translation` and `check_hot_key_groups` and prints rustc-style
+      `file:line: warning: …` messages, which editors and CI already
+      understand. A translator gets the checks without writing a Rust test.
+
+Set aside: a translation editor of our own, since Weblate and Mozilla's
+Pontoon already edit Fluent files. A live preview, a program that reloads the
+`.ftl` on save and shows the application's dialogs in that language, may come
+later; the gallery's Languages demo does that for the built-in dialogs.
+
 ## Notes
 
 New views follow the established shape: a struct holding `bounds` and a
