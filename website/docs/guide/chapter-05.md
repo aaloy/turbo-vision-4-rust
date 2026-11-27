@@ -87,7 +87,7 @@ And implement the `open_order_window` function:
 fn open_order_window(app: &mut Application) {
     // Create and insert the dialog
     let order_dialog = create_order_dialog();
-    app.desktop.add(Box::new(order_dialog));
+    app.desktop.add(order_dialog);
 }
 ```
 
@@ -124,7 +124,7 @@ fn open_order_window(app: &mut Application) {
     if !find_order_window(app) {
         // No order window open, create one
         let order_dialog = create_order_dialog();
-        app.desktop.add(Box::new(order_dialog));
+        app.desktop.add(order_dialog);
     } else {
         // Dialog already exists, bring it to front
         // The desktop automatically manages focus when you select a window
@@ -210,14 +210,14 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .bounds(r)
         .data(data.order_num.clone())
         .max_length(8)
-        .build_boxed();
+        .build();
     dialog.add(order_input);
 
     r = Rect::new(2, y, 12, y + 1);
     let label = LabelBuilder::new()
         .bounds(r)
         .text("~O~rder #:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     // Date field
@@ -226,14 +226,14 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .bounds(r)
         .data(data.order_date.clone())
         .max_length(8)
-        .build_boxed();
+        .build();
     dialog.add(date_input);
 
     r = Rect::new(26, y, 41, y + 1);
     let label = LabelBuilder::new()
         .bounds(r)
         .text("~D~ate of order:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     y += 2;
@@ -244,14 +244,14 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .bounds(r)
         .data(data.stock_num.clone())
         .max_length(8)
-        .build_boxed();
+        .build();
     dialog.add(stock_input);
 
     r = Rect::new(2, y, 12, y + 1);
     let label = LabelBuilder::new()
         .bounds(r)
         .text("~S~tock #:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     // Quantity field
@@ -260,14 +260,14 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .bounds(r)
         .data(data.quantity.clone())
         .max_length(5)
-        .build_boxed();
+        .build();
     dialog.add(qty_input);
 
     r = Rect::new(26, y, 44, y + 1);
     let label = LabelBuilder::new()
         .bounds(r)
         .text("~Q~uantity ordered:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     y += 2;
@@ -277,7 +277,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
     let label = LabelBuilder::new()
         .bounds(r)
         .text("~P~ayment method:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     y += 1;
@@ -293,7 +293,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
             .bounds(r)
             .label(option)
             .group_id(payment_group)
-            .build_boxed();
+            .build();
         dialog.add(radio);
         x += option.len() as i32 + 4;
     }
@@ -305,7 +305,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
     let received = CheckBoxBuilder::new()
         .bounds(r)
         .label("~R~eceived")
-        .build_boxed();
+        .build();
     dialog.add(received);
 
     y += 2;
@@ -315,7 +315,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
     let label = LabelBuilder::new()
         .bounds(r)
         .text("Notes:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     y += 1;
@@ -329,7 +329,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .bounds(r)
         .data(notes_data)
         .max_length(255)
-        .build_boxed();
+        .build();
     dialog.add(notes_input);
 
     y += 4;
@@ -340,7 +340,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .bounds(r)
         .title("  ~N~ew  ")
         .command(CM_ORDER_NEW)
-        .build_boxed();
+        .build();
     dialog.add(btn_new);
 
     r = Rect::new(13, y, 23, y + 2);
@@ -349,7 +349,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .title("  ~S~ave  ")
         .command(CM_ORDER_SAVE)
         .default(true)
-        .build_boxed();
+        .build();
     dialog.add(btn_save);
 
     r = Rect::new(24, y, 34, y + 2);
@@ -357,7 +357,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .bounds(r)
         .title(" Re~v~ert ")
         .command(CM_ORDER_CANCEL)
-        .build_boxed();
+        .build();
     dialog.add(btn_revert);
 
     r = Rect::new(35, y, 45, y + 2);
@@ -365,7 +365,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .bounds(r)
         .title("  N~e~xt  ")
         .command(CM_ORDER_NEXT)
-        .build_boxed();
+        .build();
     dialog.add(btn_next);
 
     r = Rect::new(46, y, 56, y + 2);
@@ -373,7 +373,7 @@ fn create_order_dialog() -> (Dialog, OrderData) {
         .bounds(r)
         .title("  ~P~rev  ")
         .command(CM_ORDER_PREV)
-        .build_boxed();
+        .build();
     dialog.add(btn_prev);
 
     // Set initial focus to first input field
@@ -449,7 +449,7 @@ fn open_order_window_with_data(app: &mut Application) {
     // data.received.set_checked(false);
 
     // Add dialog to desktop
-    app.desktop.add(Box::new(dialog));
+    app.desktop.add(dialog);
 }
 ```
 
@@ -599,7 +599,7 @@ let quantity_input = InputLineBuilder::new()
     .max_length(5)
     .data(quantity_data.clone())
     .validator(Box::new(validator))
-    .build_boxed();
+    .build();
 
 dialog.add(quantity_input);
 ```
@@ -624,7 +624,7 @@ let order_input = InputLineBuilder::new()
     .max_length(8)
     .data(order_data.clone())
     .validator(Box::new(validator))
-    .build_boxed();
+    .build();
 
 dialog.add(order_input);
 ```
@@ -653,7 +653,7 @@ let date_input = InputLineBuilder::new()
     .max_length(10)
     .data(date_data.clone())
     .validator(Box::new(validator))
-    .build_boxed();
+    .build();
 
 dialog.add(date_input);
 
@@ -668,7 +668,7 @@ let stock_input = InputLineBuilder::new()
     .max_length(8)
     .data(stock_data.clone())
     .validator(Box::new(validator))
-    .build_boxed();
+    .build();
 
 dialog.add(stock_input);
 ```
@@ -710,14 +710,14 @@ fn create_validated_order_dialog() -> (Dialog, OrderData) {
         .max_length(8)
         .data(data.order_num.clone())
         .validator(Box::new(RangeValidator::new(1, 99999)))
-        .build_boxed();
+        .build();
     dialog.add(order_input);
 
     r = Rect::new(2, y, 12, y + 1);
     let label = LabelBuilder::new()
         .bounds(r)
         .text("~O~rder #:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     // Date: MM/DD/YY or MM/DD/YYYY
@@ -727,14 +727,14 @@ fn create_validated_order_dialog() -> (Dialog, OrderData) {
         .max_length(10)
         .data(data.order_date.clone())
         .validator(Box::new(PictureValidator::new("##/##/{##}##")))
-        .build_boxed();
+        .build();
     dialog.add(date_input);
 
     r = Rect::new(26, y, 41, y + 1);
     let label = LabelBuilder::new()
         .bounds(r)
         .text("~D~ate:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     y += 2;
@@ -746,14 +746,14 @@ fn create_validated_order_dialog() -> (Dialog, OrderData) {
         .max_length(8)
         .data(data.stock_num.clone())
         .validator(Box::new(PictureValidator::new("@@@-####")))
-        .build_boxed();
+        .build();
     dialog.add(stock_input);
 
     r = Rect::new(2, y, 12, y + 1);
     let label = LabelBuilder::new()
         .bounds(r)
         .text("~S~tock #:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     // Quantity: 1-99999
@@ -763,14 +763,14 @@ fn create_validated_order_dialog() -> (Dialog, OrderData) {
         .max_length(5)
         .data(data.quantity.clone())
         .validator(Box::new(RangeValidator::new(1, 99999)))
-        .build_boxed();
+        .build();
     dialog.add(qty_input);
 
     r = Rect::new(26, y, 44, y + 1);
     let label = LabelBuilder::new()
         .bounds(r)
         .text("~Q~uantity:")
-        .build_boxed();
+        .build();
     dialog.add(label);
 
     // ... rest of dialog controls ...

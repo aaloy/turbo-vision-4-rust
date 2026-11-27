@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Documentation
+- The user guide's walk-through (Chapters 3 to 6) builds views with
+  `build()` and adds them by value, `add(view)`, as `AGENTS.md` does.
+  `ButtonBuilder` and `WindowBuilder` have no `build_boxed()`, so Listing 3.2
+  and the dialogs of Chapters 3 to 5 did not compile (task T4 of the
+  walk-through to-do).
 - `docs/USER-GUIDE-WALKTHROUGH-TODO.md` records that most of the user guide's
   walk-through (Chapters 1 to 6) no longer compiles: of its 81 code blocks, 11
   compile and 41 use API that has changed, starting with Listing 1.1. It lists

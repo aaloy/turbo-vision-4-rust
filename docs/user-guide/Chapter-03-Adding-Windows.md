@@ -204,7 +204,7 @@ fn show_dialog(app: &mut Application) {
     let text = StaticTextBuilder::new()
         .bounds(Rect::new(2, 1, 36, 3))
         .text("This is a modal dialog box.\nClick OK to continue.")
-        .build_boxed();
+        .build();
     dialog.add(text);
 
     // Add OK button
@@ -213,7 +213,7 @@ fn show_dialog(app: &mut Application) {
         .title("  ~O~K  ")
         .command(CM_OK)
         .default(true)  // This is the default button
-        .build_boxed();
+        .build();
     dialog.add(ok_button);
 
     // Add Cancel button
@@ -221,7 +221,7 @@ fn show_dialog(app: &mut Application) {
         .bounds(Rect::new(22, 5, 32, 7))
         .title("~C~ancel")
         .command(CM_CANCEL)
-        .build_boxed();
+        .build();
     dialog.add(cancel_button);
 
     // Set initial focus
@@ -282,7 +282,7 @@ Each group is responsible for:
 - **Focus management**: Tracking which child has input focus
 - **Drawing**: Rendering all children in the correct order
 
-When you add a view to a group using `group.add(Box::new(view))`, the group takes ownership of that view and includes it in its event handling and drawing cycles.
+When you add a view to a group using `group.add(view)`, the group takes ownership of that view and includes it in its event handling and drawing cycles.
 
 ---
 
@@ -353,7 +353,7 @@ fn create_custom_window(app: &mut Application) {
     let label = StaticTextBuilder::new()
         .bounds(Rect::new(2, 1, 40, 2))
         .text("Welcome to Turbo Vision!")
-        .build_boxed();
+        .build();
     window.add(label);
 
     // Add a text viewer
@@ -362,7 +362,7 @@ fn create_custom_window(app: &mut Application) {
         .bounds(Rect::new(2, 3, 56, 10))
         .build();
     viewer.load_text(text_content);
-    window.add(Box::new(viewer));
+    window.add(viewer);
 
     // Add a button
     let button = ButtonBuilder::new()
@@ -370,14 +370,14 @@ fn create_custom_window(app: &mut Application) {
         .title("  ~C~lose  ")
         .command(CM_CLOSE)
         .default(true)
-        .build_boxed();
+        .build();
     window.add(button);
 
     // Set initial focus to the first focusable view
     window.set_initial_focus();
 
     // Add to desktop
-    app.desktop.add(Box::new(window));
+    app.desktop.add(window);
 }
 ```
 

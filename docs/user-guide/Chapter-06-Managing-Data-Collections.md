@@ -86,8 +86,9 @@ pub struct Group {
 }
 
 impl Group {
-    pub fn add(&mut self, view: Box<dyn View>) {
-        self.children.push(view);
+    // `GroupLike::add` takes any view by value and boxes it here.
+    pub fn add<V: View + 'static>(&mut self, view: V) {
+        self.children.push(Box::new(view));
     }
 
     pub fn child_at(&self, index: usize) -> &dyn View {

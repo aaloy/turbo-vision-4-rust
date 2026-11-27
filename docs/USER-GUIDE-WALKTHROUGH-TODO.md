@@ -15,15 +15,15 @@ programs are still unchecked, and most of the work below is in them.
 
 The six chapters have 82 Rust code blocks:
 
-| Result | 2026-11-13 | 2026-11-27 | Meaning |
-|--------|-----------:|-----------:|---------|
-| Compile | 11 | 25 | Correct as written. |
-| Use API that has changed | 41 | 23 | They call methods, constructors or constants that no longer exist, or pass the wrong arguments. These are the blocks to fix. |
-| Need the earlier listings, or are not code | 29 | 34 | They use variables, types or functions that an earlier listing defines (`app`, `Order`, `create_order_dialog`), crates they never declare (`serde_json`, `dirs`, `ron`), or are not complete code (a bare `mod commands;`, a lone `match` arm). They could not be checked on their own, so they may hide more changed API. |
+| Result | 2026-11-13 | 2026-11-27 | After T4 | Meaning |
+|--------|-----------:|-----------:|---------:|---------|
+| Compile | 11 | 25 | 26 | Correct as written. |
+| Use API that has changed | 41 | 23 | 19 | They call methods, constructors or constants that no longer exist, or pass the wrong arguments. These are the blocks to fix. |
+| Need the earlier listings, or are not code | 29 | 34 | 37 | They use variables, types or functions that an earlier listing defines (`app`, `Order`, `create_order_dialog`), crates they never declare (`serde_json`, `dirs`, `ron`), or are not complete code (a bare `mod commands;`, a lone `match` arm). They could not be checked on their own, so they may hide more changed API. |
 
 Every listing of Chapters 1 and 2 that stands on its own now compiles,
 Listing 1.1 included. The changed API left is in Chapters 3 to 6, and most
-of it in Chapter 5 (10 of 18 blocks) and Chapter 6 (6 of 21). Chapter 4 has
+of it in Chapter 5 (8 of 18 blocks after T4) and Chapter 6 (6 of 21). Chapter 4 has
 16 blocks now, one more than on 2026-11-13.
 
 ## How it was checked
@@ -58,12 +58,15 @@ says which tasks each block needs.
   listing uses `item_with_shortcut`, `MenuItem::new` or
   `MenuItem::with_shortcut` any more.
 - [x] **T3. Status lines are built with `StatusItemBuilder`.** Done in #134.
-- [ ] **T4. Builders end in `build()`, and views are added by value.**
-  `WindowBuilder` and `ButtonBuilder` have no `build_boxed()`, and
-  `Box<V>` is not a `View`, so `desktop.add(Box::new(dialog))` does not
-  compile either. Use `build()` and add the view itself. Left in Chapter 3
-  (Listings 3.2 and 3.3), Chapter 4 (the About dialog) and throughout
-  Chapter 5.
+- [x] **T4. Builders end in `build()`, and views are added by value.**
+  Done: every `build_boxed()` is now `build()`, and every
+  `add(Box::new(view))` is `add(view)`. Only `ButtonBuilder` and
+  `WindowBuilder` had lost `build_boxed()`; the other builders still have
+  it, and `add(Box::new(..))` still compiles, because `Box<V>` is a `View`
+  too (`src/views/view.rs`). But the guide now adds views by value, as
+  `AGENTS.md` does. Chapter 6's sketch of `Group` shows the generic `add`.
+  The `Box::new` around validators in Chapter 5 is left for T5, and
+  `Dialog::insert(Box::new(..))` for T6.
 - [ ] **T5. Input lines and centring.** `InputLineBuilder::data` no longer
   exists: give the text with `.text(..)` and read it back with
   `input_line.text()`, through the `Handle` that `add_typed` returns.
@@ -176,8 +179,8 @@ The changed API, by chapter:
 
 ## Block checklist
 
-Line numbers are those of the chapter files on 2026-11-27. A ticked box
-compiles now.
+Line numbers are those of the chapter files on `main` after T4. A ticked
+box compiles now.
 
 ### Chapter 1: [Stepping into Turbo Vision](user-guide/Chapter-01-Stepping-into-Turbo-Vision.md)
 
@@ -207,15 +210,15 @@ compiles now.
 
 ### Chapter 3: [Adding Windows](user-guide/Chapter-03-Adding-Windows.md)
 
-11 blocks: 4 compile, 2 use API that has changed, 5 need the earlier listings or are not code.
+11 blocks: 5 compile, 1 use API that has changed, 5 need the earlier listings or are not code.
 
 - [x] Line 44, Listing 3.1 — Adding a Simple Window: compiles
 - [x] Line 110, 1. Assigning the Window Boundaries: compiles
 - [ ] Line 120, 2. Constructing the Window Object: needs the earlier listings: T11
 - [ ] Line 141, 3. Inserting the Window: needs the earlier listings: T11
-- [ ] Line 189, Listing 3.2 — Creating a Modal Dialog: changed API: T4
+- [x] Line 189, Listing 3.2 — Creating a Modal Dialog: compiles
 - [x] Line 309, Window Architecture Details: compiles
-- [ ] Line 339, Listing 3.3 — Window with Multiple Views: changed API: T4, T6
+- [ ] Line 339, Listing 3.3 — Window with Multiple Views: changed API: T6
 - [ ] Line 414, Window Positioning: needs the earlier listings: T11
 - [x] Line 433, Cascading Windows: compiles
 - [ ] Line 455, Checking for Window Closure: needs the earlier listings: T11
@@ -223,7 +226,7 @@ compiles now.
 
 ### Chapter 4: [Persistence and Configuration](user-guide/Chapter-04-Persistence-and-Configuration.md)
 
-16 blocks: 5 compile, 5 use API that has changed, 6 need the earlier listings or are not code.
+16 blocks: 5 compile, 4 use API that has changed, 7 need the earlier listings or are not code.
 
 - [x] Line 71, Basic Menu Structure: compiles
 - [x] Line 97, Creating Nested Menus (Submenus): compiles
@@ -233,8 +236,8 @@ compiles now.
 - [ ] Line 215, Context-Sensitive Status Lines: changed API: T7, T11
 - [ ] Line 251, Context-Sensitive Status Lines: needs the earlier listings: T11
 - [ ] Line 261, How Context Switching Works: needs the earlier listings: T11
-- [ ] Line 284, Basic Dialog Structure: changed API: T4, T5
-- [ ] Line 329, Executing Dialog Boxes: changed API: T4, T11
+- [ ] Line 284, Basic Dialog Structure: changed API: T5
+- [ ] Line 329, Executing Dialog Boxes: needs the earlier listings: T11
 - [ ] Line 342, Reusable Dialog Functions: changed API: T8, T11
 - [x] Line 388, Making State Serializable: compiles
 - [ ] Line 414, Saving State: changed API: T6, T11
@@ -244,26 +247,26 @@ compiles now.
 
 ### Chapter 5: [Creating Data-Entry Forms](user-guide/Chapter-05-Creating-Data-Entry-Forms.md)
 
-18 blocks: 1 compile, 10 use API that has changed, 7 need the earlier listings or are not code.
+18 blocks: 1 compile, 8 use API that has changed, 9 need the earlier listings or are not code.
 
 - [x] Line 36, Creating a Function to Build the Dialog: compiles
 - [ ] Line 49, Creating a Function to Build the Dialog: changed API: T5
 - [ ] Line 71, Creating a Function to Build the Dialog: needs the earlier listings: T11
-- [ ] Line 86, Creating a Function to Build the Dialog: changed API: T4, T11
-- [ ] Line 108, Sending Messages: changed API: T4, T6, T11
-- [ ] Line 167, Adding Controls to the Dialog: changed API: T4, T5, T10, T11
-- [ ] Line 445, Setting Initial Values: changed API: T4, T11
-- [ ] Line 469, Reading Control Values: needs the earlier listings: T11
-- [ ] Line 493, Responding to Button Commands: needs the earlier listings: T11
-- [ ] Line 516, Responding to Button Commands: needs the earlier listings: T11
-- [ ] Line 536, Modal Dialogs vs. Non-Modal Dialogs: needs the earlier listings: T11
-- [ ] Line 594, Using FilterValidator: changed API: T4, T5, T11
-- [ ] Line 620, Using RangeValidator: changed API: T4, T5, T11
-- [ ] Line 648, Using PictureValidator: changed API: T4, T5, T11
-- [ ] Line 699, Complete Example with Validators: changed API: T4, T5, T11
-- [ ] Line 809, Validation When Focus Changes: needs the earlier listings: T11
-- [ ] Line 825, Validation on Demand: needs the earlier listings: T10, T11
-- [ ] Line 868, Displaying Validation Errors: changed API: T8
+- [ ] Line 86, Creating a Function to Build the Dialog: needs the earlier listings: T11
+- [ ] Line 108, Sending Messages: changed API: T6, T11
+- [ ] Line 160, Adding Controls to the Dialog: changed API: T5, T10, T11
+- [ ] Line 438, Setting Initial Values: needs the earlier listings: T11
+- [ ] Line 462, Reading Control Values: needs the earlier listings: T11
+- [ ] Line 486, Responding to Button Commands: needs the earlier listings: T11
+- [ ] Line 509, Responding to Button Commands: needs the earlier listings: T11
+- [ ] Line 529, Modal Dialogs vs. Non-Modal Dialogs: needs the earlier listings: T11
+- [ ] Line 587, Using FilterValidator: changed API: T5, T11
+- [ ] Line 613, Using RangeValidator: changed API: T5, T11
+- [ ] Line 641, Using PictureValidator: changed API: T5, T11
+- [ ] Line 692, Complete Example with Validators: changed API: T5, T11
+- [ ] Line 802, Validation When Focus Changes: needs the earlier listings: T11
+- [ ] Line 818, Validation on Demand: needs the earlier listings: T10, T11
+- [ ] Line 861, Displaying Validation Errors: changed API: T8
 
 ### Chapter 6: [Managing Data Collections](user-guide/Chapter-06-Managing-Data-Collections.md)
 
@@ -272,21 +275,21 @@ compiles now.
 - [x] Line 43, Understanding Collections in Turbo Vision Rust: compiles
 - [x] Line 61, Understanding Collections in Turbo Vision Rust: compiles
 - [x] Line 82, Understanding Collections in Turbo Vision Rust: compiles
-- [x] Line 103, Creating Data Structures: compiles
-- [ ] Line 175, Loading and Initializing the Collection: needs the earlier listings: T11
-- [ ] Line 202, Loading and Initializing the Collection: needs the earlier listings: T11
-- [ ] Line 261, Loading and Initializing the Collection: needs the earlier listings: T11
-- [ ] Line 295, Displaying a Record: changed API: T6, T11
-- [ ] Line 319, Displaying a Record: changed API: T6, T10, T11
-- [ ] Line 360, Saving the Record: changed API: T6, T10, T11
-- [ ] Line 401, Moving from Record to Record: needs the earlier listings: T11
-- [ ] Line 478, Adding New Records: needs the earlier listings: T11
-- [ ] Line 543, Canceling Edits: needs the earlier listings: T11
-- [x] Line 600, Understanding the View Trait: compiles
-- [ ] Line 620, Creating the Counting Engine: changed API: T9
-- [ ] Line 685, Drawing the View: needs the earlier listings: T11
-- [ ] Line 750, Real-World Example: Broadcast Demo Counter: changed API: T9, T11
-- [ ] Line 821, Adding the Counter to Your Dialog: changed API: T6, T11
-- [ ] Line 848, Manipulating the Counter: needs the earlier listings: T11
-- [ ] Line 916, Additional Features to Consider: not compilable as written: T10
-- [ ] Line 956, Additional Features to Consider: needs the earlier listings: T11
+- [x] Line 104, Creating Data Structures: compiles
+- [ ] Line 176, Loading and Initializing the Collection: needs the earlier listings: T11
+- [ ] Line 203, Loading and Initializing the Collection: needs the earlier listings: T11
+- [ ] Line 262, Loading and Initializing the Collection: needs the earlier listings: T11
+- [ ] Line 296, Displaying a Record: changed API: T6, T11
+- [ ] Line 320, Displaying a Record: changed API: T6, T10, T11
+- [ ] Line 361, Saving the Record: changed API: T6, T10, T11
+- [ ] Line 402, Moving from Record to Record: needs the earlier listings: T11
+- [ ] Line 479, Adding New Records: needs the earlier listings: T11
+- [ ] Line 544, Canceling Edits: needs the earlier listings: T11
+- [x] Line 601, Understanding the View Trait: compiles
+- [ ] Line 621, Creating the Counting Engine: changed API: T9
+- [ ] Line 686, Drawing the View: needs the earlier listings: T11
+- [ ] Line 751, Real-World Example: Broadcast Demo Counter: changed API: T9, T11
+- [ ] Line 822, Adding the Counter to Your Dialog: changed API: T6, T11
+- [ ] Line 849, Manipulating the Counter: needs the earlier listings: T11
+- [ ] Line 917, Additional Features to Consider: not compilable as written: T10
+- [ ] Line 957, Additional Features to Consider: needs the earlier listings: T11

@@ -299,14 +299,14 @@ fn create_about_dialog() -> Dialog {
     let text = StaticTextBuilder::new()
         .bounds(Rect::new(4, 2, 36, 4))
         .text("Turbo Vision\nTutorial program")
-        .build_boxed();
+        .build();
     dialog.add(text);
 
     // Add copyright text
     let copyright = StaticTextBuilder::new()
         .bounds(Rect::new(4, 5, 36, 7))
         .text("Copyright 1992-2025\nBorland International / Rust Port")
-        .build_boxed();
+        .build();
     dialog.add(copyright);
 
     // Add OK button
@@ -315,7 +315,7 @@ fn create_about_dialog() -> Dialog {
         .title("O~k~")
         .command(CM_OK)
         .default(true)  // true = default
-        .build_boxed();
+        .build();
     dialog.add(ok_button);
 
     dialog
@@ -329,7 +329,7 @@ Once defined, dialogs are executed through the application's event loop. The app
 ```rust
 // Show the about dialog
 let about_dialog = create_about_dialog();
-app.desktop.add(Box::new(about_dialog));
+app.desktop.add(about_dialog);
 
 // The dialog will stay visible and handle events
 // until a button generates CM_OK, CM_CANCEL, or similar
