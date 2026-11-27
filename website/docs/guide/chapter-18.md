@@ -167,20 +167,16 @@ In the original system, menus might be stored in resource files. In Rust, they'r
 ```rust
 use turbo_vision::core::menu_data::{Menu, MenuBuilder};
 use turbo_vision::core::command::*;
-use turbo_vision::core::event::*;
-
-// Define commands
-const CM_SAVE_AS: u16 = 105;
 
 // Build a menu
 fn create_file_menu() -> Menu {
     MenuBuilder::new()
-        .item_with_shortcut("~N~ew", CM_NEW, KB_CTRL_N, "Ctrl+N")
-        .item_with_shortcut("~O~pen", CM_OPEN, KB_F3, "F3")
-        .item_with_shortcut("~S~ave", CM_SAVE, KB_F2, "F2")
-        .item("Save ~a~s...", CM_SAVE_AS, 0)
+        .item_key("~N~ew", CM_NEW, "Ctrl+N")
+        .item_key("~O~pen", CM_OPEN, "F3")
+        .item_key("~S~ave", CM_SAVE, "F2")
+        .item("Save ~a~s...", CM_SAVE_AS)
         .separator()
-        .item_with_shortcut("E~x~it", CM_QUIT, KB_ALT_X, "Alt+X")
+        .item_key("E~x~it", CM_QUIT, "Alt+X")
         .build()
 }
 ```
@@ -191,54 +187,68 @@ fn create_file_menu() -> Menu {
 - Type-safe: impossible to pass wrong parameter types
 - Refactoring support: rename commands automatically updates all references
 
-**Implementation**: See `src/core/menu_data.rs:178-356` for the complete menu builder implementation.
+**Implementation**: See `src/core/menu_data.rs` for the complete menu builder implementation.
 
 ### Defining Status Lines (Replacing Status Resources)
 
 Status lines follow a similar pattern:
 
 ```rust
-use turbo_vision::core::status_data::{StatusItem, StatusLine, StatusLineBuilder};
+use turbo_vision::core::command::*;
 use turbo_vision::core::geometry::Rect;
+use turbo_vision::core::status_data::StatusItemBuilder;
+use turbo_vision::views::status_line::StatusLine;
 
 fn create_status_line(bounds: Rect) -> StatusLine {
-    StatusLineBuilder::new_with_bounds(bounds)
-        .add_default_def(vec![
-            StatusItem::new("~F1~ Help", KB_F1, CM_HELP),
-            StatusItem::new("~F2~ Save", KB_F2, CM_SAVE),
-            StatusItem::new("~F3~ Open", KB_F3, CM_OPEN),
-            StatusItem::new("~Alt+X~ Exit", KB_ALT_X, CM_QUIT),
-        ])
-        .build()
+    StatusLine::new(
+        bounds,
+        vec![
+            StatusItemBuilder::new().text("~F1~ Help").key("F1").command(CM_HELP_INDEX).build(),
+            StatusItemBuilder::new().text("~F2~ Save").key("F2").command(CM_SAVE).build(),
+            StatusItemBuilder::new().text("~F3~ Open").key("F3").command(CM_OPEN).build(),
+            StatusItemBuilder::new().text("~Alt+X~ Exit").key("Alt+X").command(CM_QUIT).build(),
+        ],
+    )
 }
 ```
 
-For context-sensitive status lines (different items for different views):
+For context-sensitive status lines (different items in different situations), define one `StatusDef` per help-context range. The first definition whose range contains the application's current help context (set with `app.set_help_context()`) wins, so the catch-all default goes last:
 
 ```rust
+use turbo_vision::core::command::*;
+use turbo_vision::core::geometry::Rect;
+use turbo_vision::core::status_data::{StatusDef, StatusItemBuilder};
+use turbo_vision::views::status_line::StatusLine;
+
+// Application-defined command
+const CM_DELETE_LINE: CommandId = 150;
+
 fn create_context_status(bounds: Rect) -> StatusLine {
-    StatusLineBuilder::new_with_bounds(bounds)
-        // Default context (0-65535)
-        .add_default_def(vec![
-            StatusItem::new("~F1~ Help", KB_F1, CM_HELP),
-            StatusItem::new("~Alt+X~ Exit", KB_ALT_X, CM_QUIT),
-        ])
-        // Editor context (100-199)
-        .add_def(100, 199, vec![
-            StatusItem::new("~F2~ Save", KB_F2, CM_SAVE),
-            StatusItem::new("~F3~ Open", KB_F3, CM_OPEN),
-            StatusItem::new("~Ctrl+Y~ Delete line", KB_CTRL_Y, CM_DELETE_LINE),
-        ])
-        // Dialog context (200-299)
-        .add_def(200, 299, vec![
-            StatusItem::new("~Tab~ Next", KB_TAB, CM_NEXT),
-            StatusItem::new("~Esc~ Cancel", KB_ESC, CM_CANCEL),
-        ])
-        .build()
+    let help = || StatusItemBuilder::new().text("~F1~ Help").key("F1").command(CM_HELP_INDEX).build();
+    let exit = || StatusItemBuilder::new().text("~Alt+X~ Exit").key("Alt+X").command(CM_QUIT).build();
+
+    StatusLine::with_defs(
+        bounds,
+        vec![
+            // Editor context (100-199)
+            StatusDef::new(100, 199, vec![
+                StatusItemBuilder::new().text("~F2~ Save").key("F2").command(CM_SAVE).build(),
+                StatusItemBuilder::new().text("~F3~ Open").key("F3").command(CM_OPEN).build(),
+                StatusItemBuilder::new().text("~Ctrl+Y~ Delete line").key("Ctrl+Y").command(CM_DELETE_LINE).build(),
+            ]),
+            // Dialog context (200-299)
+            StatusDef::new(200, 299, vec![
+                StatusItemBuilder::new().text("~Tab~ Next").key("Tab").command(CM_NEXT).build(),
+                StatusItemBuilder::new().text("~Esc~ Cancel").key("Esc").command(CM_CANCEL).build(),
+            ]),
+            // Default context (0-65535)
+            StatusDef::default_range(vec![help(), exit()]),
+        ],
+    )
 }
 ```
 
-**Implementation**: See `src/core/status_data.rs:1-268` for status line definitions and builders.
+**Implementation**: See `src/core/status_data.rs` for status line definitions and builders.
 
 ### Defining Dialog Boxes (Replacing Dialog Resources)
 
@@ -376,7 +386,7 @@ pub mod strings;
 // src/resources/menus.rs
 use turbo_vision::core::menu_data::{Menu, MenuBuilder};
 use turbo_vision::core::command::*;
-use turbo_vision::core::event::*;
+use turbo_vision::views::menu_bar::SubMenu;
 
 pub fn create_main_menu() -> Vec<SubMenu> {
     vec![
@@ -389,20 +399,20 @@ pub fn create_main_menu() -> Vec<SubMenu> {
 
 fn create_file_menu() -> Menu {
     MenuBuilder::new()
-        .item_with_shortcut("~N~ew", CM_NEW, KB_CTRL_N, "Ctrl+N")
-        .item_with_shortcut("~O~pen", CM_OPEN, KB_F3, "F3")
+        .item_key("~N~ew", CM_NEW, "Ctrl+N")
+        .item_key("~O~pen", CM_OPEN, "F3")
         .separator()
-        .item_with_shortcut("E~x~it", CM_QUIT, KB_ALT_X, "Alt+X")
+        .item_key("E~x~it", CM_QUIT, "Alt+X")
         .build()
 }
 
 fn create_edit_menu() -> Menu {
     MenuBuilder::new()
-        .item_with_shortcut("~U~ndo", CM_UNDO, KB_CTRL_Z, "Ctrl+Z")
+        .item_key("~U~ndo", CM_UNDO, "Ctrl+Z")
         .separator()
-        .item_with_shortcut("Cu~t~", CM_CUT, KB_SHIFT_DEL, "Shift+Del")
-        .item_with_shortcut("~C~opy", CM_COPY, KB_CTRL_INS, "Ctrl+Ins")
-        .item_with_shortcut("~P~aste", CM_PASTE, KB_SHIFT_INS, "Shift+Ins")
+        .item_key("Cu~t~", CM_CUT, "Shift+Del")
+        .item_key("~C~opy", CM_COPY, "Ctrl+Ins")
+        .item_key("~P~aste", CM_PASTE, "Shift+Ins")
         .build()
 }
 
@@ -423,10 +433,11 @@ pub fn create_preferences_dialog() -> Dialog {
 use resources::menus;
 use resources::dialogs;
 
-let menu_bar = MenuBar::new(
-    Rect::new(0, 0, width as i16, 1),
-    menus::create_main_menu(),
-);
+let mut menu_bar = MenuBar::new(Rect::new(0, 0, width, 1));
+for submenu in menus::create_main_menu() {
+    menu_bar.add_submenu(submenu);
+}
+app.set_menu_bar(menu_bar);
 ```
 
 This provides:
@@ -544,11 +555,14 @@ fn build_menu_from_def(def: MenuDefinition) -> Menu {
     for item_def in def.items {
         match item_def {
             MenuItemDef::Regular { text, command, key_code, shortcut } => {
-                items.push(if let Some(sc) = shortcut {
-                    MenuItem::with_shortcut(&text, command, key_code, &sc, 0)
-                } else {
-                    MenuItem::new(&text, command, key_code, 0)
-                });
+                let mut builder = MenuItemBuilder::new()
+                    .text(text)
+                    .command(command)
+                    .key_code(key_code);
+                if let Some(sc) = shortcut {
+                    builder = builder.shortcut(sc);
+                }
+                items.push(builder.build());
             }
             MenuItemDef::Separator => {
                 items.push(MenuItem::separator());
@@ -712,7 +726,7 @@ The Rust implementation's programmatic approach reflects modern development prac
 - `src/core/status_data.rs` - Status line definitions and builders (268 lines)
 - `src/views/dialog.rs` - Dialog box construction
 - `demo/rust_editor.rs` - Complete application showing all resource patterns
-- `docs/user-guide/Chapter-4-Persistence-and-Configuration.md` - Related persistence concepts
+- `docs/user-guide/Chapter-04-Persistence-and-Configuration.md` - Related persistence concepts
 - `docs/user-guide/Chapter-16-Collections-and-Streams.md` - Collection patterns
 - `docs/user-guide/Chapter-17-Streams-and-Persistence.md` - Serialization approaches
 

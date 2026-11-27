@@ -38,7 +38,7 @@ Throughout the codebase, you'll find standard Rust collections used effectively.
 
 ### Menu Collections
 
-Menus maintain collections of menu items using `Vec<MenuItem>` (`src/core/menu_data.rs:178-255`):
+Menus maintain collections of menu items using `Vec<MenuItem>` (`src/core/menu_data.rs`):
 
 ```rust
 #[derive(Clone, Debug)]
@@ -77,6 +77,7 @@ pub enum MenuItem {
         help_ctx: u16,
         enabled: bool,
         shortcut: Option<String>,
+        checked: Option<fn() -> bool>,
     },
     SubMenu {
         text: String,
@@ -90,7 +91,7 @@ pub enum MenuItem {
 
 ### History Collections
 
-The history system maintains per-ID collections of strings (`src/core/history.rs:27-96`):
+The history system maintains per-ID collections of strings (`src/core/history.rs`):
 
 ```rust
 pub struct HistoryList {
@@ -164,7 +165,7 @@ impl HistoryManager {
 
 ### View Collections
 
-Groups maintain collections of child views (`src/views/group.rs:10-88`):
+Groups maintain collections of child views (`src/views/group.rs`):
 
 ```rust
 pub struct Group {
@@ -349,24 +350,23 @@ Instead of streaming resource files, the Rust implementation defines resources a
 Menus are constructed programmatically (`src/core/menu_data.rs`):
 
 ```rust
-use turbo_vision::core::menu_data::{Menu, MenuItem, MenuBuilder};
+use turbo_vision::core::menu_data::{Menu, MenuBuilder, MenuItem, MenuItemBuilder};
 use turbo_vision::core::command::{CM_OPEN, CM_SAVE, CM_QUIT};
-use turbo_vision::core::event::{KB_F3, KB_F2, KB_ALT_X};
 
 // Method 1: Direct construction
 let file_menu = Menu::from_items(vec![
-    MenuItem::new("~O~pen", CM_OPEN, KB_F3, 0),
-    MenuItem::new("~S~ave", CM_SAVE, KB_F2, 0),
+    MenuItemBuilder::new().text("~O~pen").command(CM_OPEN).key("F3").build(),
+    MenuItemBuilder::new().text("~S~ave").command(CM_SAVE).key("F2").build(),
     MenuItem::separator(),
-    MenuItem::new("E~x~it", CM_QUIT, KB_ALT_X, 0),
+    MenuItemBuilder::new().text("E~x~it").command(CM_QUIT).key("Alt+X").build(),
 ]);
 
 // Method 2: Builder pattern
 let file_menu = MenuBuilder::new()
-    .item("~O~pen", CM_OPEN, KB_F3)
-    .item("~S~ave", CM_SAVE, KB_F2)
+    .item_key("~O~pen", CM_OPEN, "F3")
+    .item_key("~S~ave", CM_SAVE, "F2")
     .separator()
-    .item("E~x~it", CM_QUIT, KB_ALT_X)
+    .item_key("E~x~it", CM_QUIT, "Alt+X")
     .build();
 ```
 
@@ -375,13 +375,12 @@ let file_menu = MenuBuilder::new()
 Status lines follow a similar pattern (`src/core/status_data.rs`):
 
 ```rust
-use turbo_vision::core::status_data::{StatusItem, StatusDef, StatusLine};
-use turbo_vision::core::command::{CM_HELP, CM_QUIT};
-use turbo_vision::core::event::{KB_F1, KB_ALT_X};
+use turbo_vision::core::status_data::{StatusItemBuilder, StatusLine};
+use turbo_vision::core::command::{CM_HELP_INDEX, CM_QUIT};
 
 let status = StatusLine::single(vec![
-    StatusItem::new("~F1~ Help", KB_F1, CM_HELP),
-    StatusItem::new("~Alt+X~ Exit", KB_ALT_X, CM_QUIT),
+    StatusItemBuilder::new().text("~F1~ Help").key("F1").command(CM_HELP_INDEX).build(),
+    StatusItemBuilder::new().text("~Alt+X~ Exit").key("Alt+X").command(CM_QUIT).build(),
 ]);
 ```
 
@@ -599,7 +598,7 @@ impl Application {
             let window = WindowBuilder::new()
                 .bounds(window_state.bounds)
                 .title(window_state.title)
-                .build_boxed();
+                .build();
             // Restore window state...
             self.desktop.add(window);
         }

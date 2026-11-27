@@ -19,11 +19,11 @@ validators, editors and palettes, drawn in a terminal, on a desktop that still l
 </div>
 
 <div class="tv-hero__box">
-<img class="tv-box" src="assets/box-3-0.jpg"
-     srcset="assets/box-3-0.jpg 900w, assets/box-3-0@2x.jpg 1122w"
+<img class="tv-box" src="assets/box-4-2.jpg"
+     srcset="assets/box-4-2.jpg 900w, assets/box-4-2@2x.jpg 1122w"
      sizes="(max-width: 76em) 20rem, 24rem"
      width="740" height="925" loading="eager" decoding="async"
-     alt="A shrink-wrapped 1990s software box reading Turbo Vision 3.0, Text-Mode UI Framework, with a screenshot of a Calendar window and an About dialog on the cover and a yellow starburst sticker reading Now For Rust">
+     alt="A shrink-wrapped 1990s software box reading Turbo Vision, Text-Mode UI Framework, version 4.2, with 48 examples, MIT licensed, on crates.io, a screenshot of a Calendar window and an About dialog on the cover and a yellow starburst sticker reading Now For Rust">
 </div>
 
 </div>
@@ -66,6 +66,13 @@ know most of this library.
 
     The palette chain is pushed down the view tree at draw time, so a control picks up its
     colour from the window that owns it, exactly as the original did.
+
+-   :material-translate: **Translations**
+
+    Every string the library shows is a Project Fluent message, shipped in English, Spanish and
+    Catalan. Your application adds its own messages and languages, switches language while it
+    runs, and tests its translation files. Dialogs size themselves to the translated text.
+    See [Chapter 19](guide/chapter-19.md). Contributed by [Antoni Aloy](https://github.com/aaloy).
 
 -   :material-console-network: **A terminal layer**
 
@@ -111,6 +118,7 @@ fn main() -> turbo_vision::core::error::Result<()> {
 | Follow a complete worked project | [The biorhythm calculator tutorial](tutorials/biorhythm.md) |
 | Understand the trait layering | [Views and groups](guide/chapter-08.md), [the class diagram](reference/class-diagram.md) and [the design document](reference/design.md) |
 | Port a C++ Turbo Vision program | [The application model, side by side](compare/app-model.md) |
+| Translate your application | [Chapter 19, Localization](guide/chapter-19.md) |
 | See what changed recently | [What's new](whats-new.md) |
 | Move an existing project onto 4.0.0 | [The 4.0 upgrade guide](reference/upgrading-4.0.md) |
 | Move an existing project onto 3.0.0 | [The 3.0 upgrade guide](reference/upgrading.md) |
@@ -133,3 +141,6 @@ fn main() -> turbo_vision::core::error::Result<()> {
 
 Built by Enzo Lombardi, from Borland's original Turbo Vision 2.0 and the
 [kloczek C++ port](https://github.com/kloczek/tvision). MIT licensed.
+
+Translations, in 4.2, are the work of [Antoni Aloy](https://github.com/aaloy), who also gave `Table` cell formats and fixed
+a long run of bugs with accented text and message boxes. Thank you.
